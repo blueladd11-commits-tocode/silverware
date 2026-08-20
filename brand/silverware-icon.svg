@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Silverware app icon">
+  <title>Silverware app icon</title>
+  <desc>Full-bleed amber ground with an original two-handled cup on a stepped plinth, cut in near-black. Flat: no gradients, no bevels, no external references. Export at 1024 for the App Store; the platform applies its own mask.</desc>
+
+  <!-- GROUND: accent/base #FFC53D, full bleed -->
+  <rect x="0" y="0" width="1024" height="1024" fill="#FFC53D"/>
+
+  <!-- THE CUP - same 1024 grid as the wordmark mark, scaled 1.30 about its
+       optical centre (512,514) so it occupies 69% of the icon width and sits
+       inside the 80% platform safe area. -->
+  <g id="cup" fill="#0A0C0F" transform="translate(512 512) scale(1.30) translate(-512 -514)">
+    <path id="cup-body" d="M292 240H732V296H708L600 568L544 660H620V708H684V788H340V708H404V660H480L424 568L316 296H292Z"/>
+    <path id="cup-handle-l" fill-rule="evenodd" d="M240 326H430V516H240Z M286 372H340L379 470H286Z"/>
+    <path id="cup-handle-r" fill-rule="evenodd" d="M784 326H594V516H784Z M738 372H684L645 470H738Z"/>
+  </g>
+</svg>

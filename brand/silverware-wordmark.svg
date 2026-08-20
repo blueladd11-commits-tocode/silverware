@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 958 196" width="958" height="196" role="img" aria-label="Silverware">
+  <title>Silverware</title>
+  <desc>Silverware primary horizontal lockup. The Cup mark in accent amber (#FFC53D), wordmark in silver-white (#F4F6F8), for use on the brand dark grounds. All letterforms are outlined paths: no font dependency, no external references.</desc>
+  <g transform="translate(24 72)">
+
+    <!-- THE CUP - authored on a 1024 grid, scaled 0.27, baseline-aligned -->
+    <g id="mark" fill="#FFC53D" transform="translate(-64.8 -112.76) scale(0.27)">
+      <path id="cup-body" d="M292 240H732V296H708L600 568L544 660H620V708H684V788H340V708H404V660H480L424 568L316 296H292Z"/>
+      <path id="cup-handle-l" fill-rule="evenodd" d="M240 326H430V516H240Z M286 372H340L379 470H286Z"/>
+      <path id="cup-handle-r" fill-rule="evenodd" d="M784 326H594V516H784Z M738 372H684L645 470H738Z"/>
+    </g>
+
+    <!-- WORDMARK - cap height 100, stem 17, tracking 16, total width 707 -->
+    <g id="word" fill="#F4F6F8" transform="translate(203 0)">
+      <path transform="translate(0 0)" d="M0 0H54V17H17V41.5H54V100H0V83H37V58.5H0Z"/>
+      <path transform="translate(70 0)" d="M0 0H17V100H0Z"/>
+      <path transform="translate(103 0)" d="M0 0H17V83H52V100H0Z"/>
+      <path transform="translate(171 0)" d="M0 0H17L29 74L41 0H58L37 100H21Z"/>
+      <path transform="translate(245 0)" d="M0 0H52V17H17V41.5H46V58.5H17V83H52V100H0Z"/>
+      <path transform="translate(313 0)" fill-rule="evenodd" d="M0 0H58V58.5H17V100H0Z M17 17H41V41.5H17Z"/>
+      <path transform="translate(313 0)" d="M30 55H47L58 100H41Z"/>
+      <path transform="translate(387 0)" d="M0 0H15.2L26 74L36.8 0H52L33.2 100H18.8Z"/>
+      <path transform="translate(387 0)" d="M52 0H67.2L78 74L88.8 0H104L85.2 100H70.8Z"/>
+      <path transform="translate(507 0)" fill-rule="evenodd" d="M0 100L21 0H37L58 100H41L37 81H21L17 100Z M29 22L37.8 64H20.2Z"/>
+      <path transform="translate(581 0)" fill-rule="evenodd" d="M0 0H58V58.5H17V100H0Z M17 17H41V41.5H17Z"/>
+      <path transform="translate(581 0)" d="M30 55H47L58 100H41Z"/>
+      <path transform="translate(655 0)" d="M0 0H52V17H17V41.5H46V58.5H17V83H52V100H0Z"/>
+    </g>
+
+  </g>
+</svg>

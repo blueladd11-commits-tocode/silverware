@@ -1,0 +1,581 @@
+<title>The Silverware Bible</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0C0F; --s1:#12161B; --s2:#1A1F26; --s3:#232A33;
+  --hair:#2C333D; --strong:#3A424E;
+  --t1:#F4F6F8; --t2:#A8B2BF; --t3:#6E7885;
+  --acc:#FFC53D; --accw:#3A2E10; --inv:#0A0C0F;
+  --win:#35D07F; --loss:#F0484F; --draw:#9AA4B2; --trf:#4C8DFF; --inj:#FF7043;
+  --disp:'Archivo',system-ui,-apple-system,sans-serif;
+  --ui:'Inter',system-ui,-apple-system,sans-serif;
+  --wrap:1080px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{background:var(--bg);color:var(--t1);font-family:var(--ui);font-size:16px;line-height:1.6;
+  font-feature-settings:"tnum" 1;-webkit-font-smoothing:antialiased}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 24px}
+h1,h2,h3,h4,.d{font-family:var(--disp);text-wrap:balance}
+a{color:var(--acc)}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em;background:var(--s2);
+  padding:2px 6px;border-radius:5px;color:var(--acc);border:1px solid var(--hair)}
+
+/* hero */
+.hero{border-bottom:1px solid var(--hair);padding:64px 0 0;position:relative;overflow:hidden}
+.slab{position:relative;background:var(--acc);color:var(--inv);padding:38px 32px 34px;border-radius:20px;overflow:hidden}
+.slab::after{content:"";position:absolute;top:-10%;right:-40px;bottom:-10%;width:118px;background:var(--bg);
+  transform:skewX(-15deg)}
+.slab .eyebrow{font-family:var(--disp);font-weight:800;font-size:11px;letter-spacing:.18em;text-transform:uppercase;opacity:.68}
+.slab h1{font-size:clamp(44px,8vw,86px);font-weight:800;line-height:.92;letter-spacing:-.03em;margin:6px 0 0;
+  font-stretch:112%}
+.slab .tag{font-family:var(--disp);font-weight:700;font-size:clamp(14px,2vw,19px);letter-spacing:.06em;
+  text-transform:uppercase;margin-top:12px;position:relative;z-index:1}
+.lede{font-size:clamp(17px,2.2vw,20px);line-height:1.55;color:var(--t2);max-width:64ch;margin:30px 0 0}
+.lede b{color:var(--t1);font-weight:600}
+.metastrip{display:flex;flex-wrap:wrap;gap:0;margin:40px 0 0;border-top:1px solid var(--hair)}
+.metastrip div{flex:1 1 160px;padding:16px 18px 18px;border-right:1px solid var(--hair)}
+.metastrip div:last-child{border-right:0}
+.metastrip .k{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+.metastrip .v{font-family:var(--disp);font-weight:700;font-size:17px;margin-top:3px}
+
+/* nav */
+nav.toc{position:sticky;top:0;z-index:40;background:rgba(10,12,15,.93);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--hair)}
+nav.toc .inner{max-width:var(--wrap);margin:0 auto;padding:0 24px;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav.toc .inner::-webkit-scrollbar{display:none}
+nav.toc a{color:var(--t3);text-decoration:none;font-size:12px;font-weight:600;letter-spacing:.04em;
+  padding:14px 12px;white-space:nowrap;border-bottom:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{color:var(--t1);border-bottom-color:var(--strong);outline:none}
+
+/* sections */
+section{padding:60px 0 8px;border-top:1px solid var(--hair)}
+section:first-of-type{border-top:0}
+.snum{font-family:var(--disp);font-weight:800;font-size:11px;letter-spacing:.16em;color:var(--acc);
+  text-transform:uppercase;margin-bottom:10px}
+h2{font-size:clamp(28px,4.4vw,42px);font-weight:800;letter-spacing:-.02em;line-height:1.06}
+h2+.sub{color:var(--t2);font-size:17px;margin-top:12px;max-width:62ch}
+h3{font-size:20px;font-weight:700;margin:34px 0 10px;letter-spacing:-.01em}
+h4{font-size:14px;font-weight:700;margin:22px 0 6px;letter-spacing:.03em;text-transform:uppercase;color:var(--acc)}
+p{margin:12px 0;max-width:68ch;color:var(--t2)}
+p strong,li strong{color:var(--t1);font-weight:600}
+ul,ol{margin:12px 0 12px 20px;max-width:68ch;color:var(--t2)}
+li{margin:7px 0}
+li::marker{color:var(--t3)}
+
+/* components */
+.grid{display:grid;gap:14px;margin:22px 0}
+.g2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.card{background:var(--s1);border:1px solid var(--hair);border-radius:14px;padding:20px}
+.card h4{margin-top:0}
+.card p{margin:6px 0 0;font-size:14.5px}
+.stat{background:var(--s1);border:1px solid var(--hair);border-radius:14px;padding:18px 18px 16px}
+.stat .n{font-family:var(--disp);font-weight:800;font-size:34px;letter-spacing:-.02em;line-height:1}
+.stat .l{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-top:7px}
+.stat .d{font-size:13px;color:var(--t2);margin-top:6px}
+
+.tw{overflow-x:auto;margin:22px 0;border:1px solid var(--hair);border-radius:14px;background:var(--s1)}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
+th{text-align:left;font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--t3);padding:13px 16px;border-bottom:1px solid var(--strong);white-space:nowrap;background:var(--s2)}
+td{padding:12px 16px;border-bottom:1px solid var(--hair);color:var(--t2);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td strong{color:var(--t1)}
+.num{font-variant-numeric:tabular-nums;text-align:right}
+th.num{text-align:right}
+.ok{color:var(--win);font-weight:600}
+.no{color:var(--loss);font-weight:600}
+.mid{color:var(--acc);font-weight:600}
+
+.chip{display:inline-block;padding:3px 9px;border-radius:6px;font-size:10px;font-weight:700;
+  letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.chip.g{background:rgba(53,208,127,.14);color:var(--win)}
+.chip.r{background:rgba(240,72,79,.14);color:var(--loss)}
+.chip.a{background:var(--accw);color:var(--acc)}
+.chip.b{background:rgba(76,141,255,.14);color:var(--trf)}
+
+.callout{border-left:3px solid var(--acc);background:var(--s1);border-radius:0 14px 14px 0;padding:18px 22px;margin:24px 0}
+.callout .lb{font-family:var(--disp);font-weight:800;font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--acc);margin-bottom:6px}
+.callout p{margin:0;max-width:66ch}
+.callout p+p{margin-top:10px}
+.callout.warn{border-left-color:var(--loss)}
+.callout.warn .lb{color:var(--loss)}
+
+.rule{display:flex;gap:14px;padding:14px 0;border-top:1px solid var(--hair);align-items:flex-start}
+.rule .i{font-family:var(--disp);font-weight:800;font-size:12px;color:var(--acc);flex:0 0 30px;padding-top:3px}
+.rule .b{flex:1}
+.rule .b b{color:var(--t1);font-weight:600;display:block;font-size:15px}
+.rule .b span{font-size:14px;color:var(--t2)}
+
+.vs{display:grid;grid-template-columns:1fr auto 1fr;gap:0;margin:22px 0;border:1px solid var(--hair);
+  border-radius:14px;overflow:hidden}
+.vs>div{padding:18px 20px;background:var(--s1)}
+.vs .mid2{background:var(--s3);display:grid;place-items:center;font-family:var(--disp);font-weight:800;
+  font-size:11px;letter-spacing:.1em;color:var(--t3);padding:0 14px}
+.vs h4{margin-top:0}
+.vs p{font-size:14px;margin:4px 0 0}
+@media(max-width:640px){.vs{grid-template-columns:1fr}.vs .mid2{padding:8px}}
+
+footer{border-top:1px solid var(--hair);margin-top:60px;padding:34px 0 60px;color:var(--t3);font-size:13px}
+footer b{color:var(--t2)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
+</style>
+
+<div class="hero"><div class="wrap">
+  <div class="slab">
+    <div class="eyebrow">Design bible · v1 · 20 August 2026</div>
+    <h1>SILVERWARE</h1>
+    <div class="tag">Nobody remembers fifth</div>
+  </div>
+  <p class="lede">A mobile football management game with the <b>simplicity of Football Chairman</b> and the
+  <b>breadth of FIFA Manager career mode</b>. Unlicensed, offline, premium, and built so that a person who has
+  never played a management game can finish a season on their commute — while a fanatic can overrule every
+  decision the game makes for them.</p>
+  <div class="metastrip">
+    <div><div class="k">Platform</div><div class="v">iOS + Android</div></div>
+    <div><div class="k">Session</div><div class="v">3 min → a season</div></div>
+    <div><div class="k">Model</div><div class="v">Premium, one unlock</div></div>
+    <div><div class="k">Status</div><div class="v">Slice playable</div></div>
+  </div>
+</div></div>
+
+<nav class="toc"><div class="inner">
+  <a href="#thesis">Thesis</a><a href="#loop">The loop</a><a href="#law">The UX law</a>
+  <a href="#sim">Simulation</a><a href="#numbers">Calibration</a><a href="#world">Unlicensed world</a>
+  <a href="#look">Look</a><a href="#money">Money</a><a href="#resolved">Contradictions</a>
+  <a href="#built">What's built</a><a href="#next">Build order</a><a href="#risk">Risks</a>
+</div></nav>
+
+<div class="wrap">
+
+<section id="thesis">
+  <div class="snum">01 — Thesis</div>
+  <h2>The game that should exist and doesn't</h2>
+  <p class="sub">Across the whole mobile genre, breadth and speed have never appeared in the same product.</p>
+
+  <p>Football Chairman Pro 2 proved that a <strong>season can take 15–20 minutes</strong> and a career to the top
+  can take 40–50 hours. That ratio is the genre's most important number: the season is the unit of progress, and
+  it fits inside a commute. But the game is thin — squad members are rows in a table, not characters.</p>
+
+  <p>At the other end, the games with real breadth either monetise it into a mess, or they are PC-only and dead.
+  Football Manager Mobile has squad depth but no club — no stadium, no board, no sponsorship, no ownership.
+  And <strong>nothing on mobile generates narrative at all</strong>, despite narrative being the proven addiction
+  driver of the entire genre.</p>
+
+  <div class="callout">
+    <div class="lb">The gap</div>
+    <p>A premium, offline, story-generating club dynasty sim with FIFA Manager's breadth of decisions at
+    Football Chairman's cost per decision. Nobody has shipped it.</p>
+  </div>
+
+  <h3>The three commitments</h3>
+  <div class="grid g3">
+    <div class="card"><h4>Simple to play</h4>
+      <p>Two taps from launch to a played match. Every decision is 1–3 taps. Nothing important sits more than
+      two taps from the hub.</p></div>
+    <div class="card"><h4>Deep in consequence</h4>
+      <p>Breadth lives in optional overrides on top of good defaults — never in extra navigation. The game plays
+      itself competently; your job is to disagree with it.</p></div>
+    <div class="card"><h4>Honest</h4>
+      <p>No currency, no energy, no timers, nothing that buys outcomes. The engine never knows which club is
+      yours. Losses are explained, not excused.</p></div>
+  </div>
+</section>
+
+<section id="loop">
+  <div class="snum">02 — The loop</div>
+  <h2>What a player actually does</h2>
+  <p class="sub">Designed backwards from the twenty-second session, because that is the session that decides retention.</p>
+
+  <p><strong>The minimum path:</strong> open app → hub, with the primary button already under the thumb → tap it
+  → resolve nought to three action cards, one tap each → match → result → tap continue → close app.
+  Two mandatory taps between launch and a played match. Everything else is an opt-in detour, never a gate.</p>
+
+  <h3>The hub is continue-first</h3>
+  <p>Three hub models exist in this genre and two of them fail on a phone. <strong>Inbox-first</strong> (classic
+  Football Manager) makes the player's first act <em>reading</em> a wall of undifferentiated text.
+  <strong>Dashboard</strong> fails the two-second test — a widget grid has no primary action, so a newcomer
+  doesn't know what they're supposed to do. We use <strong>continue-first with a triaged action queue</strong>.</p>
+
+  <div class="rule"><div class="i">01</div><div class="b"><b>The button names the event, never "Continue"</b>
+    <span>"Play Matchday 12", "Open the transfer window", "Start pre-season". A bare "Continue" tells a newcomer nothing.</span></div></div>
+  <div class="rule"><div class="i">02</div><div class="b"><b>Only time-limited, outcome-changing items become cards</b>
+    <span>Injuries, contracts inside six months, an accepted bid, a board mandate. Congratulations and media chatter are inbox-only — never a card, never a badge.</span></div></div>
+  <div class="rule"><div class="i">03</div><div class="b"><b>An empty queue is a feature</b>
+    <span>The space collapses and the button rises further into the thumb arc. It says: nothing needs you, go and play.</span></div></div>
+  <div class="rule"><div class="i">04</div><div class="b"><b>Autosave on every hub return</b>
+    <span>There is no "save" concept anywhere in the UI. The app is never in a state where closing it loses progress.</span></div></div>
+
+  <h3>The manager's week is the content</h3>
+  <p>Real managers lose their tactical prep day and their player one-to-ones entirely in a two-game week — there
+  simply isn't time. So <strong>fixture congestion deletes decision slots rather than adding a fatigue number</strong>.
+  It is structural pressure with zero additional UI, and it is why a cup run should feel like it costs something.</p>
+</section>
+
+<section id="law">
+  <div class="snum">03 — The UX law</div>
+  <h2>The game plays itself. Your job is to disagree with it.</h2>
+  <p class="sub">This single sentence resolves the brief's central tension, and everything in the interface follows from it.</p>
+
+  <p>A newcomer never disagrees and finishes a season perfectly happily. A fanatic disagrees fifty times a season.
+  <strong>Both use identical screens.</strong> Depth is not a second interface — it is a drawer.</p>
+
+  <div class="vs">
+    <div><h4>What a newcomer sees</h4>
+      <p>An assistant recommendation with a star on it. Auto-pick. Four visible ratings. A team style, not
+      instructions. One meter for club finance. Accepting is always one tap.</p></div>
+    <div class="mid2">SAME SCREEN</div>
+    <div><h4>What a fanatic opens</h4>
+      <p>An <code>ADVANCED ▾</code> drawer that expands in place, never navigates, and remembers its state per
+      screen forever. Attribute values, wage structures, contract clauses, scouting filters.</p></div>
+  </div>
+
+  <h3>Non-negotiables</h3>
+  <ul>
+    <li><strong>Instant Result ships on day one</strong>, on the main speed control, not buried in settings. The
+    player who skips thirty matches to reach the derby that matters is still playing.</li>
+    <li><strong>Never show a screen with no pre-selected default.</strong> Every screen arrives already answered.</li>
+    <li><strong>Never punish delegation.</strong> Auto-pick and Instant Result must be genuinely competent. If
+    delegating loses games, the whole model collapses.</li>
+    <li><strong>Never gate depth behind a difficulty setting.</strong> Difficulty changes the world, not the interface.</li>
+    <li><strong>Maximum three match interruptions</strong>, each pausing behind a half-height sheet. Zero in Instant.</li>
+    <li><strong>One notification a day, hard cap.</strong> Never "you haven't played in 3 days". Never a countdown.</li>
+  </ul>
+
+  <h4>Hard accessibility numbers</h4>
+  <p>48×48dp tap targets throughout (clears Apple's 44pt and WCAG AAA simultaneously). 11pt type floor with
+  Dynamic Type to ~310%. Primary actions confined to the bottom 55% of the screen — roughly half of all phone use
+  is one-handed. Never a confirm button in the top-right corner.</p>
+</section>
+
+<section id="sim">
+  <div class="snum">04 — Simulation</div>
+  <h2>Simple choices, believable outcomes</h2>
+  <p class="sub">Seven visible attributes on the surface. A calibrated xG event simulator underneath.</p>
+
+  <h3>The player</h3>
+  <p><strong>Seven visible attributes</strong> — Pace, Technical, Vision, Finishing, Defending, Physical,
+  Composure — with goalkeepers using the same seven slots relabelled, so there is one schema and one UI component
+  in the entire game. Overall ability is <em>derived</em> from role-weighted sums, never stored, which means
+  <strong>a player's rating automatically depends on where you play him</strong> — position familiarity for free,
+  with no separate system.</p>
+  <p><strong>Eight hidden bytes</strong> carry the personality: potential, consistency, injury proneness,
+  professionalism, ambition, adaptability, big-game temperament. That is the whole narrative engine. It is enough
+  to generate the wonderkid who stalls, the pro who plays until 37, and the mercenary who agitates every January.</p>
+
+  <div class="callout">
+    <div class="lb">Decline is emergent, not special-cased</div>
+    <p>Ageing is weighted by how much of a player's ability sits in Pace and Physical. That is the entire reason a
+    33-year-old playmaker stays useful and a 33-year-old winger doesn't. Nobody wrote a rule for it.</p>
+  </div>
+
+  <h3>The match</h3>
+  <p>An <strong>xG-driven possession-event simulator</strong>, deliberately shallow — six states, not forty —
+  calibrated so its aggregate output reproduces a Dixon-Coles model. Pure Poisson gives you a scoreline but no
+  story. A full zonal chain buries most of its fidelity behind a pitch view we are not rendering. The event sim
+  is the only option that yields a watchable feed <em>and</em> provably realistic scorelines.</p>
+  <p>Drama comes from two mechanisms and no dice-rolls: <strong>momentum</strong> is a mean-reverting process, so
+  the feed produces periods of pressure rather than a uniform drip of chances; and <strong>urgency</strong> keys
+  off the deficit and the clock, which produces late equalisers, late sucker-punch counters and the throwing-bodies-forward
+  feel — all from the score, all symmetric, all explainable. <strong>There is no upset code.</strong> Underdogs
+  already win about a quarter of the time from the maths alone.</p>
+
+  <h3>Tactics: one screen, hard limit</h3>
+  <p>A formation and three sliders — Tempo, Line, Mentality. Nothing else. The rock-paper-scissors comes from
+  four interaction terms, each readable in one sentence:</p>
+  <div class="tw"><table>
+    <tr><th>Your approach</th><th>Beats</th><th>Why, in one sentence</th></tr>
+    <tr><td><strong>High press</strong></td><td>Patient build-up</td><td>You win it back before they get going.</td></tr>
+    <tr><td><strong>Direct</strong></td><td>High press</td><td>You go over the top of the press.</td></tr>
+    <tr><td><strong>Patient</strong></td><td>Deep block</td><td>A block with no outlet eventually cracks.</td></tr>
+    <tr><td><strong>Deep block</strong></td><td>Direct</td><td>You are already defending your own box.</td></tr>
+  </table></div>
+  <p>Reading the opposition is worth roughly 4–6 ability points across the XI — meaningful, never decisive.
+  <strong>Explicitly rejected:</strong> player instructions, individual roles, set-piece routines, opposition
+  instruction screens. Each needs a second screen and buys nothing the four counters don't.</p>
+
+  <h3>Fairness is a build artefact, not a promise</h3>
+  <p>The match function <strong>never receives a flag telling it which club is the player's</strong>. This is
+  enforced by a unit test that simulates the same fixture with the flag on both sides and compares the
+  distributions. Difficulty presets change starting budget, board patience, and how well AI clubs search the
+  market. They never touch the maths.</p>
+
+  <h3>The market must not break at season eight</h3>
+  <p>This is where every game in the genre dies. The rule: <strong>an AI club's maximum bid derives only from the
+  valuation formula — never from another club's bid, and never from what someone paid last week.</strong> That
+  kills the price ratchet at its root. Backed by a global index that inflates revenues and prices together, a hard
+  wage-to-revenue cap, permanent money sinks, and a season-end drift monitor that self-corrects at ±12%.</p>
+</section>
+
+<section id="numbers">
+  <div class="snum">05 — Calibration</div>
+  <h2>What the engine actually produces</h2>
+  <p class="sub">Measured in the working prototype, not estimated. Every figure below came from Monte Carlo runs
+  against the shipped code.</p>
+
+  <div class="grid g3">
+    <div class="stat"><div class="n">2.78</div><div class="l">Goals per match</div>
+      <div class="d">Premier League runs 2.75–2.90.</div></div>
+    <div class="stat"><div class="n">43.6%</div><div class="l">Home win rate</div>
+      <div class="d">Real-world figure is ~44%.</div></div>
+    <div class="stat"><div class="n">13.6 / 11.1</div><div class="l">Shots home / away</div>
+      <div class="d">Real-world ~13 and ~11.</div></div>
+  </div>
+
+  <div class="tw"><table>
+    <tr><th>Measure</th><th class="num">Engine</th><th class="num">Real football</th><th>Verdict</th></tr>
+    <tr><td>Home goals per match</td><td class="num">1.56</td><td class="num">1.52</td><td><span class="chip g">on target</span></td></tr>
+    <tr><td>Away goals per match</td><td class="num">1.22</td><td class="num">1.23</td><td><span class="chip g">on target</span></td></tr>
+    <tr><td>Matches over 2.5 goals</td><td class="num">52.5%</td><td class="num">~52%</td><td><span class="chip g">on target</span></td></tr>
+    <tr><td>Set-piece share of goals</td><td class="num">19.5%</td><td class="num">20–25%</td><td><span class="chip g">on target</span><br><span style="font-size:12px">no penalties modelled yet</span></td></tr>
+    <tr><td>Champion's points</td><td class="num">77–86</td><td class="num">~80–90</td><td><span class="chip g">on target</span></td></tr>
+    <tr><td>Tenth place</td><td class="num">50–52</td><td class="num">~48–52</td><td><span class="chip g">on target</span></td></tr>
+    <tr><td>Bottom club</td><td class="num">15–33</td><td class="num">~16–30</td><td><span class="chip g">on target</span></td></tr>
+    <tr><td>Best beats worst, at home</td><td class="num">77.2%</td><td class="num">~75–80%</td><td><span class="chip g">on target</span></td></tr>
+    <tr><td>Worst beats best, at home</td><td class="num">16.1%</td><td class="num">~12–18%</td><td><span class="chip g">on target</span></td></tr>
+    <tr><td>Draw rate, evenly matched sides</td><td class="num">29.3%</td><td class="num">~26%</td><td><span class="chip a">3 pts high</span></td></tr>
+  </table></div>
+
+  <div class="callout warn">
+    <div class="lb">Corrections made during the build</div>
+    <p>The research spec's shot-rate constant produced <strong>0.70 goals per team per match</strong> — roughly
+    half of real football. The stated possession count and the stated rate were incompatible. Fixed by
+    measurement, not by argument.</p>
+    <p>Club strength was also spread far too wide: the first pass had the best side beating the worst
+    <strong>91.8%</strong> of the time. A real top division spans about fifteen ability points, not
+    twenty-six. Compressing the spread brought it to 77.2%.</p>
+    <p>And the calibration harness itself was flawed — it generated its test squads <em>before</em> reseeding,
+    so two runs of the same code returned different numbers. Any figure measured before that fix was noise.</p>
+  </div>
+
+  <p>The residual draw inflation is a known, accepted deviation: momentum autocorrelation nudges evenly-matched
+  fixtures toward level. Real football is itself over-dispersed toward draws relative to Poisson, so some of this
+  is correct — but three points is more than Dixon-Coles alone would explain, and it should be revisited when the
+  full league pyramid exists.</p>
+</section>
+
+<section id="world">
+  <div class="snum">06 — The unlicensed world</div>
+  <h2>How close to reality we can legally get</h2>
+  <p class="sub">Not legal advice. Commission a Class 9/41 clearance search before any identity spend.</p>
+
+  <div class="callout warn">
+    <div class="lb">The one non-negotiable</div>
+    <p><strong>Real player names are out.</strong> Not risky — out. "Name only, no likeness" is not a defence:
+    name plus club plus nationality plus age plus position plus attributes <em>is</em> the likeness. Two US cases
+    rejected the free-speech defence specifically because the games recreated athletes in the setting where they
+    are famous — which is exactly what a management sim is.</p>
+  </div>
+
+  <p><strong>Why this is stricter than a normal legal caveat.</strong> A trade mark complaint against a mobile
+  game is not a lawsuit, it is a takedown. Copyright has a counter-notice route; trade mark has a support queue.
+  Google's remedy for suspension is to resubmit under a new package name — new listing, zero reviews, zero
+  ranking, broken installs for every existing player. One brand-protection analyst can trigger it.</p>
+
+  <h3>The safe zone is generous</h3>
+  <div class="grid g2">
+    <div class="card"><h4>Yes</h4>
+      <p>Real cities and districts. Real stadium capacities and geography. League formats copied exactly —
+      promotion, relegation, group stages. Real financial scales. Real calendar rhythm. Real nationalities and
+      name distributions. Fixture lists we generate ourselves.</p></div>
+    <div class="card"><h4>No</h4>
+      <p>Club names, crests, kit designs. Competition names and logos. Real player names or likenesses. Any
+      commercial data feed, even for data that is itself unprotected — that is a contract problem, not a
+      copyright one.</p></div>
+  </div>
+
+  <h3>Two findings that change the build</h3>
+  <p><strong>Fixture lists are safe.</strong> European courts held they attract neither database right nor
+  database copyright, and the US has no database right at all. The residual risk is purely contractual, so we
+  generate our own and never touch a licensed feed.</p>
+  <p><strong>The exposure is our relationship to renaming mods, not the mods themselves.</strong> Manchester
+  United's claim against Sports Interactive reached into SI's <em>support</em> for mods that restored the crest —
+  and it argued that omitting the crest was itself a harm. The rule that follows: <strong>ship a first-class
+  editor and say nothing about real names anywhere</strong>. Not in marketing, not in support replies, not in
+  Discord. Never host renaming packs on our own infrastructure.</p>
+
+  <h3>Making fake clubs feel real</h3>
+  <p>Fake clubs fail because they are <em>arbitrary</em>, not because they are fake. The fix is a grammar rather
+  than a random generator: a six-layer heraldic crest system — shields, field divisions, ordinaries, charges —
+  producing over half a million structurally distinct forms, with a rejection sampler guaranteeing no two clubs in
+  a league are confusable. The emotional payload is per-nation weighting: an English club draws a heater shield
+  with a lion or a rose and a scroll; a German club gets a roundel, a monogram, and no furniture. Kit colours
+  derive from the crest's own tinctures, so crest, kit and league-table row all cohere.</p>
+  <p>Player faces are <strong>layered vector avatars, not AI portraits</strong> — partly for art consistency, but
+  mainly because the EU AI Act's machine-marking obligations and New York's synthetic-performer disclosure law
+  both bite in 2026, and the fiction carve-out is assessed per image rather than per category.</p>
+</section>
+
+<section id="look">
+  <div class="snum">07 — Look</div>
+  <h2>Floodlight</h2>
+  <p class="sub">Premium dark editorial, with broadcast punctuation.</p>
+
+  <p>The baseline is quiet and editorial so that dense data can breathe. Then, four or five times a session, the
+  screen becomes a broadcast graphic — amber slab, diagonal cut, huge condensed scoreline. Full broadcast realism
+  was rejected because it fights a product made of forty-row lists and it flattens the emotional peaks by making
+  everything loud.</p>
+
+  <div class="grid g3">
+    <div class="card"><h4>Ground</h4><p><code>#0A0C0F</code> canvas over four surface layers. Dark is the
+      default and the brand; light ships later as a token remap, never a redesign.</p></div>
+    <div class="card"><h4>Accent</h4><p><code>#FFC53D</code> amber — chosen <em>because</em> green, red and grey
+      are already spoken for by win, loss and draw, the most-read colours in the product.</p></div>
+    <div class="card"><h4>Type</h4><p>Archivo for display and scorelines, Inter for body and data. Both SIL OFL
+      1.1, verified upstream. Tabular figures mandatory on every number.</p></div>
+  </div>
+
+  <p><strong>Colour is never the only channel.</strong> Every win/draw/loss chip carries its letter, every form
+  arrow carries a glyph, every money delta carries a sign. Roughly 8% of male players have a colour-vision
+  deficiency and win/loss red-green is precisely the axis that fails them.</p>
+  <p><strong>Tabular figures are not a detail.</strong> With proportional digits a league table's points column
+  shimmers as you scroll, and a number ticking from 9 to 10 shifts everything after it.</p>
+
+  <h3>The mark</h3>
+  <p>An original two-handled cup on a stepped plinth, drawn as flat geometry at monumental scale on an amber
+  ground. The art direction's ban on gradients and skeuomorphism decided the execution: "engraved" is expressed
+  <em>structurally</em> — the plinth is the nameplate — rather than as rendered texture. That is also what makes
+  it survive downscaling. <strong>48px is the verified floor</strong> for it reading as a trophy; at 29px it
+  degrades to a recognisable dark mass on amber, which is documented rather than hidden.</p>
+</section>
+
+<section id="money">
+  <div class="snum">08 — Money</div>
+  <h2>The monetisation is the marketing</h2>
+  <p class="sub">In this genre, restraint is a competitive weapon, and the review pages prove it.</p>
+
+  <p>Every free rival draws the same complaints, close to verbatim: a credit card making someone stronger than a
+  player who has been there for years; everything tied to coin bundles; energy timers; offerwalls that don't pay
+  out. Meanwhile the two best-reviewed titles in the genre are ad-free and timer-free, and reviewers cite the
+  <em>absence</em> of monetisation as a feature.</p>
+
+  <div class="grid g3">
+    <div class="stat"><div class="n">~15</div><div class="l">Free seasons</div>
+      <div class="d">Enough for a full career arc before anyone is asked for money.</div></div>
+    <div class="stat"><div class="n">$5–7</div><div class="l">One-time unlock</div>
+      <div class="d">Then content packs — leagues, eras. Never outcomes.</div></div>
+    <div class="stat"><div class="n">0</div><div class="l">Timers, currencies, ads</div>
+      <div class="d">Stated as a promise on the store page.</div></div>
+  </div>
+  <p>Put the promise in the store listing itself. In this category that is not a concession — it is the strongest
+  differentiator available.</p>
+</section>
+
+<section id="resolved">
+  <div class="snum">09 — Contradictions</div>
+  <h2>Where the research disagreed with itself</h2>
+  <p class="sub">Eight specialists worked in parallel. These are the collisions, and how each was settled.</p>
+
+  <div class="tw"><table>
+    <tr><th style="width:24%">Collision</th><th style="width:38%">The conflict</th><th>Resolution</th></tr>
+    <tr><td><strong>Scripted tutorial</strong></td>
+      <td>UX wanted the first match lightly scripted for competitiveness. The engine's core principle is that it
+      must never cheat the player.</td>
+      <td>The tutorial match sits <strong>entirely outside the career</strong>, before the save's seed is locked.
+      Scripting is permitted exactly once, and never again.</td></tr>
+    <tr><td><strong>Instant Result vs fairness</strong></td>
+      <td>Skipping a match must not change its outcome, or Instant Result becomes a save-scumming tool.</td>
+      <td>The match is <strong>simulated in full before playback begins</strong>. Watching is a rendering of a
+      result that already exists. Skipping is provably free.</td></tr>
+    <tr><td><strong>"It's rigged"</strong></td>
+      <td>Two agents, working from unrelated evidence — competitor reviews and simulation theory — independently
+      landed on the same feature.</td>
+      <td>The <strong>post-match driver dump</strong>. Convergence from separate evidence made this the first
+      thing built rather than a nice-to-have.</td></tr>
+    <tr><td><strong>Editor vs takedown risk</strong></td>
+      <td>Community renaming is a major draw. Both stores ban apps that "induce" infringement.</td>
+      <td>Ship the editor as a first-class feature; <strong>market total silence</strong>. The feature is legal;
+      talking about it is what creates exposure.</td></tr>
+    <tr><td><strong>Breadth vs "a baby could play it"</strong></td>
+      <td>The two reference games pull in opposite directions — Football Chairman is simple because it is shallow.</td>
+      <td>Depth moves into <strong>drawers, not navigation</strong>. Same screens for both audiences. This is the
+      single idea the product rests on.</td></tr>
+  </table></div>
+
+  <h3>One cut I want a second opinion on</h3>
+  <p>The manager-role research removed <strong>attribute-level scouting</strong> entirely — four visible ratings
+  plus one hidden trait that reveals itself over time. I think this is right, and better drama: discovering in
+  November that your record signing is a bottler is a <em>story</em>, whereas reading it off a stat screen in July
+  is a spreadsheet. But it is the largest single departure from FIFA Manager in the whole document, and it is the
+  one decision here most likely to be wrong.</p>
+</section>
+
+<section id="built">
+  <div class="snum">10 — What's built</div>
+  <h2>The vertical slice</h2>
+  <p class="sub">A working, playable prototype — not a mockup.</p>
+
+  <div class="grid g2">
+    <div class="card"><h4>Working today</h4>
+      <p>Twenty procedurally generated clubs with heraldic crests. Full squads with derived ability and hidden
+      potential. The calibrated match engine. A 38-match season with a live league table. Continue-first hub with
+      the action queue. Squad and lineup with auto-pick. Formation and the three tactical sliders with live
+      assistant advice. The match takeover with four speed modes including Instant. The post-match driver dump.
+      Injuries, fatigue, form, and recovery. Board objectives you can accept or argue down. Save and resume.</p></div>
+    <div class="card"><h4>Specified but not yet wired</h4>
+      <p>Transfer bidding, contracts and agents (valuation is live and visible; the negotiation flow is not).
+      Season rollover and multi-season careers. Youth intake and regens. The Club Chronicle. AI managers moving
+      between clubs. Cup competitions. The heraldic rejection sampler that guarantees per-league distinctness.
+      Penalties in the match engine. The CI trade mark sweep.</p></div>
+  </div>
+
+  <div class="callout">
+    <div class="lb">Known issue in the slice</div>
+    <p>The inbox accumulates without curation — after a dozen matchdays it holds fifty-plus items, which directly
+    violates the notification discipline set out in section 03. The queue logic needs to apply to the inbox too,
+    not just the hub cards.</p>
+  </div>
+</section>
+
+<section id="next">
+  <div class="snum">11 — Build order</div>
+  <h2>What to do next, in order</h2>
+  <p class="sub">The sequence matters: each step de-risks the one after it.</p>
+
+  <div class="rule"><div class="i">01</div><div class="b"><b>Multi-season careers</b>
+    <span>Season rollover, ageing, youth intake, contract expiry. Until a save survives ten seasons, nothing else can be trusted — and this is where the genre's competitors break.</span></div></div>
+  <div class="rule"><div class="i">02</div><div class="b"><b>The transfer market end to end</b>
+    <span>Bidding, wages, agents, clauses, loans — plus the drift monitor. Run fifteen simulated seasons and check prices are flat in real terms.</span></div></div>
+  <div class="rule"><div class="i">03</div><div class="b"><b>The Club Chronicle</b>
+    <span>The auto-written history that turns a 40-hour save into something the player owns. Nobody on mobile does this, and it is the cheapest genuine differentiator in the document.</span></div></div>
+  <div class="rule"><div class="i">04</div><div class="b"><b>The CI trade mark sweep</b>
+    <span>Fails the build on a blocklist hit. The one legal rule that needs engineering, and the one that makes the other twenty-one self-enforcing rather than aspirational.</span></div></div>
+  <div class="rule"><div class="i">05</div><div class="b"><b>Native shell</b>
+    <span>Only once the loop is proven addictive on the web build. Porting an unproven loop is the most expensive mistake available here.</span></div></div>
+</section>
+
+<section id="risk">
+  <div class="snum">12 — Risks</div>
+  <h2>What could kill this</h2>
+
+  <div class="tw"><table>
+    <tr><th style="width:26%">Risk</th><th class="num" style="width:12%">Severity</th><th>Mitigation</th></tr>
+    <tr><td><strong>Trade mark takedown</strong></td><td class="num"><span class="chip r">Fatal</span></td>
+      <td>Fictional identities throughout, CI blocklist sweep, total marketing silence on renaming. Pay for a real clearance search before launch.</td></tr>
+    <tr><td><strong>Market breaks by season eight</strong></td><td class="num"><span class="chip r">Severe</span></td>
+      <td>Valuation-only bid ceilings, global index, drift monitor. Test with fifteen-season soak runs before shipping the market at all.</td></tr>
+    <tr><td><strong>"It feels scripted"</strong></td><td class="num"><span class="chip a">High</span></td>
+      <td>No human-club flag, enforced by unit test. Driver dump on every result. This complaint has damaged every competitor including the premium ones.</td></tr>
+    <tr><td><strong>Too simple for fanatics</strong></td><td class="num"><span class="chip a">High</span></td>
+      <td>The drawer model. Watch specifically whether the attribute-scouting cut goes too far — that is the one flagged for review.</td></tr>
+    <tr><td><strong>Premium price on mobile</strong></td><td class="num"><span class="chip b">Medium</span></td>
+      <td>Fifteen free seasons before the ask. The two best-reviewed games in the genre are both paid.</td></tr>
+    <tr><td><strong>Fake clubs feel arbitrary</strong></td><td class="num"><span class="chip b">Medium</span></td>
+      <td>The heraldic grammar plus per-nation weighting. Kit and table row derive from crest tinctures so identity coheres.</td></tr>
+  </table></div>
+</section>
+
+<footer>
+  <p><b>Silverware — design bible v1.</b> Synthesised from eight parallel research streams: manager role, genre
+  teardown, simulation engine, UX architecture, art direction, naming and brand, licensing safety, and logo
+  identity. Source documents live in <code>docs/research/</code>.</p>
+  <p style="margin-top:10px">All calibration figures were measured against the working prototype on 20 August 2026.
+  Nothing in section 06 is legal advice.</p>
+</footer>
+
+</div>
