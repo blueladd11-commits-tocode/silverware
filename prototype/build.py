@@ -14,5 +14,8 @@ for m in mods:
 out = core.replace('<!--MODULES-->', '\n'.join(blocks))
 (here/'silverware.html').write_text(out)
 print(f'built silverware.html  ({len(out):,} bytes)  modules: {len(loaded)}')
+root = here.parent/'index.html'          # root entry point for GitHub Pages
+if root.exists() and 'prototype/silverware.html' in root.read_text():
+    print('root index.html -> prototype/silverware.html  (ok)')
 for n in loaded: print('   +', n)
 if not loaded: print('   (no modules yet — core only)')
