@@ -13,7 +13,7 @@ const WARN_GAP=3;                        // matches between the formal warning a
 
 const DEF={conf:60,games:0,clubGames:0,stage:0,sacked:false,everSacked:0,jobs:0,
   log:[],warnAt:null,pending:null,lastRev:-1,holds:0,offers:[],
-  cupDepth:0,cupName:'',euroBest:0,euroKey:'',
+  cupDepth:0,cupName:'',euroBest:0,euroKey:'',wStreak:0,lStreak:0,
   rec:{P:0,W:0,D:0,L:0},since:0,snap:null,react:''};
 
 function S(){
@@ -23,15 +23,29 @@ function S(){
 }
 
 /* ---------- the expectation model ----------
-   An Elo-ish read of what a reasonable board would have expected from
-   this fixture. 0 = certain defeat, 1 = certain win. Reputation gap plus
-   home advantage, nothing else — the board does not care about your injuries. */
+   What a reasonable board would have expected from this fixture, 0 = certain
+   defeat, 1 = certain win. Calibrated against the match engine itself: 1,400
+   sampled simulations fit to score = 0.5 + 0.0158 per point of squad strength,
+   plus 0.051 for playing at home.
+
+   Strength is the best eleven in the SQUAD, not the eleven you picked — the
+   board judges the squad it bought you, so resting your stars lowers your
+   results without lowering what they expected. This gap between expectation and
+   outcome is the whole module: it is the only reason losing at home to the
+   bottom club costs far more than losing away to the champions. */
+const XI_SLOPE=0.0158, HOME_EDGE=0.051;
+function strength(c){
+  if(!c||!c.squad)return 60;
+  const a=c.squad.filter(p=>!p.youth).map(p=>CA(p)).sort((x,y)=>y-x).slice(0,11);
+  if(!a.length)return 60;
+  return a.reduce((s,v)=>s+v,0)/a.length;
+}
 function expect(oppId,home,neutral){
   const a=me(),b=G.clubs[oppId];
   if(!a||!b)return 0.5;
-  let d=a.rep-b.rep;
-  if(!neutral)d+=home?7:-7;
-  return 1/(1+Math.pow(10,-d/34));
+  let e=0.5+(strength(a)-strength(b))*XI_SLOPE;
+  if(!neutral)e+=home?HOME_EDGE:-HOME_EDGE;
+  return clamp(e,0.10,0.90);
 }
 function compWeight(key){
   if(key==='league')return 1;
@@ -48,6 +62,11 @@ function band(v){
   return{k:'Finished',t:'They are in a room deciding your future.',c:'var(--loss)'};
 }
 function sgn(n){return (n>0?'+':n<0?'−':'')+Math.abs(n).toFixed(1)}
+/* The core's ord() currently returns "1th"/"3th" — see the final report.
+   Local correct version so board copy reads properly until the core is fixed. */
+function ordn(n){n=Math.round(n);const t=n%100;
+  if(t>=11&&t<=13)return n+'th';
+  return n+({1:'st',2:'nd',3:'rd'}[n%10]||'th');}
 
 /* ---------- adjust ---------- */
 function adjust(d,reason){
@@ -92,7 +111,7 @@ function escalate(stage){
   s.stage=stage;
   if(stage===2){
     s.warnAt=s.games;
-    adjust(0,'formal warning issued');
+    s.log.unshift({s:G.season,w:G.week,d:0,r:'formal warning issued'});
     note('A formal warning',
       'The chairman put it in writing. "We are not going to sit through much more of this. Results, or we make a change."');
     return 'warn2';
@@ -110,7 +129,10 @@ function review(){
   const pos=myPos(),target=(G.objective&&G.objective.pos)||10;
   const gap=pos-target;
   const d=clamp(-gap*0.55,-5,2.5);
-  if(Math.abs(d)>=0.4){tot+=d;parts.push([d, gap>0?ord(pos)+' — short of '+esc(G.objective.text).toLowerCase():ord(pos)+' — ahead of the target]'.replace(']','')]);}
+  if(Math.abs(d)>=0.4){
+    tot+=d;
+    parts.push([d, ordn(pos)+' in the table — '+(gap>0?'short of the target':'ahead of the target')]);
+  }
   const ratio=costRatio(c);
   if(ratio>95){tot-=5;parts.push([-5,'wage bill is '+ratio+'% of revenue'])}
   else if(ratio>85){tot-=3;parts.push([-3,'wage bill is over the 85% cap'])}
@@ -206,8 +228,12 @@ const QUOTES=[
  'The supporters stopped singing your name in November.'];
 
 /* ---------- the sack ---------- */
-function showSack(reasonLine){
+function showSack(reasonLine,snap){
   const s=S(),c=me();
+  /* The season-end sack is fired from a setTimeout, by which point the core has
+     already rolled the season: tables are zeroed and G.objective is next year's.
+     Render from the snapshot taken when the decision was actually made. */
+  const sn=snap||{pos:myPos(),obj:(G.objective?G.objective.text:'—'),conf:s.conf};
   s.sacked=true;s.everSacked++;s.pending=null;
   const q=pick(QUOTES);
   chron('Sacked by '+c.name);
@@ -222,9 +248,9 @@ function showSack(reasonLine){
    <div class="sechead">Your record there</div>
    <div class="card">
      <div class="kv"><span class="k2">Games</span><span class="v2">${recLine()}</span></div>
-     <div class="kv"><span class="k2">Their target</span><span class="v2">${esc(G.objective?G.objective.text:'—')}</span></div>
-     <div class="kv"><span class="k2">Where you left them</span><span class="v2">${ord(myPos())}</span></div>
-     <div class="kv"><span class="k2">Board confidence</span><span class="v2" style="color:var(--loss)">${Math.round(s.conf)} / 100</span></div>
+     <div class="kv"><span class="k2">Their target</span><span class="v2">${esc(sn.obj||'—')}</span></div>
+     <div class="kv"><span class="k2">Where you left them</span><span class="v2">${ordn(sn.pos)}</span></div>
+     <div class="kv"><span class="k2">Board confidence</span><span class="v2" style="color:var(--loss)">${Math.round(sn.conf)} / 100</span></div>
    </div>
    <div style="font-size:13px;color:var(--t3);margin:14px 2px 0;line-height:19px">
      ${list.length?'The phone has already rung. '+(list.length===1?'One club':list.length+' clubs')+' want to talk.'
@@ -304,10 +330,10 @@ function takeJob(cid){
   s.conf=s.everSacked?55:64;
   s.log=[];s.rec={P:0,W:0,D:0,L:0};s.clubGames=0;s.since=G.season;
   s.cupDepth=0;s.cupName='';s.euroBest=0;s.euroKey='';s.lastRev=-1;s.jobs++;
-  adjust(0,'appointed at '+c.name);
+  s.wStreak=0;s.lStreak=0;s.react='';
+  s.log.unshift({s:G.season,w:G.week,d:0,r:'appointed at '+c.name});
   chron('Took the job at '+c.name);
-  note('You have a job again','
-'.trim()+c.name+'. They want: '+G.objective.text+'. Agree it and get to work.');
+  note('You have a job again',c.name+'. They want: '+G.objective.text+'. Agree it and get to work.');
   const h=SW.get('history');
   if(h&&typeof h.record==='function'){try{h.record('era','Took over at '+c.name+(from?' after '+from:''))}catch(e){}}
   closeTakeover();
@@ -331,7 +357,7 @@ function showWarning(){
    <div class="sechead">Where you are</div>
    <div class="card">
      <div class="kv"><span class="k2">Board confidence</span><span class="v2" style="color:var(--loss)">${Math.round(s.conf)} / 100</span></div>
-     <div class="kv"><span class="k2">League</span><span class="v2">${ord(myPos())} of 20</span></div>
+     <div class="kv"><span class="k2">League</span><span class="v2">${ordn(myPos())} of 20</span></div>
      <div class="kv"><span class="k2">Their target</span><span class="v2">${esc(G.objective?G.objective.text:'—')}</span></div>
      <div class="kv"><span class="k2">Record</span><span class="v2">${recLine()}</span></div></div>
    <div class="sechead">Why</div>
@@ -376,7 +402,7 @@ function panel(){
    <div class="sechead">What they want</div>
    <div class="card" style="background:var(--s1)">
      <div class="kv"><span class="k2">Objective</span><span class="v2">${esc(G.objective?G.objective.text:'—')}</span></div>
-     <div class="kv"><span class="k2">Currently</span><span class="v2" style="color:${pos<=target?'var(--win)':'var(--loss)'}">${ord(pos)}</span></div>
+     <div class="kv"><span class="k2">Currently</span><span class="v2" style="color:${pos<=target?'var(--win)':'var(--loss)'}">${ordn(pos)}</span></div>
      <div class="kv"><span class="k2">Wages vs revenue</span><span class="v2" style="color:${costRatio(c)>85?'var(--loss)':'var(--t1)'}">${costRatio(c)}%</span></div>
      ${s.cupDepth?`<div class="kv"><span class="k2">${esc(s.cupName||'Cup')}</span><span class="v2">Round ${s.cupDepth}</span></div>`:''}
      ${s.euroBest?`<div class="kv"><span class="k2">Europe</span><span class="v2">${esc(euroStatusLine(c)||'In it')}</span></div>`:''}
@@ -429,24 +455,29 @@ SW.register({
 
     const e=expect(opp,m.mine===0,!!(m.f&&m.f.neutral));
     const act=my>th?1:my===th?0.5:0;
-    let d=(act-e)*11*compWeight(m.f&&m.f.comp?m.f.comp.key:'league');
-    if(d<0)d*=1.15;                                  // boards punish harder than they praise
+    let d=(act-e)*10*compWeight(m.f&&m.f.comp?m.f.comp.key:'league');
+    if(d<0)d*=1.12;                                  // boards punish harder than they praise
     d=Math.round(d*10)/10;
     const oc=G.clubs[opp];
     const where=m.f&&m.f.neutral?'on neutral ground':(m.mine===0?'at home':'away');
     let r;
-    if(act===1)r=(e>0.7?'Beat ':'Beat ')+oc.abbr+' '+where+(e<0.35?' — nobody saw that coming':'');
-    else if(act===0.5)r='Drew with '+oc.abbr+' '+where;
-    else r='Lost to '+oc.abbr+' '+where+(e>0.72?' — they are bottom-half fodder':'');
+    if(act===1)r='Beat '+oc.abbr+' '+where+(e<0.36?' — nobody expected that':e>0.70?' — as expected':'');
+    else if(act===0.5)r='Drew with '+oc.abbr+' '+where+(e>0.66?' — two points dropped':'');
+    else r='Lost to '+oc.abbr+' '+where+(e>0.66?' — a game you should not lose':e<0.36?' — no shame in it':'');
     adjust(d,r);
-    s.react=(act===1?'They will take that.':act===0.5?'Two points dropped, in their eyes.':'That one hurt upstairs.')
-      +' '+sgn(d);
+    s.react=(d>=2.5?'They will take that.':d>0?'Fine. Nothing more than expected.'
+      :d>-2.5?'They expected that, roughly.':'That one hurt upstairs.')+' '+sgn(d);
 
-    /* streaks */
-    const c=me();
-    const f=(c.form||[]).slice(-3);
-    if(f.length===3&&f.every(x=>x==='L')){adjust(-3,'three defeats on the spin');s.react+=' · a third straight defeat';}
-    if(f.length===3&&f.every(x=>x==='W'))adjust(2,'three wins on the spin');
+    /* streaks — compounding, but only every second game so it does not
+       double-count the per-match arithmetic above */
+    if(act===0){s.wStreak=0;s.lStreak=(s.lStreak||0)+1}
+    else if(act===1){s.lStreak=0;s.wStreak=(s.wStreak||0)+1}
+    else{s.lStreak=0;s.wStreak=0}
+    if(s.lStreak>=3&&s.lStreak%2===1){
+      adjust(-3,s.lStreak+' defeats on the spin');
+      s.react+=' · a '+ordn(s.lStreak)+' straight defeat';
+    }
+    if(s.wStreak>=4&&s.wStreak%3===1)adjust(2,s.wStreak+' wins on the spin');
 
     const ev=evaluate();
     if(ev==='sack')s.pending='sack';
@@ -536,7 +567,7 @@ SW.register({
     const reasons=[];
     let d;
     if(info.hit){d=14;reasons.push('objective met')}
-    else{d=clamp(-(info.pos-sn.target)*2.2,-26,-4);reasons.push('finished '+ord(info.pos)+', short of '+esc(sn.obj))}
+    else{d=clamp(-(info.pos-sn.target)*2.2,-26,-4);reasons.push('finished '+ordn(info.pos)+', short of "'+sn.obj+'"')}
     adjust(d,info.hit?'season objective met':'season objective missed');
     if(sn.cup>=6){adjust(14,'won the '+(sn.cupName||'cup'));reasons.push('but you won the '+(sn.cupName||'cup'))}
     else if(sn.cup>=4){adjust(6,'a run to the last four');reasons.push('a cup run softened it')}
@@ -553,7 +584,8 @@ SW.register({
       ((v<20&&(s.stage>=1||relegated))||(relegated&&v<32));
     if(sackNow){
       setTimeout(()=>{try{
-        showSack((relegated?'You took them down. ':'')+reasons.join(', ')+'. That was the end of it.');
+        showSack((relegated?'You took them down. ':'')+reasons.join(', ')+'. That was the end of it.',
+          {pos:info.pos,obj:sn.obj,conf:v});
       }catch(e){}},0);
       return;
     }
@@ -565,7 +597,12 @@ SW.register({
 
   hubCards(){
     const s=S(),out=[];
-    if(s.sacked)return out;
+    /* You cannot be stranded without a club: if the takeover was lost to a
+       reload or another module's screen, put it straight back. */
+    if(s.sacked){
+      if(!document.getElementById('boardTake'))setTimeout(()=>{try{showOffers()}catch(e){}},0);
+      return out;
+    }
     const v=Math.round(s.conf);
     if(s.offers&&s.offers.length){
       const soon=s.offers.some(o=>o.exp-G.week<=1);

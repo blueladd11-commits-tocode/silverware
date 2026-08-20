@@ -112,12 +112,7 @@ tr.me td:nth-child(2){font-weight:700}
 .form i{width:6px;height:6px;border-radius:2px;display:block;font-style:normal}
 .segmented{display:flex;background:var(--s2);border-radius:12px;padding:3px;gap:3px;margin:2px 0 14px}
 .segmented button{flex:1;border:0;background:none;color:var(--t2);font-family:var(--ui);font-size:12px;font-weight:700;
-  padding:9px 3px;border-radius:9px;cursor:pointer;min-height:40px;white-space:nowrap}
-/* With six modules contributing sub-views the control must scroll, not squeeze:
-   equal-width tabs turn "Dressing room" into two cramped lines. */
-.segmented.many{overflow-x:auto;scrollbar-width:none;justify-content:flex-start}
-.segmented.many::-webkit-scrollbar{display:none}
-.segmented.many button{flex:0 0 auto;padding:9px 13px}
+  padding:9px 3px;border-radius:9px;cursor:pointer;min-height:40px}
 .segmented button[aria-selected=true]{background:var(--s3);color:var(--t1)}
 .chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
@@ -369,16 +364,6 @@ window.SW={
   /* first non-null answer wins (used for veto/override hooks) */
   first(hook,...a){ for(const m of this.modules){ if(typeof m[hook]==='function'){
     try{ const r=m[hook](...a); if(r!==undefined&&r!==null)return r }catch(e){ console.error('['+m.id+'.'+hook+']',e) } } } return null; },
-  /* Escape hatch: clear every sheet and module takeover. Modules own their own
-     dismissal, but the core must always be able to get back to a usable screen. */
-  dismissOverlays(){
-    document.querySelectorAll('.sheetwrap').forEach(n=>n.remove());
-    [...document.body.children].forEach(n=>{
-      if(n.id==='app'||n.tagName!=='DIV')return;
-      const st=getComputedStyle(n);
-      if(st.position==='fixed'&&parseInt(st.zIndex||0,10)>=60)n.remove();
-    });
-  },
   /* per-module persisted state, namespaced under G.mod[id] */
   state(id){ if(!G.mod)G.mod={}; if(!G.mod[id])G.mod[id]={}; return G.mod[id] }
 };
@@ -1241,27 +1226,10 @@ function restock(c,base){
     c.squad.push(makePlayer(weakest.slot,clamp(Math.round(base+2+gauss(0,4)),18,95),c.nat,ri(21,27)));
     autoXI(c);
   }
-  while(squadOf(c).length>28){
+  while(squadOf(c).length>30){
     const w=squadOf(c).sort((a,b)=>CA(a)-CA(b))[0];
     if(!w||c.xi.some(x=>x.p.id===w.id))break;
     c.squad=c.squad.filter(p=>p.id!==w.id);
-  }
-  /* Academy players who never made it move on. Without this, a decade of intakes
-     piles up and a squad quietly grows from 26 to 42. */
-  const youths=c.squad.filter(p=>p.youth);
-  youths.forEach(p=>{
-    const ready=CA(p)>=base-9;
-    if(p.age>=21&&!ready){
-      c.squad=c.squad.filter(x=>x.id!==p.id);
-      if(c.id===G.me)note(p.name+' has been released','He was never going to make it here. Twenty-one and out of time.');
-    } else if(p.age>=20&&ready){
-      p.youth=false;      // good enough — he is a senior player now
-      if(c.id===G.me)note(p.name+' has come through','He is a first-team player now, not a prospect.');
-    }
-  });
-  while(c.squad.filter(p=>p.youth).length>8){
-    const w=c.squad.filter(p=>p.youth).sort((a,b)=>(a.pa-CA(a))-(b.pa-CA(b)))[0];
-    c.squad=c.squad.filter(x=>x.id!==w.id);
   }
   autoXI(c);
 }
@@ -1426,10 +1394,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const ramp=v=>v>=85?'var(--r5)':v>=72?'var(--r4)':v>=58?'var(--r3)':v>=45?'var(--r2)':'var(--r1)';
 const fdot=r=>`<i style="background:${r==='W'?'var(--win)':r==='D'?'var(--draw)':'var(--loss)'}"></i>`;
 const fstrip=f=>`<span class="form">${(f&&f.length?f:['-']).map(x=>x==='-'?'<i style="background:var(--s3)"></i>':fdot(x)).join('')}</span>`;
-/* Negative modulo made the old version return "1th" and "3th". */
-const ord=n=>{n=Math.round(n);const t=n%100;
-  if(t>=11&&t<=13)return n+'th';
-  return n+({1:'st',2:'nd',3:'rd'}[n%10]||'th');};
+const ord=n=>n+(['st','nd','rd'][((n%100-11)%10===0||(n%100-12)%10===0||(n%100-13)%10===0)?3:(n%10)-1]||'th');
 
 function crestSVG(club,size){
   const r=mulberry32(club.seed);
@@ -1610,7 +1575,7 @@ function viewSquad(){
   let body='';
   const ext=extra.find(v=>v.key===G.squadView);
   if(ext){return `${topbar()}<div class="scroll">
-    <div class="segmented ${views.length>4?'many':''}">${views.map(([k,l])=>`<button aria-selected="${G.squadView===k}"
+    <div class="segmented" style="overflow-x:auto">${views.map(([k,l])=>`<button aria-selected="${G.squadView===k}"
       onclick="G.squadView='${k}';render()">${l}</button>`).join('')}</div>${ext.render()}</div>${tabbar()}`}
   if(G.squadView==='lineup'){
     const bench=squadOf(c).filter(p=>!c.xi.find(x=>x.p.id===p.id));
@@ -1670,7 +1635,7 @@ function viewSquad(){
       :'<div class="dim" style="padding:14px 0">Nobody in the academy right now. Intake comes at the end of the season.</div>'}</div>`;
   }
   return `${topbar()}<div class="scroll">
-   <div class="segmented ${views.length>4?'many':''}">${views.map(([k,l])=>`<button aria-selected="${G.squadView===k}"
+   <div class="segmented" style="overflow-x:auto">${views.map(([k,l])=>`<button aria-selected="${G.squadView===k}"
      onclick="G.squadView='${k}';render()">${l}</button>`).join('')}</div>${body}</div>${tabbar()}`;
 }
 function plrRow(p,slot){
@@ -1754,7 +1719,7 @@ function viewMarket(){
      <div style="text-align:right"><div class="dim" style="font-size:10px;letter-spacing:.06em;text-transform:uppercase">Window</div>
        <div style="font-weight:700;font-size:14px;margin-top:3px;color:${windowOpen()?'var(--win)':'var(--t3)'}">${windowLabel()}</div></div>
    </div></div>
-   <div class="segmented ${views.length>4?'many':''}">${views.map(([k,l])=>`<button aria-selected="${G.marketView===k}"
+   <div class="segmented" style="overflow-x:auto">${views.map(([k,l])=>`<button aria-selected="${G.marketView===k}"
      onclick="G.marketView='${k}';render()">${l}</button>`).join('')}</div>${ext?ext.render():body}</div>${tabbar()}`;
 }
 /* What the player is allowed to know about an outsider's ability.
@@ -1798,7 +1763,7 @@ function viewClub(){
   const views=[['overview','Overview'],...extra.map(v=>[v.key,v.label])];
   const cv=G.clubView||'overview';
   const ext=extra.find(v=>v.key===cv);
-  const seg=views.length>1?`<div class="segmented ${views.length>4?'many':''}">${views.map(([k,l])=>
+  const seg=views.length>1?`<div class="segmented" style="overflow-x:auto">${views.map(([k,l])=>
     `<button aria-selected="${cv===k}" onclick="G.clubView='${k}';render()">${l}</button>`).join('')}</div>`:'';
   if(ext)return `${topbar()}<div class="scroll">${seg}${ext.render()}</div>${tabbar()}`;
   const c=me(),pos=myPos(),ratio=costRatio(c),rev=revenue(c);
@@ -3688,12 +3653,8 @@ const QUOTES=[
  'The supporters stopped singing your name in November.'];
 
 /* ---------- the sack ---------- */
-function showSack(reasonLine,snap){
+function showSack(reasonLine){
   const s=S(),c=me();
-  /* The season-end sack is fired from a setTimeout, by which point the core has
-     already rolled the season: tables are zeroed and G.objective is next year's.
-     Render from the snapshot taken when the decision was actually made. */
-  const sn=snap||{pos:myPos(),obj:(G.objective?G.objective.text:'—'),conf:s.conf};
   s.sacked=true;s.everSacked++;s.pending=null;
   const q=pick(QUOTES);
   chron('Sacked by '+c.name);
@@ -3708,9 +3669,9 @@ function showSack(reasonLine,snap){
    <div class="sechead">Your record there</div>
    <div class="card">
      <div class="kv"><span class="k2">Games</span><span class="v2">${recLine()}</span></div>
-     <div class="kv"><span class="k2">Their target</span><span class="v2">${esc(sn.obj||'—')}</span></div>
-     <div class="kv"><span class="k2">Where you left them</span><span class="v2">${ordn(sn.pos)}</span></div>
-     <div class="kv"><span class="k2">Board confidence</span><span class="v2" style="color:var(--loss)">${Math.round(sn.conf)} / 100</span></div>
+     <div class="kv"><span class="k2">Their target</span><span class="v2">${esc(G.objective?G.objective.text:'—')}</span></div>
+     <div class="kv"><span class="k2">Where you left them</span><span class="v2">${ordn(myPos())}</span></div>
+     <div class="kv"><span class="k2">Board confidence</span><span class="v2" style="color:var(--loss)">${Math.round(s.conf)} / 100</span></div>
    </div>
    <div style="font-size:13px;color:var(--t3);margin:14px 2px 0;line-height:19px">
      ${list.length?'The phone has already rung. '+(list.length===1?'One club':list.length+' clubs')+' want to talk.'
@@ -4044,8 +4005,7 @@ SW.register({
       ((v<20&&(s.stage>=1||relegated))||(relegated&&v<32));
     if(sackNow){
       setTimeout(()=>{try{
-        showSack((relegated?'You took them down. ':'')+reasons.join(', ')+'. That was the end of it.',
-          {pos:info.pos,obj:sn.obj,conf:v});
+        showSack((relegated?'You took them down. ':'')+reasons.join(', ')+'. That was the end of it.');
       }catch(e){}},0);
       return;
     }
@@ -6101,15 +6061,10 @@ function S(){
   return s;
 }
 
-/* The season anything written right now belongs to. Between onSeasonEndBefore and
-   onSeasonEndAfter the core has already rolled G.season forward, so everything we
-   write about the season just gone has to be stamped by hand. */
-function cs(s){ return s.attr||G.season }
-
 /* ---------- writing into the chronicle ---------- */
 function pushChron(s,k,t,season){
   if(!t)return;
-  s.chron.unshift({s:(season==null?cs(s):season),k:k,t:String(t).slice(0,150)});
+  s.chron.unshift({s:(season==null?G.season:season),k:k,t:String(t).slice(0,150)});
   if(s.chron.length>MAXCHRON)s.chron.length=MAXCHRON;
 }
 /* mirror one line into the core chronicle without re-reading it as core input */
@@ -6161,7 +6116,7 @@ function signing(s,name,fee,from){
   const r=s.rec.buy;
   if(fee>0&&(!r||fee>r.f)){
     const old=r;
-    s.rec.buy={n:name,f:fee,c:from||'',s:cs(s)};
+    s.rec.buy={n:name,f:fee,c:from||'',s:G.season};
     if(old&&fee>old.f*1.05){
       breakNote(s,'Record signing',name+' is the most we have ever paid. '+money(fee)+
         ', past the '+money(old.f)+' we spent on '+old.n+'. He had better play.');
@@ -6173,7 +6128,7 @@ function sale(s,name,fee,to){
   const r=s.rec.sell;
   if(fee>0&&(!r||fee>r.f)){
     const old=r;
-    s.rec.sell={n:name,f:fee,c:to||'',s:cs(s)};
+    s.rec.sell={n:name,f:fee,c:to||'',s:G.season};
     if(old)breakNote(s,'Record sale',money(fee)+' for '+name+'. More than anyone has ever paid us. Spend it well.');
   }
 }
@@ -6187,7 +6142,7 @@ function breakNote(s,title,body){
 }
 function bestRun(s,text,weight){
   const r=s.rec.run;
-  if(!r||weight>r.w){ s.rec.run={t:text,w:weight,s:cs(s)} }
+  if(!r||weight>r.w){ s.rec.run={t:text,w:weight,s:G.season} }
 }
 
 /* ---------- career tallies (flat, no live references) ---------- */
@@ -6198,9 +6153,9 @@ function careerOf(s,p){
     s.car[k+'x'+(e.f||0)]=e; e=null;
   }
   if(!e){
-    e=s.car[k]={n:p.name,sd:p.id*13+7,nt:p.nat,p:p.pos,ap:0,gl:0,as:0,f:cs(s),l:cs(s),tr:0,m:0};
+    e=s.car[k]={n:p.name,sd:p.id*13+7,nt:p.nat,p:p.pos,ap:0,gl:0,as:0,f:G.season,l:G.season,tr:0,m:0};
   }
-  e.l=cs(s);
+  e.l=G.season;
   return e;
 }
 const APPMS=[50,100,150,200,250,300], GOALMS=[25,50,100,150];
@@ -6256,7 +6211,7 @@ function onMatch(s,m){
   if(us>them){
     const old=s.rec.win, mar=us-them;
     if(!old||mar>old.f-old.a||(mar===old.f-old.a&&us>old.f)){
-      s.rec.win={f:us,a:them,o:opp,cp:comp,s:cs(s)};
+      s.rec.win={f:us,a:them,o:opp,cp:comp,s:G.season};
       if(old&&mar>=3)breakNote(s,'Record win',vpick([
         'Biggest win under you. '+line+'. The old one was '+old.f+'–'+old.a+'.',
         line+'. Nothing this club has done under you comes close.',
@@ -6267,7 +6222,7 @@ function onMatch(s,m){
   if(them>us){
     const old=s.rec.loss, mar=them-us;
     if(!old||mar>old.a-old.f||(mar===old.a-old.f&&them>old.a)){
-      s.rec.loss={f:us,a:them,o:opp,cp:comp,s:cs(s)};
+      s.rec.loss={f:us,a:them,o:opp,cp:comp,s:G.season};
       if(old&&mar>=3)breakNote(s,'Worst defeat',vpick([
         'Worst you have had here. '+line+'. Say something to them before Monday.',
         line+'. Nobody at this club has been beaten like that under you.',
@@ -6280,7 +6235,7 @@ function onMatch(s,m){
     const old=s.rec.unb?s.rec.unb.v:0;
     if(s.streak.c>old){
       const first=s.cur.res.slice(-s.streak.c)[0];
-      s.rec.unb={v:s.streak.c,s:cs(s),m:first?monthOf(first.w):''};
+      s.rec.unb={v:s.streak.c,s:G.season,m:first?monthOf(first.w):''};
       if(!s.streak.a&&old>=6&&s.streak.c>=8){
         s.streak.a=1;
         breakNote(s,'Club record',s.streak.c+' games unbeaten. That is the longest run this club has had under you.');
@@ -6367,7 +6322,7 @@ function beginWrap(s){
   if(top&&top.goals>0){
     const old=s.rec.sea;
     if(!old||top.goals>old.v){
-      s.rec.sea={n:top.name,v:top.goals,s:cs(s)};
+      s.rec.sea={n:top.name,v:top.goals,s:G.season};
       if(old&&top.goals>old.v)breakNote(s,'Club record',top.name+' scored '+top.goals+
         ' this season. Nobody has scored more for this club under you — '+old.n+' had '+old.v+'.');
     }
@@ -6375,7 +6330,7 @@ function beginWrap(s){
   /* highest finish */
   const fin=s.rec.fin;
   if(!fin||w.tier<fin.tier||(w.tier===fin.tier&&w.pos<fin.pos)){
-    s.rec.fin={pos:w.pos,tier:w.tier,lg:w.lg,s:cs(s)};
+    s.rec.fin={pos:w.pos,tier:w.tier,lg:w.lg,s:G.season};
   }
   s.wrap=w;
 }

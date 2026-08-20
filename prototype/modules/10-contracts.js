@@ -19,6 +19,7 @@ function st(){
   if(!s.pushed)s.pushed={};      // pid -> true, he will not be pushed twice
   if(!s.nextFA)s.nextFA=900001;  // id range for generated free agents
   if(!s.feeSeason)s.feeSeason=0; // agent money paid this season
+  if(!s.warned)s.warned={};      // pid -> told you he is inside six months
   return s;
 }
 
@@ -351,9 +352,15 @@ function clauseWatch(){
 function bosmanWatch(){
   const s=st(),c=me();
   squadOf(c).forEach(p=>{
-    if(s.pre[p.id])return;
+    if(s.pre[p.id]!==undefined)return;
     if(p.years>1||mLeft(p)>6)return;
-    if(rnd()>0.06+p.amb/1400)return;
+    if(!s.warned[p.id]){
+      s.warned[p.id]=true;
+      note(p.name+' can talk to anyone now',
+        'Six months left. Any club in Europe can sit down with him and you cannot stop it.');
+    }
+    if(mLeft(p)>3)return;
+    if(rnd()>0.03+p.amb/3500)return;
     const suit=G.clubs.filter(b=>b.id!==G.me&&b.rep>=c.rep-2);
     if(!suit.length)return;
     const b=pick(suit);
@@ -520,7 +527,7 @@ SW.register({
 
   init(){
     const s=st();
-    s.deals={};s.clauses={};s.pre={};s.pool=[];s.pushed={};s.nextFA=900001;s.feeSeason=0;
+    s.deals={};s.clauses={};s.pre={};s.pool=[];s.pushed={};s.nextFA=900001;s.feeSeason=0;s.warned={};
     s.known=squadOf(me()).map(p=>p.id);
     seedPool();
     // a few of your own already have clauses in their deals — inherited, not agreed by you
@@ -560,7 +567,7 @@ SW.register({
   onSeasonEndAfter(){
     try{
       const s=st();
-      s.feeSeason=0;s.pushed={};
+      s.feeSeason=0;s.pushed={};s.warned={};
       agePool();
       // keep our record in step with the core's ageing/renewals
       s.deals={};
@@ -580,11 +587,13 @@ SW.register({
     if(!risk.length)return[];
     risk.sort((a,b)=>CA(b)-CA(a));
     const p=risk[0],pre=st().pre[p.id]!==undefined;
+    const gone=risk.filter(x=>st().pre[x.id]!==undefined).length;
     return [{ic:'✎',bg:'var(--accw)',col:'var(--acc)',
       a:risk.length===1?p.name+' walks in June':risk.length+' of your XI are out of contract',
-      b:pre?'He has already agreed a move. Too late.'
-        :risk.length===1?'Months left, no new deal, no fee coming.'
-        :'Sort them now or lose the lot for nothing.',
+      b:risk.length===1?(pre?'He has already agreed a move elsewhere. Too late.'
+          :'Weeks left, no new deal, no fee coming.')
+        :(gone?gone+' have already agreed moves. Save the rest.'
+          :'Sort them now or lose the lot for nothing.'),
       fn:'ctrGo()',priority:70}];
   },
 
