@@ -227,7 +227,7 @@ function payWages(){
   var gone = s.sc.shift();
   if(gone) note('You could not pay ' + gone.name,
     'The budget will not cover the network. He has gone to work for somebody who pays. ' +
-    (s.sc.length ? s.sc.length + ' scout' + (s.sc.length>1?'s':'') + ' left.' : 'You have nobody out there now.'));
+    (s.sc.length ? s.sc.length + ' scout' + (s.sc.length>1?'s':'') + ' left.' : 'You have nobody out there now.'), {from:vH(gone.name,'scout',gone.nat,52)});
   bill = 0; for(var j=0;j<s.sc.length;j++) bill += s.sc[j].wage;
   if(c.bal>=bill){ c.bal-=bill; s.spend+=bill; }
 }
@@ -394,7 +394,7 @@ function doRegion(sc,nat){
   }
   if(!pool.length){
     note(sc.name + ' came back with nothing',
-      'Three weeks in ' + NATIONS[nat].name + ' and not one of them is worth your money. It happens.');
+      'Three weeks in ' + NATIONS[nat].name + ' and not one of them is worth your money. It happens.', {from:vH(sc.name,'scout',sc.nat,52)});
     return;
   }
   /* broad sweep: the whole trip teaches you a little about everyone */
@@ -433,7 +433,8 @@ function doYouth(sc){
   var c=me(); if(!c) return;
   var kids = c.squad.filter(function(p){return p.youth});
   if(!kids.length){
-    note(sc.name + ' has nothing to look at', 'The academy is empty. Intake comes at the end of the season.');
+    note(sc.name + ' has nothing to look at', 'The academy is empty. Intake comes at the end of the season.',
+      {from:vH(sc.name,'scout',sc.nat,52)});
     return;
   }
   for(var i=0;i<kids.length;i++) learn(kids[i].id, 0.22 + sc.q*0.09);
@@ -450,6 +451,7 @@ function doYouth(sc){
 function file(sc,p,cl,k,gem){
   var s=st();
   var r = writeReport(sc,p,cl,k,gem);
+  r.scnat = sc.nat;                    // so his face survives him leaving
   s.rep[p.id] = r;
   s.nm[p.id] = p.name;
   if(s.unread.indexOf(p.id)<0) s.unread.push(p.id);
@@ -461,11 +463,11 @@ function file(sc,p,cl,k,gem){
     if(G.shortlist.indexOf(p.id)<0) G.shortlist.push(p.id);
     note(sc.name + ' has found somebody',
       p.name + ', ' + p.pos + ', ' + p.age + ', at ' + cl.name + '. ' +
-      '"Nobody is watching him and I do not understand why." Roughly ' + money(value(p)) + '. He is on your shortlist.');
+      '"Nobody is watching him and I do not understand why." Roughly ' + money(value(p)) + '. He is on your shortlist.', {from:vH(sc.name,'scout',sc.nat,52), about:vP(p), rel:'found'});
     chron(sc.name + ' found ' + p.name + ' at ' + cl.name);
   }else{
     note('Report in: ' + p.name,
-      sc.name + ' has filed on ' + p.pos + ', ' + p.age + ', ' + cl.name + '. ' + label(p.id,p) + ' by his reckoning.');
+      sc.name + ' has filed on ' + p.pos + ', ' + p.age + ', ' + cl.name + '. ' + label(p.id,p) + ' by his reckoning.', {from:vH(sc.name,'scout',sc.nat,52), about:vP(p), rel:'on'});
   }
 }
 
@@ -480,7 +482,10 @@ var UI = {
     var i=s.unread.indexOf(pid); if(i>=0) s.unread.splice(i,1);
     var p=pOf(pid);
     save();
+    var scv = vH(r.scn,'scout',r.scnat||'eng',52);
+    var pv  = p ? vP(p) : {k:'p',id:pid,n:r.nm,nat:'eng',age:24,mo:0,r:'',a:'#2A3038',b:'#1A1F26'};
     sheet(
+      speakerBar(scv, pv, 'filed on', r.cl + ' \u00b7 ' + agoTxt(r.w)) +
       '<h3>' + esc(r.nm) + '</h3>' +
       '<div class="sh-sub">' + esc(r.scn) + ' · ' + esc(r.cl) + ' · filed ' + agoTxt(r.w) + '</div>' +
       (r.gem ? '<div class="slab" style="margin-bottom:12px"><div class="k">He found one</div>' +
@@ -517,6 +522,7 @@ var UI = {
         '<div class="dim" style="font-size:12px">Shortlisted · ' + p.pos + ' · ' + weeksFor(sc,'player') + ' weeks, and he comes back sure</div></div></div>';
     }).join('');
     sheet(
+      speakerBar(vH(sc.name,'scout',sc.nat,52),null,'',STAR[sc.q] + ' \u00b7 ' + money(sc.wage) + '/wk') +
       '<h3>Where do you want ' + esc(sc.name) + '?</h3>' +
       '<div class="sh-sub">' + STAR[sc.q] + ' · ' + money(sc.wage) + '/wk. He will be gone ' +
         weeksFor(sc,'region') + ' weeks on a sweep, ' + weeksFor(sc,'player') + ' on one man.</div>' +
@@ -609,9 +615,9 @@ function viewScouts(){
     ? '<div class="sechead">Waiting on your desk<span class="n">' + unread.length + '</span></div>' +
       unread.slice(0,6).map(function(id){
         var r=s.rep[id];
+        var rp = pOf(+id);
         return '<div class="act" onclick="SW.get(\'scouting\').ui.read(' + id + ')">' +
-          '<div class="ic" style="background:' + (r.gem?'var(--accw)':'#0E2340') + ';color:' + (r.gem?'var(--acc)':'var(--trf)') + '">' +
-            (r.gem?'★':'◎') + '</div>' +
+          lockup(vH(r.scn,'scout',r.scnat||'eng',52), rp?vP(rp):null, 52) +
           '<div class="tx"><div class="a">' + esc(r.nm) + '</div>' +
           '<div class="b">' + esc(r.scn) + ' · ' + esc(r.cl) + ' · ' + agoTxt(r.w) + '</div></div>' +
           '<div class="ch">›</div></div>';
@@ -640,8 +646,9 @@ function viewScouts(){
                       : 'Idle — costing you money';
         var when = a ? (a.left<=1 ? 'Reports this week' : a.left + ' weeks out') : 'Give him a job';
         var hint = biasHint(sc);
-        return '<div class="plr" style="align-items:flex-start" onclick="SW.get(\'scouting\').ui.assign(' + sc.id + ')">' +
-          '<div class="pos" style="width:44px;color:var(--acc);border-color:var(--hair)">' + STAR[sc.q].replace(/☆/g,'') + '</div>' +
+        return '<div class="plr" style="align-items:flex-start;gap:11px" onclick="SW.get(\'scouting\').ui.assign(' + sc.id + ')">' +
+          avatar(vH(sc.name,'scout',sc.nat,52),52) +
+          '<div class="pos" style="width:38px;color:var(--acc);border-color:var(--hair)">' + STAR[sc.q].replace(/☆/g,'') + '</div>' +
           '<div class="nmw"><div class="nm2">' + esc(sc.name) + '</div>' +
           '<div class="meta"><span class="flag">' + NATIONS[sc.nat].code + '</span>' +
             '<span style="color:' + (a?'var(--t3)':'var(--inj)') + '">' + where + '</span></div>' +
@@ -721,7 +728,7 @@ SW.register({
       refreshCand();
       note('You inherited a scout',
         chief.name + ' has been here longer than you have. He is out in ' + NATIONS[chief.nat].name +
-        ' and he will file in ' + weeksFor(chief,'region') + ' weeks. Everyone else on the market is a rumour.');
+        ' and he will file in ' + weeksFor(chief,'region') + ' weeks. Everyone else on the market is a rumour.', {from:vV('staff')});
     }
   },
 
@@ -767,7 +774,7 @@ SW.register({
     if(c && s.sc.length){
       var kids = c.squad.filter(function(p){return p.youth});
       if(kids.length) note('New faces in the academy',
-        kids.length + ' of them, and nobody knows what any of them are. Put a scout on the place.');
+        kids.length + ' of them, and nobody knows what any of them are. Put a scout on the place.', {from:vV('academy')});
     }
   },
 

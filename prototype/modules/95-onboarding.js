@@ -244,7 +244,8 @@ function finish(){
   const S=st(); if(S.done)return;
   S.done=1; setPref('off',true); persist();
   try{ note('That is the game',
-    'Objective agreed, team seen, plan set, match played. Everything else is you disagreeing with your assistant.') }catch(e){}
+    'Objective agreed, team seen, plan set, match played. Everything else is you disagreeing with your assistant.',
+    {from:vV('assist')}) }catch(e){}
 }
 
 /* --- step 1: the objective ------------------------------------------- */
@@ -257,7 +258,7 @@ OB.doObjective=function(){
      <div class="dim" style="font-size:12px">What they asked for. Budget stays as it is.</div></div>
      <span class="st">Accept</span></div>
    <div class="opt" onclick="acceptObj(1)"><div><div style="font-weight:600">Talk them down</div>
-     <div class="dim" style="font-size:12px">Easier target, 30% smaller budget, and they remember</div></div></div>`);
+     <div class="dim" style="font-size:12px">Easier target, 30% smaller budget, and they remember</div></div></div>`,{from:vV('assist')});
 };
 
 /* --- step 2: your best player ---------------------------------------- */
@@ -348,7 +349,7 @@ function beat(){
     if((S.played|0)<b.at)continue;
     if(b.need&&!SW.get(b.need)){ S.tips[b.k]=1; continue }   // module absent — skip silently
     S.offer=b.k; persist();
-    try{ note(b.t,b.l) }catch(e){}
+    try{ note(b.t,b.l,{from:vV('assist')}) }catch(e){}
     return b;
   }
   return null;

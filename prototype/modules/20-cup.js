@@ -234,11 +234,11 @@ function crown(S){
   if(S.winner===G.me){
     note('YOU WON '+S.name.toUpperCase(),
       'Beat '+(runner?runner.name:'them')+' in the final. A cup in the cabinet and '+money(WINPOT)+
-      ' in the bank. Nobody remembers fifth — they remember this.');
+      ' in the bank. Nobody remembers fifth — they remember this.',{from:vV('league'),about:vC(me()),rel:'crown'});
     try{chron('YOU won '+S.name)}catch(e){}
   } else if(runner&&runner.id===G.me){
     note('Beaten in the '+S.name+' final','Ninety minutes from it and you came second. '+
-      money(PRIZE[5])+' and a medal nobody wants.');
+      money(PRIZE[5])+' and a medal nobody wants.',{from:vV('league')});
   }
 }
 
@@ -265,14 +265,14 @@ function tellDraw(S,idx){
   if(!t){
     note('Exempt until the '+RNAME[Math.min(5,idx+1)],
       S.name+'. Too big to be dragged round the country in the '+RNAME[idx].toLowerCase()+
-      '. '+money(fee)+' for turning up to the draw.');
+      '. '+money(fee)+' for turning up to the draw.',{from:vV('league')});
     return;
   }
   const home=t.h===G.me,opp=C(home?t.a:t.h);
   const where=t.neutral?'On neutral ground.':(home?'At home.':'Away.');
   note('The draw: '+opp.name+(t.neutral?'':(home?' at home':' away')),
     S.name+' · '+RNAME[idx]+' · '+weekDate(rd.week)+'. '+where+' '+drawLine(me(),opp,home)+
-    ' '+money(fee)+' banked for getting this far.');
+    ' '+money(fee)+' banked for getting this far.',{from:vV('league'),about:vC(opp),rel:'drawn'});
 }
 function tellResult(S,rd,tie){
   if(rd.i===5)return;                        // the final gets its own moment in crown()
@@ -288,12 +288,12 @@ function tellResult(S,rd,tie){
     let body=sc+' against '+opp.name+'. ';
     if(tie.up)body+='A '+tierL(opp)+' side, out. They will be asked about that all week. ';
     body+=nxt?('Into the '+nxt+'. Wait for the draw.'):'';
-    note(rd.i===5?'CUP WINNERS':'Through — '+(nxt||'the final'),body);
+    note(rd.i===5?'CUP WINNERS':'Through — '+(nxt||'the final'),body,{from:vV('league')});
   } else {
     let body=sc+' against '+opp.name+'. ';
     if(opp.tier>me().tier)body+='A '+tierL(opp)+' side knocked you out. That one follows you around.';
     else body+='Out. Nothing to say that a win next week would not fix.';
-    note('Out of '+S.name,body);
+    note('Out of '+S.name,body,{from:vV('league')});
     S.outWeek=G.week;
   }
 }

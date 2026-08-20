@@ -178,7 +178,7 @@ function finish(c,p){
     const before=c.capacity; applyCap(c,s);
     note('The new stand is open',
       c.stadium+' holds '+c.capacity.toLocaleString()+' now, '+(c.capacity-before).toLocaleString()+
-      ' more than it did. It was full on Saturday.');
+      ' more than it did. It was full on Saturday.',{from:vV('board'),about:vC(me()),rel:'built'});
     chron('Expanded '+c.stadium+' to '+c.capacity.toLocaleString());
     if(h&&h.record) try{ h.record('milestone', c.stadium+' expanded to '+c.capacity.toLocaleString()) }catch(e){}
     return;
@@ -189,7 +189,7 @@ function finish(c,p){
                   DESC.academy[p.to]+' Ask again in five years whether it was worth it.'],
                 medical:['The medical department is finished',
                   DESC.medical[p.to]+' Your physio has stopped apologising.']}[p.k];
-  note(line[0], line[1]);
+  note(line[0], line[1],{from:vV('board')});
   chron(NAME[p.k]+' upgraded to level '+p.to);
   if(h&&h.record) try{ h.record('milestone', NAME[p.k]+' rebuilt — level '+p.to) }catch(e){}
 }
@@ -375,7 +375,7 @@ SW.register({
       const p=projOn(kind);
       note('Work starts on the '+NAME[kind].toLowerCase(),
         money(p.cost)+' gone out of the budget. '+p.tot+' season'+(p.tot>1?'s':'')+
-        ' of mess before anybody sees a thing.');
+        ' of mess before anybody sees a thing.',{from:vV('board')});
     }
     closeSheet(); save(); render();
   }

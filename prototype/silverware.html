@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0A0C0F">
 <title>SILVERWARE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,24 +19,152 @@
      rectangle that fights every number on screen. The white lines do the work. */
   --turf-1:#12241B;--turf-2:#15291E;--turf-line:#7E9C8C;--turf-edge:#0D1B14;--turf-goal:#E8EDF0;
   --disp:'Archivo',system-ui,sans-serif;--ui:'Inter',system-ui,sans-serif;
+  /* 3-5% noise is the difference between a digital gradient and a printed object */
+  --noise:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.45'/%3E%3C/svg%3E");
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
 body{background:var(--bg);color:var(--t1);font-family:var(--ui);font-size:15px;line-height:20px;
-  font-feature-settings:"tnum" 1,"zero" 1;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
-#app{max-width:480px;margin:0 auto;min-height:100%;position:relative;padding-bottom:env(safe-area-inset-bottom)}
+  font-feature-settings:"tnum" 1,"zero" 1;overscroll-behavior:none;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+/* Body scroll lock while a bottom sheet is open. iOS ignores overflow:hidden on the document
+   often enough that the position:fixed + saved-offset dance is the only reliable version. */
+body.locked{position:fixed;left:0;right:0;width:100%;overflow:hidden}
+/* Every interactive surface: kill the double-tap-to-zoom gesture (and the tap delay it implies)
+   without killing panning. iOS ignores maximum-scale, so this is the only thing that works. */
+button,.opt,.plr,.act,.tok,[onclick]{touch-action:manipulation}
+#app{max-width:480px;margin:0 auto;min-height:100%;position:relative;
+  padding-bottom:env(safe-area-inset-bottom);
+  padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
 h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
 .face{display:block;border-radius:50%;flex:0 0 auto;background:var(--s2)}
 .crest{flex:0 0 auto;display:block}
 
-.topbar{display:flex;align-items:center;gap:10px;padding:13px 16px 9px;position:sticky;top:0;background:var(--bg);z-index:20}
+/* ---- VOICES: who is speaking, who it is about -------------------------
+   The frame is a real 2px padded layer, not an inset shadow: an inset frame
+   gets clipped at the chamfer and leaves the diagonal edge unframed. The cast
+   shadow is a filter, not a box-shadow, because clip-path eats box-shadows. */
+.vx{--vz:56px;--vch:10px;position:relative;flex:0 0 auto;display:inline-block;
+  width:var(--vz);height:var(--vz);padding:var(--vfp,2px);background:var(--vfc,var(--strong));
+  clip-path:polygon(0 0,100% 0,100% 100%,var(--vch) 100%,0 calc(100% - var(--vch)));
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.6)) drop-shadow(0 7px 15px rgba(0,0,0,.55))}
+.vx-in{position:relative;display:flex;align-items:center;justify-content:center;
+  width:100%;height:100%;overflow:hidden;
+  background:linear-gradient(158deg,#1A1F26,#0D1116);
+  clip-path:polygon(0 0,100% 0,100% 100%,calc(var(--vch) - 2px) 100%,0 calc(100% - var(--vch) + 2px))}
+.vx-in>svg.face,.vx-in>svg.vmk{width:100%;height:100%;display:block;border-radius:0;
+  box-shadow:none;background:none}
+.vx-in>.crest{filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}
+/* rim light — the one everybody skips, and the one that does the work */
+.vx::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;z-index:3;
+  background:rgba(255,255,255,.17);pointer-events:none}
+/* the board writes on club letterhead: two rules at the top, a wax seal below */
+.vx-letter{background:linear-gradient(158deg,#221E15,#0E0C08)}
+.vx-letter::before{content:"";position:absolute;left:11%;right:11%;top:13%;height:5px;
+  border-top:1.5px solid rgba(244,246,248,.5);border-bottom:1.5px solid rgba(244,246,248,.24)}
+.vx-letter::after{content:"";position:absolute;right:7%;bottom:7%;width:27%;height:27%;
+  border-radius:50%;background:var(--acc);
+  box-shadow:inset 0 -2px 3px rgba(0,0,0,.35),inset 0 2px 2px rgba(255,255,255,.35)}
+
+/* the subject is a circle. Silhouette, not colour, says which role it is. */
+.vsub{position:relative;z-index:2;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  border-radius:50%;overflow:hidden;background:#141920;
+  box-shadow:0 0 0 3px var(--bg),0 0 0 4.5px var(--strong),0 3px 9px rgba(0,0,0,.55)}
+.vsub>svg{width:100%;height:100%;display:block;border-radius:50%;box-shadow:none}
+.vsub-c{display:flex;align-items:center;justify-content:center;width:100%;height:100%;
+  background:radial-gradient(110% 100% at 50% 6%,#232A33,#0B0E12 78%)}
+.vsub-c>svg{width:58%;height:auto}
+.lock{display:inline-flex;align-items:flex-end;flex:0 0 auto}
+.lock>.vsub{margin-left:calc(var(--lz,56px) * -0.30);margin-bottom:calc(var(--lz,56px) * -0.06)}
+
+/* the attribution plate at the top of a message sheet */
+.vbar{display:flex;align-items:center;gap:12px;padding:12px 13px;margin-bottom:14px;
+  border:1px solid var(--hair);border-radius:16px;
+  background:linear-gradient(155deg,var(--s2) 0%,var(--s1) 72%)}
+.vbar-t{min-width:0;flex:1}
+.vbar-k{font-family:var(--disp);font-size:9.5px;font-weight:800;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--acc)}
+.vbar-n{font-size:15px;font-weight:700;line-height:19px;margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vbar-s{font-size:12px;color:var(--t3);line-height:16px;margin-top:1px}
+.vbar-r{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding-left:11px;border-left:1px solid var(--hair);margin-left:2px}
+.vbar-rel{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--t3);font-family:var(--disp)}
+.vbar-rel::after{content:" \25B8";color:var(--acc)}
+.vbar-sn{font-size:10.5px;font-weight:700;color:var(--t2);max-width:64px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+
+/* speech: a question asked out loud, and the assistant's word in your ear */
+.qcard{position:relative;padding:15px 16px 16px 36px;margin-bottom:12px;border-radius:16px;
+  border:1px solid var(--hair);border-left:3px solid var(--acc);
+  background:linear-gradient(155deg,var(--s2) 0%,#0D1116 76%)}
+.qmark{position:absolute;left:12px;top:7px;font-family:var(--disp);font-weight:800;font-size:34px;
+  line-height:34px;color:var(--acc);opacity:.55}
+.asrow{display:flex;align-items:center;gap:11px;padding:10px 12px;margin:0 0 12px;
+  border:1px solid var(--hair);border-radius:14px;
+  background:linear-gradient(155deg,#1C1710 0%,#0C0A07 76%)}
+
+/* the subject band: the man the message is about, at a size you can read */
+.sub-card{display:flex;align-items:center;gap:14px;margin-top:12px;padding:13px 14px;
+  border:1px solid var(--hair);border-radius:16px;position:relative;overflow:hidden;
+  background:linear-gradient(155deg,var(--s2) 0%,#0D1116 76%)}
+.sub-card::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:var(--noise);opacity:.045;mix-blend-mode:overlay}
+.sub-card>.face,.sub-card>.vsub{flex:0 0 auto;position:relative;z-index:1}
+.sub-t{min-width:0;flex:1;position:relative;z-index:1}
+.sub-k{font-family:var(--disp);font-size:9.5px;font-weight:800;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--acc)}
+.sub-n{font-family:var(--disp);font-size:21px;font-weight:800;line-height:24px;letter-spacing:-.01em;
+  margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sub-m{display:flex;align-items:center;gap:8px;margin-top:7px;font-size:12px;color:var(--t2)}
+.sub-m .pos{font-size:11px}
+
+/* the inbox: a message list, not a log. Every item is a speaker on a plate. */
+.msg{display:flex;align-items:stretch;margin-bottom:10px;overflow:hidden;
+  border:1px solid var(--hair);border-radius:16px;background:var(--s1);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 1px 2px rgba(0,0,0,.5),0 10px 22px -12px rgba(0,0,0,.8)}
+.msg-rail{position:relative;flex:0 0 auto;width:88px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(155deg,var(--p1,#1A1F26),var(--p2,#0B0E12));
+  border-right:1px solid var(--hair)}
+.msg-rail::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:var(--noise);opacity:.05;mix-blend-mode:overlay}
+.msg-rail::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--edge,var(--strong))}
+.msg-rail>.lock{transform:translateX(6px)}
+.msg-t{min-width:0;flex:1;padding:12px 13px 13px}
+.msg-k{font-family:var(--disp);font-size:9.5px;font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--t3);display:flex;gap:6px;align-items:baseline;
+  flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
+.msg-k b{color:var(--acc);font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto}
+.msg-k span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto}
+.msg-k .w{margin-left:auto;flex:0 0 auto;color:var(--t3);letter-spacing:.06em}
+.msg-a{font-size:14.5px;font-weight:700;line-height:19px;margin-top:4px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.msg-b{font-size:12.5px;color:var(--t2);line-height:17px;margin-top:4px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* the newest message is the hero: twice the plate, twice the face */
+.msg-hero .msg-rail{width:124px}
+.msg-hero .msg-a{font-family:var(--disp);font-size:19px;line-height:22px;letter-spacing:-.01em;-webkit-line-clamp:3}
+.msg-hero .msg-b{-webkit-line-clamp:3}
+.msg-hero .msg-t{padding:14px 14px 15px}
+/* the hero is always the newest item — the date is redundant and it was
+   squeezing the attribution line into ellipses */
+.msg-hero .msg-k .w{display:none}
+
+/* viewport-fit=cover means the document starts at y=0 — under the notch when the game is
+   installed to the home screen. In plain Safari the inset is 0, so this costs nothing there. */
+.topbar{display:flex;align-items:center;gap:10px;padding:calc(13px + env(safe-area-inset-top)) 16px 9px;
+  position:sticky;top:0;background:var(--bg);z-index:20}
 .topbar .nm{font-family:var(--disp);font-weight:800;font-size:16px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .topbar .sub{font-size:10px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;font-weight:700}
-.iconbtn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--s1);
+.iconbtn{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--s1);
   border:1px solid var(--hair);color:var(--t2);font-size:15px;position:relative;cursor:pointer;flex:0 0 auto}
 .badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;background:var(--acc);
   color:var(--tinv);font-size:10px;font-weight:700;display:grid;place-items:center;padding:0 5px}
-.scroll{padding:0 16px 132px}
+/* 148px, not 132px: the CTA dock's top edge sits 142px above the viewport bottom
+   (64px offset + 78px of dock), so 132px let the last card slide under it. The notch is
+   handled by #app's matching bottom inset, which scales with the dock's own inset offset. */
+.scroll{padding:0 16px 148px}
 .tabbar{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);
   background:var(--s1);border-top:1px solid var(--hair);padding-bottom:env(safe-area-inset-bottom);z-index:30}
 .tabbar button{background:none;border:0;color:var(--t3);padding:9px 0 11px;font-family:var(--ui);font-size:10px;
@@ -57,7 +185,7 @@ h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
 .btn:disabled{background:var(--s2);color:var(--tdis)}
 .btn.ghost{background:var(--s2);color:var(--t1);border:1px solid var(--strong)}
 .btn.sm{min-height:44px;font-size:13px;border-radius:12px}
-.btn.xs{min-height:38px;font-size:11px;border-radius:10px;width:auto;padding:0 14px}
+.btn.xs{min-height:44px;font-size:11px;border-radius:10px;width:auto;padding:0 14px}
 .cta-dock{position:fixed;bottom:calc(64px + env(safe-area-inset-bottom));left:0;right:0;max-width:480px;margin:0 auto;
   padding:10px 16px 12px;background:linear-gradient(to top,var(--bg) 62%,transparent);z-index:25}
 .pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:7px;background:var(--s2);
@@ -69,8 +197,12 @@ h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
 .hide{display:none!important}
 
 /* ---------- pitch and kits ---------- */
+/* touch-action was `none` here for a drag-to-swap interaction we never shipped — the pitch is
+   tap-to-swap (pitchTap). `none` handed every gesture to the page, so a thumb anywhere on the
+   pitch — 52% of the Squad screen — could not scroll. `manipulation` keeps the scroll and
+   still kills double-tap zoom, which matters when tokens are tapped in quick succession. */
 .pitchwrap{position:relative;width:100%;aspect-ratio:740/910;border-radius:16px;
-  overflow:hidden;background:var(--turf-edge);touch-action:none;
+  overflow:hidden;background:var(--turf-edge);touch-action:manipulation;
   box-shadow:var(--sh-3),inset 0 0 0 1px rgba(255,255,255,.06)}
 .pitchwrap svg.pitch{position:absolute;inset:0;width:100%;height:100%;display:block}
 .tok{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border:0;padding:0;
@@ -167,6 +299,9 @@ table{width:100%;border-collapse:collapse}
 th{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);text-align:right;padding:0 0 8px}
 th:nth-child(2){text-align:left}
 td{padding:7px 0;border-top:1px solid var(--hair);font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+/* Clickable league rows get a real 44px target. A 32px row meant mis-taps opened
+   the wrong club; the table scrolling is the cheaper price to pay. */
+tr[onclick] td{padding:13px 0}
 td:nth-child(2){text-align:left}
 tr.me td{background:var(--accw)}
 tr.me td:nth-child(2){font-weight:700}
@@ -190,7 +325,7 @@ tr.me td:nth-child(2){font-weight:700}
 .form i{width:6px;height:6px;border-radius:2px;display:block;font-style:normal}
 .segmented{display:flex;background:var(--s2);border-radius:12px;padding:3px;gap:3px;margin:2px 0 14px}
 .segmented button{flex:1;border:0;background:none;color:var(--t2);font-family:var(--ui);font-size:12px;font-weight:700;
-  padding:9px 3px;border-radius:9px;cursor:pointer;min-height:40px;white-space:nowrap}
+  padding:9px 3px;border-radius:9px;cursor:pointer;min-height:44px;white-space:nowrap}
 /* With six modules contributing sub-views the control must scroll, not squeeze:
    equal-width tabs turn "Dressing room" into two cramped lines. */
 .segmented.many{overflow-x:auto;scrollbar-width:none;justify-content:flex-start}
@@ -200,11 +335,12 @@ tr.me td:nth-child(2){font-weight:700}
 .chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chips button{flex:0 0 auto;border:1px solid var(--hair);background:var(--s1);color:var(--t2);border-radius:10px;
-  padding:9px 13px;font-size:12px;font-weight:600;cursor:pointer;min-height:40px;white-space:nowrap;font-family:var(--ui)}
+  padding:9px 13px;font-size:12px;font-weight:600;cursor:pointer;min-height:44px;white-space:nowrap;font-family:var(--ui)}
 .chips button[aria-selected=true]{background:var(--acc);color:var(--tinv);border-color:var(--acc)}
 
 .take{position:fixed;inset:0;background:var(--bg);z-index:60;display:flex;flex-direction:column;max-width:480px;margin:0 auto}
-.mhead{padding:13px 16px 11px;border-bottom:1px solid var(--hair);background:var(--s1)}
+/* .take is fixed inset:0, so its header starts under the notch when installed — same fix as .topbar. */
+.mhead{padding:calc(13px + env(safe-area-inset-top)) 16px 11px;border-bottom:1px solid var(--hair);background:var(--s1)}
 .mcomp{text-align:center;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:7px}
 .mscore{display:flex;align-items:center;gap:9px}
 .mscore .sd{flex:1;display:flex;align-items:center;gap:7px;min-width:0}
@@ -216,7 +352,7 @@ tr.me td:nth-child(2){font-weight:700}
 .mom i{display:block;background:var(--acc);transition:width .5s cubic-bezier(.2,.7,.3,1)}
 .momlbl{display:flex;justify-content:space-between;padding:5px 16px 0;font-size:10px;letter-spacing:.05em;
   text-transform:uppercase;color:var(--t3);font-weight:700}
-.feed{flex:1;overflow-y:auto;padding:8px 16px 16px;-webkit-overflow-scrolling:touch}
+.feed{flex:1;overflow-y:auto;padding:8px 16px 16px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .ev{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--hair);animation:evin .28s cubic-bezier(.2,.7,.3,1)}
 @keyframes evin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 .ev .m{font-family:var(--disp);font-weight:700;font-size:12px;color:var(--t3);width:28px;flex:0 0 auto;padding-top:2px}
@@ -227,15 +363,19 @@ tr.me td:nth-child(2){font-weight:700}
 .mctl{border-top:1px solid var(--hair);background:var(--s1);padding:10px 16px calc(12px + env(safe-area-inset-bottom))}
 .speed{display:flex;background:var(--s2);border-radius:12px;padding:3px;gap:3px;margin-bottom:9px}
 .speed button{flex:1;border:0;background:none;color:var(--t2);font-family:var(--ui);font-size:11px;font-weight:700;
-  padding:10px 2px;border-radius:9px;text-transform:uppercase;cursor:pointer;min-height:42px}
+  padding:10px 2px;border-radius:9px;text-transform:uppercase;cursor:pointer;min-height:44px}
 .speed button[aria-selected=true]{background:var(--acc);color:var(--tinv)}
 
 .sheetwrap{position:fixed;inset:0;background:rgba(4,6,9,.74);z-index:70;display:flex;align-items:flex-end;
   justify-content:center;animation:fade .2s}
 @keyframes fade{from{opacity:0}to{opacity:1}}
+/* 90vh resolves against iOS's LARGE viewport (toolbars retracted) while the fixed .sheetwrap
+   is sized to the small one, so with the toolbar showing a tall sheet overflowed its own
+   container and pushed its heading off the top. dvh tracks the toolbar. vh stays as fallback.
+   overscroll-behavior:contain stops the page behind lurching when the sheet hits its end. */
 .sheet{width:100%;max-width:480px;background:var(--s2);border-radius:22px 22px 0 0;
   padding:8px 16px calc(18px + env(safe-area-inset-bottom));animation:up .3s cubic-bezier(.2,.7,.3,1);
-  max-height:90vh;overflow-y:auto}
+  max-height:90vh;max-height:90dvh;overflow-y:auto;overscroll-behavior:contain}
 @keyframes up{from{transform:translateY(100%)}to{transform:none}}
 .grab{width:38px;height:4px;border-radius:2px;background:var(--strong);margin:6px auto 14px}
 .sheet h3{font-size:20px;font-weight:700;margin-bottom:4px}
@@ -424,11 +564,12 @@ function faceSVG(seed,opts){
   const browY   = -mNorm*1.4;
   return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" class="face" aria-hidden="true">
    <defs>
-     <clipPath id="fc${seed}"><circle cx="50" cy="50" r="50"/></clipPath>
+     <clipPath id="fc${seed}">${opts.sq?'<rect x="-2" y="-2" width="104" height="104"/>':'<circle cx="50" cy="50" r="50"/>'}</clipPath>
      <clipPath id="lo${seed}"><rect x="20" y="60" width="60" height="30"/></clipPath>
    </defs>
    <g clip-path="url(#fc${seed})">
-    <rect width="100" height="100" fill="${bg}"/>
+    ${opts.sq?'':`<rect width="100" height="100" fill="${bg}"/>`}
+    <g transform="${opts.sq?'translate(50 55) scale(1.06) translate(-50 -55)':''}">
     <path d="M14 100 C14 86 30 80 50 80 C70 80 86 86 86 100 Z" fill="${kitA}"/>
     <path d="M44 100 L44 81 Q50 84 56 81 L56 100 Z" fill="${kitB}"/>
     <path d="M43 72 L57 72 L57 84 Q50 88 43 84 Z" fill="${shade}"/>
@@ -442,6 +583,7 @@ function faceSVG(seed,opts){
       <g transform="rotate(${-browRot} 60.5 43)">${BROW_R}</g></g>
     ${EYE}${NOSE}${MOUTH}
     ${HAIR[1]?`<path d="${HAIR[1]}" fill="${hc}"/>`:''}
+    </g>
    </g></svg>`;
 }
 
@@ -471,6 +613,7 @@ window.SW={
      dismissal, but the core must always be able to get back to a usable screen. */
   dismissOverlays(){
     document.querySelectorAll('.sheetwrap').forEach(n=>n.remove());
+    if(typeof unlockScroll==='function')unlockScroll();   // never leave the body pinned
     [...document.body.children].forEach(n=>{
       if(n.id==='app'||n.tagName!=='DIV')return;
       const st=getComputedStyle(n);
@@ -743,6 +886,7 @@ function makePlayer(pos,targetCA,natHome,forcedAge){
     trait:rnd()<0.34?pick(TRAITS):null, traitKnown:false,
     form:0,cond:ri(88,100),morale:ri(10,60),out:0,apps:0,goals:0,assists:0,ratings:[],
     wage:0,years:ri(1,4),listed:false,youth:false};
+  p._tier=0;
   p.wage=wageFor(p);
   return p;
 }
@@ -757,9 +901,19 @@ function CA(p,asPos){
 }
 const CAeff=(p,asPos)=>CA(p,asPos)*(1+0.045*p.form)
   *clamp(gauss(1,0.14-0.0009*p.cons),0.70,1.30)*(0.82+0.18*p.cond/100);
-function wageFor(p){const c=CA(p);
-  // calibrated: CA55 ~£19k/wk, CA72 ~£55k/wk, CA85 ~£120k/wk
-  return Math.max(1000,Math.round(Math.pow(c/10,4.2)*15/1000)*1000)}
+/* Wages scale with the division, because they do in football: a 70-rated player
+   in the third tier is not on Premier League money. Without this, a relegated
+   club kept top-flight wages against third-of-the-revenue and every club in the
+   lower two divisions sat permanently past the 85% cap, unable to register a
+   single signing in the season it most needed to rebuild. */
+const TIER_WAGE=[1.0,0.44,0.19];
+function wageFor(p,club){
+  const c=CA(p);
+  // calibrated: CA55 ~£19k/wk, CA72 ~£55k/wk, CA85 ~£120k/wk at top-flight rates
+  const tier=club?club.tier:(p._tier||0);
+  const base=Math.pow(c/10,4.2)*15*(TIER_WAGE[tier]||1);
+  return Math.max(1000,Math.round(base/1000)*1000);
+}
 function value(p){
   const ca=CA(p),pa=p.pa;
   /* Age curve is steep but not a cliff: an elite 33-year-old is still expensive,
@@ -797,6 +951,7 @@ function makeClub(nm,nat,tier,rep,seedBase){
   const base=52+rep*0.30;
   const need=['GK','GK','GK','CB','CB','CB','CB','FB','FB','FB','FB','DM','DM','CM','CM','CM','AM','AM','W','W','W','ST','ST','ST'];
   need.forEach(pos=>c.squad.push(makePlayer(pos,clamp(Math.round(base+gauss(0,7)),18,95),nat)));
+  c.squad.forEach(p=>{p._tier=tier;p.wage=wageFor(p,c)});
   // academy: 5 youths
   for(let i=0;i<5;i++){const p=makePlayer(pick(['CB','FB','CM','W','ST','GK']),
     clamp(Math.round(base-16+gauss(0,6)),16,70),nat,ri(16,18));p.youth=true;c.squad.push(p)}
@@ -1175,7 +1330,8 @@ function rollInjuries(c){
     const pi=0.0135*(0.55+0.009*p.inj)*(1+0.9*Math.max(0,(72-p.cond)/72))*hazard;
     if(rnd()<pi){const r2=rnd();
       p.out=Math.max(1,Math.round((r2<0.62?ri(1,2):r2<0.87?ri(2,5):r2<0.97?ri(5,12):ri(12,30))*heal));
-      if(c.id===G.me)note(p.name+' is injured','Out for around '+p.out+' match'+(p.out>1?'es':'')+'. Reshape the side.');
+      if(c.id===G.me)note(p.name+' is injured','Out for around '+p.out+' match'+(p.out>1?'es':'')+'. Reshape the side.',
+        {from:vV('medical'),about:vP(p),rel:'on'});
     }
     p.cond=Math.max(30,p.cond-ri(16,30));
   });
@@ -1190,7 +1346,8 @@ const TRAIN={
 function recover(c){
   const T=TRAIN[c.training]||TRAIN.balanced;
   c.squad.forEach(p=>{
-    if(p.out>0){p.out--;if(p.out===0&&c.id===G.me)note(p.name+' is fit again','Back in contention.')}
+    if(p.out>0){p.out--;if(p.out===0&&c.id===G.me)note(p.name+' is fit again','Back in contention.',
+      {from:vV('medical'),about:vP(p),rel:'on'})}
     // Recovery is proportional to how tired you are, so an ever-present in a busy
     // run settles around 75%, and a two-game week drags him lower. That is the congestion.
     const gap=100-p.cond;
@@ -1252,15 +1409,17 @@ function develop(c,half){
         p.fr[i]-=(p.a[i]-before);            // clamped? keep the remainder, do not lose it
       }
     }
-    p.wage=wageFor(p);
+    p.wage=wageFor(p,c);
   });
 }
-function note(t,b){
+function note(t,b,m){
+  /* m is optional: {from:<voice>, about:<voice>, rel:'wants'} — see vP/vC/vV/vH.
+     Two arguments still work; a message with no speaker falls back to the club. */
   // Curated, not accumulated: no duplicate headlines, and a hard ceiling.
   // An inbox nobody reads is worse than no inbox.
   const i=G.inbox.findIndex(m=>m.t===t);
   if(i>=0)G.inbox.splice(i,1);
-  G.inbox.unshift({t,b,w:G.week,s:G.season});
+  G.inbox.unshift({t,b,w:G.week,s:G.season,m:m||null});
   if(G.inbox.length>24)G.inbox.length=24;
 }
 function chron(t){G.chronicle.unshift({s:G.season,t});}
@@ -1313,8 +1472,8 @@ function advanceEuro(week){
       const qual=[];
       C.groups.forEach((g,i)=>{const t=euroGroupTable(C,i);qual.push(t[0].id,t[1].id)});
       drawKO(C,'qf',qual);C.stage='qf';
-      if(qual.includes(G.me))note('Through to the '+C.name+' quarter-finals','You survived the group. Eight left.');
-      else if(G.clubs[G.me].euro===E.key)note('Out of the '+C.name,'The group stage was the end of it this year.');
+      if(qual.includes(G.me))note('Through to the '+C.name+' quarter-finals','You survived the group. Eight left.',{from:vV('league')});
+      else if(G.clubs[G.me].euro===E.key)note('Out of the '+C.name,'The group stage was the end of it this year.',{from:vV('league')});
     }
     if((w[0]==='qf'||w[0]==='sf')&&w[1]===1){
       const winners=(C.ko[w[0]]||[]).map(t=>{
@@ -1322,7 +1481,7 @@ function advanceEuro(week){
         t.done=true;t.win=win;return win});
       if(w[0]==='qf'){drawKO(C,'sf',winners);C.stage='sf'}
       else{drawKO(C,'f',winners);C.stage='f';C.ko.f[0].single=true}
-      if(winners.includes(G.me))note('Into the '+C.name+' '+(w[0]==='qf'?'semi-final':'FINAL'),'One more step.');
+      if(winners.includes(G.me))note('Into the '+C.name+' '+(w[0]==='qf'?'semi-final':'FINAL'),'One more step.',{from:vV('league')});
     }
     if(w[0]==='f'){
       const t=C.ko.f[0];if(!t)return;
@@ -1330,7 +1489,7 @@ function advanceEuro(week){
       C.winner=win;t.done=true;t.win=win;
       G.clubs[win].titles++;
       chron(G.clubs[win].name+' won the '+C.name);
-      if(win===G.me)note('YOU WON THE '+C.name.toUpperCase(),'Silverware. Nobody can take it off you.');
+      if(win===G.me)note('YOU WON THE '+C.name.toUpperCase(),'Silverware. Nobody can take it off you.',{from:vV('league'),about:vC(me())});
     }
   });
 }
@@ -1347,7 +1506,7 @@ function squadOf(c){return c.squad.filter(p=>!p.youth)}
 function wageBill(c){return c.squad.reduce((s,p)=>s+p.wage,0)}
 function revenue(c){
   // matchday + broadcast + commercial, scaled off reputation and ground size
-  const tierMul=c.tier===0?1:c.tier===1?0.34:0.15;
+  const tierMul=c.tier===0?1:c.tier===1?0.42:0.26;
   return Math.round((c.rep*c.rep*22000+c.capacity*900+2e7)*tierMul)}
 function costRatio(c){return Math.min(160,Math.round(wageBill(c)*52/revenue(c)*100))}
 
@@ -1385,7 +1544,9 @@ function playerWillJoin(p,seller,buyer){
 }
 function doTransfer(p,seller,buyer,fee,wage){
   seller.squad=seller.squad.filter(x=>x.id!==p.id);
-  p.wage=wage||p.wage;p.years=ri(2,5);p.listed=false;p.morale=55;
+  p._tier=buyer.tier;
+  p.wage=wage||Math.round(wageFor(p,buyer)*1.08);
+  p.years=ri(2,5);p.listed=false;p.morale=55;
   buyer.squad.push(p);
   seller.bal+=fee;buyer.bal-=fee;
   seller._keyWk=-1;buyer._keyWk=-1;
@@ -1475,10 +1636,12 @@ function restock(c,base){
     const ready=CA(p)>=base-9;
     if(p.age>=21&&!ready){
       c.squad=c.squad.filter(x=>x.id!==p.id);
-      if(c.id===G.me)note(p.name+' has been released','He was never going to make it here. Twenty-one and out of time.');
+      if(c.id===G.me)note(p.name+' has been released','He was never going to make it here. Twenty-one and out of time.',
+        {from:vV('academy'),about:vP(p),rel:'on'});
     } else if(p.age>=20&&ready){
       p.youth=false;      // good enough — he is a senior player now
-      if(c.id===G.me)note(p.name+' has come through','He is a first-team player now, not a prospect.');
+      if(c.id===G.me)note(p.name+' has come through','He is a first-team player now, not a prospect.',
+        {from:vV('academy'),about:vP(p),rel:'on'});
     }
   });
   while(c.squad.filter(p=>p.youth).length>8){
@@ -1506,8 +1669,10 @@ function endSeasonProcess(){
     const promoted=tables[dn.id].slice(0,3).map(c=>c.id);
     up.clubs=up.clubs.filter(i=>!down.includes(i)).concat(promoted);
     dn.clubs=dn.clubs.filter(i=>!promoted.includes(i)).concat(down);
-    down.forEach(i=>{G.clubs[i].tier=t+1;if(i===G.me)note('Relegated','You go down. The board are reviewing your position.')});
-    promoted.forEach(i=>{G.clubs[i].tier=t;if(i===G.me)note('PROMOTED','You are up. A different league entirely next year.')});
+    down.forEach(i=>{G.clubs[i].tier=t+1;if(i===G.me)note('Relegated','You go down. The board are reviewing your position.',
+      {from:vV('league'),about:vC(G.clubs[i])})});
+    promoted.forEach(i=>{G.clubs[i].tier=t;if(i===G.me)note('PROMOTED','You are up. A different league entirely next year.',
+      {from:vV('league'),about:vC(G.clubs[i])})});
     if(down.includes(G.me))chron('Relegated from '+up.name);
     if(promoted.includes(G.me))chron('Promoted to '+up.name);
   }
@@ -1520,12 +1685,13 @@ function endSeasonProcess(){
     develop(c,false);
     c.squad.forEach(p=>{p.age++;p.years--;p.apps=0;p.goals=0;p.assists=0;p.ratings=[];p.form=0;p.cond=95});
     const retired=c.squad.filter(p=>p.age>=38||(p.age>=35&&rnd()<0.55));
-    retired.forEach(p=>{if(c.id===G.me)note(p.name+' has retired','He hangs them up at '+p.age+'.')});
+    retired.forEach(p=>{if(c.id===G.me)note(p.name+' has retired','He hangs them up at '+p.age+'.',{from:vP(p)})});
     c.squad=c.squad.filter(p=>!retired.includes(p));
     const gone=c.squad.filter(p=>p.years<=0&&(p.age>33||rnd()<0.28));
-    gone.forEach(p=>{if(c.id===G.me)note(p.name+' has left','His contract expired and he moved on a free.')});
+    gone.forEach(p=>{if(c.id===G.me)note(p.name+' has left','His contract expired and he moved on a free.',
+      {from:vV('staff'),about:vP(p),rel:'on'})});
     c.squad=c.squad.filter(p=>!gone.includes(p));
-    c.squad.filter(p=>p.years<=0).forEach(p=>{p.years=ri(2,4);p.wage=Math.round(wageFor(p)*1.08)});
+    c.squad.filter(p=>p.years<=0).forEach(p=>{p.years=ri(2,4);p.wage=Math.round(wageFor(p,c)*1.08)});
     const base=52+c.rep*0.30;
     const acad=facLevel(c,'academy',2);
     const intake=ri(2,4)+(acad>=4?1:0);
@@ -1537,8 +1703,10 @@ function endSeasonProcess(){
       if(lucky)p.pa=clamp(Math.round(88+gauss(3,4)),86,99);
       p.youth=true;c.squad.push(p);
       if(lucky&&c.id===G.me)note('The academy think they have found one',
-        p.name+', '+p.pos+', '+p.age+'. "Best I have seen here." Ceiling unknown — he could still stall.');
-      if(c.id===G.me&&p.pa>=base+9)note('Academy: '+p.name,'The staff think this one has a real chance. '+p.pos+', age '+p.age+'.');
+        p.name+', '+p.pos+', '+p.age+'. "Best I have seen here." Ceiling unknown — he could still stall.',
+        {from:vV('academy'),about:vP(p),rel:'on'});
+      if(c.id===G.me&&p.pa>=base+9)note('Academy: '+p.name,'The staff think this one has a real chance. '+p.pos+', age '+p.age+'.',
+        {from:vV('academy'),about:vP(p),rel:'on'});
     }
     restock(c,base);
     c.P=c.W=c.D=c.L=c.GF=c.GA=0;c.form=[];c.euro=null;c.euroP=c.euroPts=c.euroGF=c.euroGA=0;
@@ -1568,7 +1736,7 @@ function newGame(clubId){
   G.objective=objectiveFor(me());G.objective.accepted=false;
   G.mod={};
   SW.fire('init');
-  note('Welcome to '+me().name,'The board expect: '+G.objective.text+'. Nobody remembers fifth.');
+  note('Welcome to '+me().name,'The board expect: '+G.objective.text+'. Nobody remembers fifth.',{from:vV('board')});
   save();
 }
 const KEY='silverware.save.v3';
@@ -1583,7 +1751,7 @@ function packPlayer(p){
     p.trait||0,p.traitKnown?1:0,
     +(p.form||0).toFixed(2),Math.round(p.cond),Math.round(p.morale),p.out,
     p.apps,p.goals,p.assists,p.wage,p.years,p.listed?1:0,p.youth?1:0,
-    p.height||180,p.weight||75,p.foot||'R'];
+    p.height||180,p.weight||75,p.foot||'R',p._tier||0];
 }
 function unpackPlayer(v){
   return {id:v[0],name:v[1],nat:v[2],pos:v[3],age:v[4],
@@ -1593,7 +1761,7 @@ function unpackPlayer(v){
     form:v[20],cond:v[21],morale:v[22],out:v[23],
     apps:v[24],goals:v[25],assists:v[26],wage:v[27],years:v[28],
     listed:!!v[29],youth:!!v[30],
-    height:v[31]||180,weight:v[32]||75,foot:v[33]||'R',ratings:[]};
+    height:v[31]||180,weight:v[32]||75,foot:v[33]||'R',_tier:v[34]||0,ratings:[]};
 }
 function save(){try{
   localStorage.setItem(KEY,JSON.stringify({
@@ -1693,6 +1861,264 @@ function pface(p,size,opts){
     kitA:c?c.primary:'#2A3038',kitB:c?c.secondary:'#1A1F26',
     bg:opts.bg||'#1A1F26'});
 }
+
+/* ============================================================
+   VOICES — who is talking, and who it is about
+   Every line of speech in this game named people the player could not see.
+   A descriptor is a small plain object that survives a save, a transfer and
+   a retirement; avatar() turns it back into a portrait, a crest or an
+   institutional mark. Speakers are chamfered squares. Subjects are circles.
+   That silhouette difference is the channel — never colour alone.
+   ============================================================ */
+function vseed(s){let h=2166136261>>>0;s=String(s||'');
+  for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}return h>>>3}
+
+function vP(p){                                   /* a player */
+  if(!p)return null;
+  const c=G.clubs.find(cl=>cl.squad&&cl.squad.some(x=>x.id===p.id));
+  return {k:'p',id:p.id,n:p.name,nat:p.nat,age:p.age,r:p.pos,
+    mo:(p.morale===undefined?0:p.morale),
+    a:c?c.primary:'#2A3038',b:c?c.secondary:'#1A1F26'};
+}
+function vC(c){ return c?{k:'c',id:c.id,n:c.name,ab:c.abbr}:null }   /* a club */
+/* an institutional voice: press, board, assistant, medical, league, staff, academy */
+function vV(kind){ const d={k:'v',v:kind}; if(kind==='board'||kind==='fans')d.cid=G.me; return d }
+/* a named human who is not a player: agent, pundit, scout, chairman */
+function vH(name,role,nat,age){
+  return {k:'h',n:name||'—',r:role||'staff',nat:nat||'eng',age:age||46};
+}
+
+const VOICE={
+  press:  {t:'The press',   p:['#171C24','#0B0E13']},
+  board:  {t:'The board',   p:['#201C14','#0F0D09']},
+  assist: {t:'Assistant',   p:['#241C0C','#100D06']},
+  medical:{t:'Medical',     p:['#271810','#120B07']},
+  league: {t:'The league',  p:['#181D25','#0B0E12']},
+  academy:{t:'The academy', p:['#131F19','#08100C']},
+  fans:   {t:'The support',  p:['#1B1520','#0A070D']},
+  staff:  {t:'The staff',   p:['#171B21','#0C0F13']}
+};
+const ROLEKIT={ agent:['#232A33','#4C5563'], pundit:['#2A3038','#6E7885'],
+  scout:['#1E2A24','#3F5147'], chairman:['#1A1F26','#3A424E'], staff:['#232A33','#3A424E'] };
+const ROLETAG={ agent:'Agent', pundit:'Pundit', scout:'Scout', chairman:'Chairman', staff:'Staff' };
+
+/* ---- institutional marks. Each is real geometry, drawn at plate scale, so a
+   voice with no face still reads as something deliberate rather than a hole. */
+let VXN=0;
+function vMarkSVG(kind,cid){
+  const A='#FFC53D', S='#C6CEDA', D='#8A94A3', id='vx'+(VXN++);
+  let body='';
+  if(kind==='press'){
+    const mic=(x,y,rot,s,flag)=>`<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})">
+      <rect x="-9" y="-30" width="18" height="34" rx="9" fill="${S}"/>
+      <path d="M-7.5 -24 h15 M-7.5 -17 h15 M-7.5 -10 h15" stroke="${D}" stroke-width="1.7"/>
+      <path d="M-14 -7 a14 14 0 0 0 28 0" fill="none" stroke="${D}" stroke-width="3.4"/>
+      <rect x="-2" y="5" width="4" height="10" fill="${D}"/>
+      ${flag?`<rect x="-13" y="13" width="26" height="19" rx="3" fill="${A}"/>
+        <path d="M-7 20 h14 M-7 25.5 h9" stroke="#0A0C0F" stroke-width="2.6" stroke-linecap="round"/>`:''}
+    </g>`;
+    body=`<rect width="100" height="100" fill="url(#${id}d)"/>
+      ${mic(19,66,-24,.68,0)}${mic(81,66,24,.68,0)}${mic(50,55,0,.95,1)}`;
+    return `<svg viewBox="0 0 100 100" class="vmk" aria-hidden="true"><defs>
+      <pattern id="${id}d" width="8" height="8" patternUnits="userSpaceOnUse">
+        <circle cx="2" cy="2" r="1.5" fill="#FFFFFF" opacity=".085"/>
+        <circle cx="6" cy="6" r="1.5" fill="#FFFFFF" opacity=".085"/></pattern>
+      </defs>${body}</svg>`;
+  }
+  if(kind==='assist'){
+    const dot=(x,y)=>`<circle cx="${x}" cy="${y}" r="3.1" fill="${A}"/>`;
+    body=`<rect x="21" y="17" width="58" height="72" rx="7" fill="#1A1F26" stroke="${D}" stroke-width="3"/>
+      <rect x="38" y="10" width="24" height="13" rx="5" fill="${D}"/>
+      <rect x="28" y="28" width="44" height="54" rx="3" fill="none" stroke="#3A424E" stroke-width="2"/>
+      <path d="M28 55 h44" stroke="#3A424E" stroke-width="2"/>
+      <circle cx="50" cy="55" r="7" fill="none" stroke="#3A424E" stroke-width="2"/>
+      ${dot(34,74)}${dot(46,76)}${dot(58,74)}${dot(66,70)}
+      ${dot(34,46)}${dot(46,42)}${dot(58,46)}${dot(66,52)}`;
+  }
+  else if(kind==='medical'){
+    body=`<circle cx="50" cy="50" r="36" fill="#1B1210" stroke="#3A2018" stroke-width="3"/>
+      <rect x="42" y="24" width="16" height="52" rx="5" fill="#FF7043"/>
+      <rect x="24" y="42" width="52" height="16" rx="5" fill="#FF7043"/>`;
+  }
+  else if(kind==='academy'){
+    body=`<path d="M50 14 L82 30 V56 C82 76 68 86 50 92 C32 86 18 76 18 56 V30 Z"
+        fill="#16241D" stroke="#3F5147" stroke-width="3"/>
+      <path d="M50 72 V46" stroke="${A}" stroke-width="4" stroke-linecap="round"/>
+      <path d="M50 50 C40 50 34 44 34 34 C46 34 50 41 50 50 Z" fill="${A}"/>
+      <path d="M50 56 C60 56 68 50 68 40 C55 40 50 47 50 56 Z" fill="#A9D94B"/>
+      <path d="M36 76 h28" stroke="#3F5147" stroke-width="4" stroke-linecap="round"/>`;
+  }
+  else if(kind==='fans'){
+    /* a scarf held up over the head. Club colours carry the identity, but the
+       white outline carries the silhouette — a navy scarf on a dark plate is
+       otherwise a hole, which is exactly the failure this whole system fixes. */
+    const c=G.clubs[cid!==undefined?cid:G.me];
+    const P=c?c.primary:'#4C5563', X=c?c.secondary:'#C6CEDA';
+    const band='M9 25 Q50 59 91 25 L91 49 Q50 83 9 49 Z';
+    body=`<g>
+      <g stroke="#F4F6F8" stroke-width="2.6" stroke-linejoin="round">
+        <rect x="1" y="18" width="10" height="30" rx="2" fill="${X}"/>
+        <rect x="89" y="18" width="10" height="30" rx="2" fill="${X}"/></g>
+      <path d="${band}" fill="${P}"/>
+      <path d="M9 33 Q50 67 91 33 L91 41 Q50 75 9 41 Z" fill="${X}"/>
+      <path d="${band}" fill="none" stroke="#F4F6F8" stroke-width="3" stroke-linejoin="round"/>
+    </g>`;
+  }
+  else if(kind==='staff'){
+    /* somebody at the club left you a note. Not letterhead, not newsprint. */
+    body=`<g>
+      <g transform="rotate(-5 50 54)">
+        <rect x="21" y="22" width="58" height="66" rx="4" fill="#E8E2D4"/>
+        <rect x="21" y="22" width="58" height="66" rx="4" fill="none" stroke="#9AA4B2" stroke-width="1.5"/>
+        <rect x="30" y="38" width="40" height="5" rx="2.5" fill="#3A424E"/>
+        <rect x="30" y="51" width="40" height="3.4" rx="1.7" fill="#8A94A3"/>
+        <rect x="30" y="61" width="40" height="3.4" rx="1.7" fill="#8A94A3"/>
+        <rect x="30" y="71" width="25" height="3.4" rx="1.7" fill="#8A94A3"/>
+      </g>
+      <circle cx="49" cy="21" r="8" fill="#FFC53D"/>
+      <circle cx="49" cy="21" r="2.8" fill="#0A0C0F"/>
+    </g>`;
+  }
+  else { /* league — the trophy. It is what the game is named after. */
+    body=`<path d="M30 22 h40 v20 a20 20 0 0 1 -40 0 Z" fill="${S}"/>
+      <path d="M30 27 h-9 a11 11 0 0 0 11 15" fill="none" stroke="${D}" stroke-width="4.5"/>
+      <path d="M70 27 h9 a11 11 0 0 1 -11 15" fill="none" stroke="${D}" stroke-width="4.5"/>
+      <path d="M30 22 h40 v6 h-40 Z" fill="${A}"/>
+      <rect x="45" y="60" width="10" height="10" fill="${D}"/>
+      <rect x="34" y="70" width="32" height="7" rx="2" fill="${S}"/>
+      <rect x="28" y="77" width="44" height="9" rx="3" fill="${A}"/>`;
+  }
+  return `<svg viewBox="0 0 100 100" class="vmk" aria-hidden="true">${body}</svg>`;
+}
+
+/* ---- the speaker: a chamfered, framed, plated square ---- */
+function avatar(d,size){
+  size=size||56;
+  if(!d)d={k:'v',v:'staff'};
+  const st=`--vz:${size}px;--vch:${Math.max(7,Math.round(size*0.18))}px`;
+  const wrap=(cls,inner,plate)=>`<span class="vx" style="${st}"><span class="vx-in ${cls||''}"${
+    plate?` style="background:${plate}"`:''}>${inner}</span></span>`;
+  if(d.k==='p'||d.k==='h'){
+    const kit=d.k==='p'?[d.a,d.b]:(ROLEKIT[d.r]||ROLEKIT.staff);
+    const f=faceSVG(d.k==='p'?d.id*13+7:vseed(d.n+'|'+d.r),
+      {size,nat:d.nat,age:d.age,sq:1,morale:d.k==='p'?d.mo:null,
+       kitA:kit[0],kitB:kit[1]});
+    return wrap('vx-face',f,'linear-gradient(158deg,#232A33,#0F1318)');
+  }
+  if(d.k==='c'){
+    const c=G.clubs[d.id];
+    if(!c)return wrap('',vMarkSVG('league'),'linear-gradient(158deg,#181D25,#0B0E12)');
+    return wrap('vx-club',crestSVG(c,Math.round(size*0.70)),
+      `radial-gradient(120% 105% at 50% 4%, color-mix(in srgb, ${c.primary} 34%, #10141A), #0A0D11 76%)`);
+  }
+  if(d.v==='board'){
+    const c=G.clubs[d.cid!==undefined?d.cid:G.me];
+    return wrap('vx-letter',c?crestSVG(c,Math.round(size*0.56)):vMarkSVG('league'));
+  }
+  const V=VOICE[d.v]||VOICE.staff;
+  return wrap('',vMarkSVG(d.v,d.cid),`linear-gradient(158deg,${V.p[0]},${V.p[1]})`);
+}
+
+/* ---- the subject: a circle, ringed against the ground. Different silhouette,
+   so "who is talking" and "who it is about" never need reading to tell apart. */
+function subAvatar(d,size){
+  size=size||44;
+  if(!d)return '';
+  let inner;
+  if(d.k==='p'||d.k==='h'){
+    const kit=d.k==='p'?[d.a,d.b]:(ROLEKIT[d.r]||ROLEKIT.staff);
+    inner=faceSVG(d.k==='p'?d.id*13+7:vseed(d.n+'|'+d.r),
+      {size,nat:d.nat,age:d.age,morale:d.k==='p'?d.mo:null,kitA:kit[0],kitB:kit[1],bg:'#141920'});
+  }else if(d.k==='c'){
+    const c=G.clubs[d.id];
+    inner=`<span class="vsub-c">${c?crestSVG(c,Math.round(size*0.66)):vMarkSVG('league')}</span>`;
+  }else{
+    inner=`<span class="vsub-c">${vMarkSVG(d.v,d.cid)}</span>`;
+  }
+  return `<span class="vsub" style="width:${size}px;height:${size}px">${inner}</span>`;
+}
+
+function sameVoice(a,b){ return !!a&&!!b&&a.k===b.k&&(a.id!==undefined?a.id===b.id:a.n===b.n&&a.v===b.v) }
+
+/* speaker + subject, overlapped. Used in lists. */
+function lockup(from,about,size){
+  size=size||56;
+  const two=about&&!sameVoice(from,about);
+  return `<span class="lock" style="--lz:${size}px">${avatar(from,size)}${
+    two?subAvatar(about,Math.round(size*0.68)):''}</span>`;
+}
+function voiceName(d){
+  if(!d)return '';
+  if(d.k==='c'){const c=G.clubs[d.id];return c?c.name:(d.n||'')}
+  if(d.k==='v'){
+    if(d.v==='board'){const c=G.clubs[d.cid!==undefined?d.cid:G.me];return c?c.name+' board':'The board'}
+    return (VOICE[d.v]||VOICE.staff).t;
+  }
+  return d.n||'';
+}
+const VSHORT={press:'Press',board:'The board',assist:'Assistant',medical:'Medical',
+  league:'League',academy:'Academy',fans:'Supporters',staff:'Staff'};
+function voiceShort(d){
+  if(!d)return '';
+  if(d.k==='v')return VSHORT[d.v]||(VOICE[d.v]||VOICE.staff).t;
+  if(d.k==='c'){const c=G.clubs[d.id],n=c?c.name:(d.n||'');return n.length>17&&c?c.abbr:n}
+  const n=voiceName(d);
+  return n.length>15?n.split(' ').pop():n;
+}
+function voiceKind(d){
+  if(!d)return '';
+  if(d.k==='p')return d.r||'Player';
+  if(d.k==='c')return 'Club';
+  if(d.k==='h')return ROLETAG[d.r]||'Staff';
+  return d.v==='board'?'Board':(VOICE[d.v]||VOICE.staff).t;
+}
+/* the full-width attribution plate that opens a message sheet */
+function speakerBar(from,about,rel,sub){
+  const two=about&&!sameVoice(from,about);
+  return `<div class="vbar">${avatar(from,84)}
+   <div class="vbar-t"><div class="vbar-k">${esc(voiceKind(from))}</div>
+    <div class="vbar-n">${esc(voiceName(from))}</div>
+    ${sub?`<div class="vbar-s">${esc(sub)}</div>`:''}</div>
+   ${two?`<div class="vbar-r"><div class="vbar-rel">${esc(rel||'about')}</div>
+     ${subAvatar(about,58)}
+     <div class="vbar-sn">${esc(shortVoice(about))}</div></div>`:''}</div>`;
+}
+function findPlayer(id){
+  for(const c of G.clubs){const f=c.squad&&c.squad.find(x=>x.id===id);if(f)return {p:f,c:c}}
+  return null;
+}
+/* The subject, at a size you can actually read a face at. A message about a
+   man the player has never seen is a name; a message with his face is a man. */
+function subjectCard(a,label){
+  if(!a)return '';
+  if(a.k==='p'){
+    const hit=findPlayer(a.id);
+    const p=hit?hit.p:null, c=hit?hit.c:null;
+    return `<div class="sub-card">
+      ${p?pface(p,104,{bg:'#141920'}):`<span class="vsub" style="width:104px;height:104px">${
+        faceSVG(a.id*13+7,{size:104,nat:a.nat,age:a.age,morale:a.mo,kitA:a.a,kitB:a.b,bg:'#141920'})}</span>`}
+      <div class="sub-t">
+        <div class="sub-k">${esc(label||'The subject')}</div>
+        <div class="sub-n">${esc(a.n)}</div>
+        <div class="sub-m">${p?`<span class="pos">${p.pos}</span>`:`<span class="pos">${esc(a.r||'—')}</span>`}
+          <span>${a.age}</span>${c?`<span>${crestSVG(c,20)}</span><span>${esc(c.abbr)}</span>`:'<span>Gone</span>'}</div>
+        ${p?`<div style="margin-top:7px">${fstrip((p.ratings||[]).slice(-5).map(r=>r>=7?'W':r>=6.4?'D':'L'))}</div>`:''}
+      </div></div>`;
+  }
+  const c=a.k==='c'?G.clubs[a.id]:null;
+  return `<div class="sub-card">${subAvatar(a,88)}
+    <div class="sub-t"><div class="sub-k">${esc(label||'The subject')}</div>
+      <div class="sub-n">${esc(voiceName(a))}</div>
+      ${c?`<div class="sub-m"><span class="pos">${esc(c.abbr)}</span><span>Reputation ${c.rep}</span></div>`:''}
+    </div></div>`;
+}
+function shortVoice(d){
+  const n=voiceName(d);
+  if(d&&d.k==='c'){const c=G.clubs[d.id];return c?c.abbr:n}
+  const parts=String(n).split(' ');
+  return parts.length>1?parts[parts.length-1]:n;
+}
+
 function tabbar(){
   const T=[['home','⌂','Home'],['squad','◎','Squad'],['market','⇄','Market'],['club','▣','Club'],['world','◍','World']];
   return `<nav class="tabbar">${T.map(([k,g,l])=>
@@ -2036,7 +2462,7 @@ function setTac(k,v){me()[k]=v;save();render()}
 function setForm(f){me().formation=f;autoXI(me());save();render()}
 function setTrain(k){me().training=k;save();render()}
 function promote(id){const c=me(),p=c.squad.find(x=>x.id===id);if(!p)return;
-  p.youth=false;note(p.name+' promoted','He is in the first-team squad now.');autoXI(c);save();render()}
+  p.youth=false;note(p.name+' promoted','He is in the first-team squad now.',{from:vV('academy'),about:vP(p),rel:'on'});autoXI(c);save();render()}
 </script>
 <script>
 /* ============================================================
@@ -2106,9 +2532,11 @@ function scoutPool(){
 function viewMarket(){
   const c=me();
   const extra=SW.collect('marketViews');
-  const views=[['scout','Scout'],['shortlist','Shortlist'],['mine','My squad'],
+  const views=[['scout','Scout'],['shortlist','Shortlist'],
+    ...(SW.has('market')?[]:[['mine','My squad']]),   // module ships a richer Sell screen
     ...extra.map(v=>[v.key,v.label])];
   let body='';
+  if(G.marketView==='mine'&&SW.has('market'))G.marketView='sell';
   const ext=extra.find(v=>v.key===G.marketView);
   if(G.marketView==='scout'){
     const m=mkt();
@@ -2305,10 +2733,18 @@ function viewWorld(){
 /* ============================================================
    SHEETS
    ============================================================ */
-function closeSheet(){const s=$('.sheetwrap');if(s)s.remove()}
+/* A sheet is modal, so the page behind it must not scroll. Without this a thumb on the scrim —
+   or one that ran past the end of the sheet's own list — dragged the screen underneath. */
+let _lockY=0,_locked=false;
+function lockScroll(){if(_locked)return;_lockY=window.scrollY;_locked=true;
+  document.body.style.top=(-_lockY)+'px';document.body.classList.add('locked')}
+function unlockScroll(){if(!_locked)return;_locked=false;
+  document.body.classList.remove('locked');document.body.style.top='';window.scrollTo(0,_lockY)}
+function closeSheet(){const s=$('.sheetwrap');if(s)s.remove();unlockScroll()}
 function sheet(html){closeSheet();const d=document.createElement('div');d.className='sheetwrap';
   d.onclick=e=>{if(e.target===d)closeSheet()};
-  d.innerHTML=`<div class="sheet"><div class="grab"></div>${html}</div>`;document.body.appendChild(d)}
+  d.innerHTML=`<div class="sheet"><div class="grab"></div>${html}</div>`;
+  document.body.appendChild(d);lockScroll()}
 function sheetObjective(){
   sheet(`<h3>The board's expectation</h3>
    <div class="sh-sub">Everything you are judged on flows from this. Agree it, or argue it down and pay for it.</div>
@@ -2322,8 +2758,8 @@ function acceptObj(m){
   if(m===1){G.objective.pos=Math.min(20,G.objective.pos+3);
     G.objective.text='Finish above '+ord(G.objective.pos+1);
     me().bal=Math.round(me().bal*0.7);
-    note('The board lowered the bar','They agreed — and cut your budget. They will remember you asked.');}
-  else note('Objective agreed','You committed to: '+G.objective.text+'.');
+    note('The board lowered the bar','They agreed — and cut your budget. They will remember you asked.',{from:vV('board')});}
+  else note('Objective agreed','You committed to: '+G.objective.text+'.',{from:vV('board')});
   closeSheet();save();render();
 }
 function showPlayer(id){
@@ -2409,7 +2845,8 @@ function makeBid(id,amount){
   }
   const from=s.name;
   doTransfer(p,s,c,amount,wage);
-  note('Signed '+p.name,`${money(amount)} from ${from}. ${money(wage)}/wk over ${p.years} years.`);
+  note('Signed '+p.name,`${money(amount)} from ${from}. ${money(wage)}/wk over ${p.years} years.`,
+    {from:vC(me()),about:vP(p),rel:'sign'});
   chron('Signed '+p.name+' from '+from+' for '+money(amount));
   save();
   sheet(`<div class="slab" style="margin-bottom:14px"><div class="k">Done deal</div>
@@ -2476,11 +2913,68 @@ function sheetSort(){
       <div style="font-weight:600">${l}</div>${mkt().sort===v?'<span class="st">Current</span>':''}</div>`).join('')}
    <button class="btn ghost" onclick="closeSheet()">Close</button>`);
 }
+/* Every message names people. Show them: a speaker on the left of every item,
+   and the subject ringed against it when the message is about somebody else. */
+function msgFrom(m){
+  if(m.m&&m.m.from)return m.m.from;
+  return vV('staff');                       // an unattributed line is club staff
+}
+function msgWhen(m){
+  const d=(G.season-m.s)*38+(G.week-m.w);
+  if(d<=0)return 'This week';
+  if(d===1)return 'Last week';
+  if(d<6)return d+' weeks ago';
+  if(m.s!==G.season)return m.s+'/'+String(m.s+1).slice(2);
+  return 'Week '+(m.w+1);
+}
+/* The rail behind a speaker is his plate: club colour where the voice belongs to
+   a club, the institution's own ink where it does not. Colour is the second
+   channel here — the mark and the name carry it on their own. */
+function voicePlate(d){
+  const dk=(hex,pc)=>`color-mix(in srgb, ${hex} ${pc}%, #0A0D11)`;
+  if(!d)return {p1:'#1A1F26',p2:'#0B0E12',edge:'var(--strong)'};
+  if(d.k==='p'){return {p1:dk(d.a,34),p2:dk(d.a,9),edge:d.a}}
+  if(d.k==='c'||(d.k==='v'&&(d.v==='board'||d.v==='fans'))){
+    const c=G.clubs[d.k==='c'?d.id:(d.cid!==undefined?d.cid:G.me)];
+    if(c)return {p1:dk(c.primary,34),p2:dk(c.primary,9),edge:c.primary};
+  }
+  if(d.k==='h'){const k={agent:'#4C5563',pundit:'#6E7885',scout:'#3F5147'}[d.r]||'#3A424E';
+    return {p1:dk(k,42),p2:dk(k,12),edge:k}}
+  const V=VOICE[d.v]||VOICE.staff;
+  const E={press:'#C6CEDA',medical:'#FF7043',academy:'#A9D94B',board:'var(--acc)',fans:'#A78BFA',
+    assist:'var(--acc)',league:'#C6CEDA',staff:'var(--strong)'}[d.v]||'var(--strong)';
+  return {p1:V.p[0],p2:V.p[1],edge:E};
+}
+function msgRow(m,i,hero){
+  const f=msgFrom(m), a=m.m&&m.m.about?m.m.about:null;
+  const two=a&&!sameVoice(f,a);
+  const pl=voicePlate(f), z=hero?88:64;
+  return `<div class="msg${hero?' msg-hero':''}" onclick="showMsg(${i})">
+   <div class="msg-rail" style="--p1:${pl.p1};--p2:${pl.p2};--edge:${pl.edge}">${lockup(f,a,z)}</div>
+   <div class="msg-t">
+     <div class="msg-k"><b>${esc(voiceShort(f))}</b>${two?`<span>&#9656; ${esc(shortVoice(a))}</span>`:''}
+       <span class="w">${esc(msgWhen(m))}</span></div>
+     <div class="msg-a">${esc(m.t)}</div>
+     <div class="msg-b">${esc(m.b)}</div>
+   </div></div>`;
+}
+function showMsg(i){
+  const m=G.inbox[i]; if(!m){showInbox();return}
+  const f=msgFrom(m), a=m.m&&m.m.about?m.m.about:null;
+  const two=a&&!sameVoice(f,a);
+  sheet(`${speakerBar(f,a,(m.m&&m.m.rel)||'about',msgWhen(m))}
+   <h3>${esc(m.t)}</h3>
+   <div class="qcard" style="margin-top:10px">
+     <span class="qmark">&ldquo;</span>
+     <div style="font-size:14.5px;line-height:21px;color:var(--t1)">${esc(m.b)}</div></div>
+   ${two?subjectCard(a,(m.m&&m.m.rel)?'They '+m.m.rel+' him':'This is about'):''}
+   ${a&&a.k==='p'&&findPlayer(a.id)
+     ?`<button class="btn" style="margin-top:12px" onclick="closeSheet();showPlayer(${a.id})">Open his profile</button>`:''}
+   <button class="btn ghost" style="margin-top:8px" onclick="showInbox()">Back to the inbox</button>`);
+}
 function showInbox(){
   sheet(`<h3>Inbox</h3><div class="sh-sub">${G.inbox.length} item${G.inbox.length===1?'':'s'}</div>
-   ${G.inbox.length?G.inbox.slice(0,16).map(m=>`<div class="card" style="background:var(--s1);margin-bottom:8px">
-     <div style="font-weight:600;font-size:14px">${esc(m.t)}</div>
-     <div style="font-size:13px;color:var(--t2);margin-top:3px">${esc(m.b)}</div></div>`).join('')
+   ${G.inbox.length?G.inbox.slice(0,16).map((m,i)=>msgRow(m,i,i===0)).join('')
     :'<div class="dim">Nothing needs you. Go and play.</div>'}
    <button class="btn ghost" style="margin-top:8px" onclick="G.inbox=[];closeSheet();render()">Clear all</button>`);
 }
@@ -2602,7 +3096,7 @@ function advanceWeek(){
   simOthers(G.week);
   advanceEuro(G.week);
   G.clubs.forEach(recover);
-  if(G.week===19){aiMarket(14);note('January window is open','Three weeks to strengthen.')}
+  if(G.week===19){aiMarket(14);note('January window is open','Three weeks to strengthen.',{from:vV('league')})}
   if(G.week===19)G.window='winter';
   if(G.week===21)G.window='shut';
   if(G.week===0)G.window='shut';
@@ -2681,6 +3175,17 @@ function render(){
   const v=G.tab==='home'?viewHub():G.tab==='squad'?viewSquad():G.tab==='market'?viewMarket()
     :G.tab==='club'?viewClub():viewWorld();
   app().innerHTML=v;
+  revealSelected();
+}
+/* Seven squad sub-views overflow a 375px screen by 235px. Without this, picking "Culture"
+   redrew the page with the control scrolled back to "Lineup" and the active tab off-screen —
+   the player could not see which view he was in. Snap it into view, no animation on entry. */
+function revealSelected(){
+  document.querySelectorAll('.segmented.many,.chips').forEach(bar=>{
+    if(bar.scrollWidth<=bar.clientWidth)return;
+    const sel=bar.querySelector('[aria-selected=true]');if(!sel)return;
+    bar.scrollLeft=Math.max(0,sel.offsetLeft-(bar.clientWidth-sel.offsetWidth)/2);
+  });
 }
 let BOOTNAT='eng',BOOTTIER=0;
 function bootMenu(){
@@ -2821,7 +3326,7 @@ function wageShock(p){
     grumps.forEach(x=>{try{mor.adjust(x.id,hit,'new signing on far more than him')}catch(e){}});
   else grumps.forEach(x=>{x.morale=clamp((x.morale||50)+hit,0,100)});
   note('The dressing room has done the maths',
-    p.name+' is on '+money(p.wage)+'/wk. Nobody else is close, and they all know it now.');
+    p.name+' is on '+money(p.wage)+'/wk. Nobody else is close, and they all know it now.',{from:vV('staff')});
 }
 
 /* ---------- charge an agent ---------- */
@@ -2832,7 +3337,7 @@ function charge(fee,who,why){
     const took=Math.max(0,c.bal);
     c.bal-=took;
     note("The agent got paid, you didn't",
-      who+"'s man took "+money(took)+" — everything left in the account. "+why);
+      who+"'s man took "+money(took)+" — everything left in the account. "+why,{from:vV('staff')});
     return false;
   }
   c.bal-=fee;
@@ -2873,7 +3378,8 @@ window.ctrRenew=function(pid){
   const push=Math.max(1000,Math.round(t.wage*0.86/1000)*1000);
   const pushFee=Math.round(push*52*ag.fee);
   const ratioAfter=Math.min(160,Math.round((wageBill(c)-cur+t.wage)*52/revenue(c)*100));
-  sheet(`<h3>${esc(p.name)}</h3>
+  sheet(`${speakerBar(vH(ag.name,'agent','eng',52),vP(p),'for',ag.d)}
+   <h3>${esc(p.name)}</h3>
    <div class="sh-sub">His agent is ${esc(ag.name)} — ${esc(ag.d)}. ${m<=0?'The deal is up.'
      :m<=6?'Six months or less. He can talk to anyone he likes.':'He has '+m+' months to run.'}</div>
    <div class="card" style="background:var(--s1);margin-bottom:14px">
@@ -2928,7 +3434,8 @@ window.ctrPush=function(pid){
       fee:Math.round(push*52*ag.fee),agent:ag};
     if(!apply(p,terms))return;
     save();
-    sheet(`<h3>He blinked</h3>
+    sheet(`${speakerBar(vH(ag.name,'agent','eng',52),vP(p),'for',ag.d)}
+     <h3>He blinked</h3>
      <div class="sh-sub">${esc(ag.name)} looked at the door, looked at the offer, and signed.
        ${money(push)}/wk over ${t.years} years${dropCl?'. No clause.':t.clause?'. The clause stays at '+money(t.clause)+'.':''}</div>
      <button class="btn" onclick="closeSheet();render()">Done</button>`);
@@ -2941,14 +3448,15 @@ window.ctrPush=function(pid){
   if(mor&&typeof mor.adjust==='function'){try{mor.adjust(p.id,hit,'his renewal was low-balled')}catch(e){}}
   else p.morale=clamp((p.morale||50)+hit,0,100);
   save();
-  sheet(`<h3>He walked out</h3>
+  sheet(`${speakerBar(vH(ag.name,'agent','eng',52),vP(p),'for',ag.d)}
+   <h3>He walked out</h3>
    <div class="sh-sub">${esc(ag.name)} put his coat on before you finished the sentence.
      ${esc(p.name)} is not happy and the number has gone up, not down.</div>
    <div class="card" style="background:var(--s1);margin-bottom:14px"><div style="font-size:13px;color:var(--t2)">
     He will listen once more, at his price. Push again and there is nothing left to push.</div></div>
    <button class="btn" onclick="ctrRenew(${pid})">Look at it again</button>
    <button class="btn ghost" style="margin-top:8px" onclick="closeSheet();render()">Leave him to it</button>`);
-  note(p.name+' turned the offer down','His agent says the club is not serious. He is six months closer to leaving.');
+  note(p.name+' turned the offer down','His agent says the club is not serious. He is six months closer to leaving.',{from:vH(ag.name,'agent','eng',52),about:vP(p),rel:'for'});
 };
 
 window.ctrWalk=function(){closeSheet();render()};
@@ -2982,7 +3490,7 @@ window.ctrFree=function(pid){
   const c=me(),ag=agentOf(p),w=faWage(p),fee=faFee(p);
   const ratioAfter=Math.min(160,Math.round((wageBill(c)+w)*52/revenue(c)*100));
   const blocked=costRatio(c)>85;
-  sheet(`<div class="row" style="margin-bottom:14px;align-items:flex-start">${pface(p,56)}
+  sheet(`<div class="row" style="margin-bottom:14px;align-items:flex-start;gap:13px">${avatar(vP(p),76)}
     <div style="min-width:0"><h3 style="margin:0">${esc(p.name)}</h3>
      <div class="dim" style="font-size:13px">${p.pos} · ${p.age} · ${p.nat.toUpperCase()} · unattached</div></div>
     <span class="spacer"></span>
@@ -3030,7 +3538,7 @@ window.ctrSignFree=function(pid){
   s.deals[p.id]={w:p.wage,y:p.years,cl:0,s:G.season};
   autoXI(c);
   wageShock(p);
-  note('Signed '+p.name+' on a free',money(w)+'/wk over '+p.years+' years. '+money(fee)+' to the agent.');
+  note('Signed '+p.name+' on a free',money(w)+'/wk over '+p.years+' years. '+money(fee)+' to the agent.',{from:vC(me()),about:vP(p),rel:'sign'});
   chron('Signed '+p.name+' on a free transfer');
   save();
   sheet(`<div class="slab" style="margin-bottom:14px"><div class="k">Free transfer</div>
@@ -3062,7 +3570,7 @@ function clauseWatch(){
     s.known=s.known.filter(x=>x!==pid);
     doTransfer(p,c,b,cl,wage);
     note(p.name+' is gone',
-      b.name+' paid the release clause. '+money(cl)+', and you had no say in it. You agreed that clause.');
+      b.name+' paid the release clause. '+money(cl)+', and you had no say in it. You agreed that clause.',{from:vV('staff'),about:vP(p),rel:'on'});
     chron(p.name+' left for '+b.name+' — release clause triggered');
     return;  // one a week, not a fire sale
   }
@@ -3079,7 +3587,7 @@ function bosmanWatch(){
     if(!s.warned[p.id]){
       s.warned[p.id]=true;
       note(p.name+' can talk to anyone now',
-        'Six months left. Any club in Europe can sit down with him and you cannot stop it.');
+        'Six months left. Any club in Europe can sit down with him and you cannot stop it.',{from:vV('staff'),about:vP(p),rel:'on'});
     }
     if(mLeft(p)>3)return;
     if(rnd()>0.03+p.amb/3500)return;
@@ -3088,7 +3596,7 @@ function bosmanWatch(){
     const b=pick(suit);
     s.pre[p.id]=b.id;
     note(p.name+' has agreed terms elsewhere',
-      b.name+' have him on a pre-contract. He plays out the season and then he is theirs for nothing.');
+      b.name+' have him on a pre-contract. He plays out the season and then he is theirs for nothing.',{from:vV('staff'),about:vP(p),rel:'on'});
   });
 }
 
@@ -3108,11 +3616,11 @@ function myExpiries(){
       const b=G.clubs[to];
       p.wage=Math.round(wageFor(p)*1.15);p.years=ri(2,4);p.listed=false;p.morale=60;
       b.squad.push(p);
-      note(p.name+' has gone',b.name+' get him for nothing. You had all season to sort it.');
+      note(p.name+' has gone',b.name+' get him for nothing. You had all season to sort it.',{from:vC(b),about:vP(p),rel:'took'});
       chron(p.name+' left on a free to '+b.name);
     } else {
       releaseToPool(p);
-      note(p.name+"'s deal is up",'Nobody offered him anything, including you. He is out of the building.');
+      note(p.name+"'s deal is up",'Nobody offered him anything, including you. He is out of the building.',{from:vV('staff'),about:vP(p),rel:'on'});
     }
   });
   if(out.length)autoXI(c);
@@ -3175,7 +3683,7 @@ function arrivals(){
     if(fee<=0)return;
     const ok=charge(fee,p.name,'');
     if(ok)note("Agent's fee — "+p.name,
-      money(fee)+' to '+ag.name+'. It never shows up in the transfer figure.');
+      money(fee)+' to '+ag.name+'. It never shows up in the transfer figure.',{from:vH(agentOf(p).name,'agent','eng',52),about:vP(p),rel:'for'});
     wageShock(p);
   });
 }
@@ -3299,7 +3807,7 @@ SW.register({
       const risk=squadOf(me()).filter(p=>p.years<=1);
       if(risk.length)note(risk.length+' deal'+(risk.length===1?'':'s')+' up in June',
         risk.slice(0,3).map(p=>p.name).join(', ')+(risk.length>3?' and '+(risk.length-3)+' more':'')+
-        '. Sort them or lose them for nothing.');
+        '. Sort them or lose them for nothing.',{from:vV('staff')});
     }catch(e){console.error('[contracts.onSeasonEndAfter]',e)}
   },
 
@@ -3600,11 +4108,11 @@ function crown(S){
   if(S.winner===G.me){
     note('YOU WON '+S.name.toUpperCase(),
       'Beat '+(runner?runner.name:'them')+' in the final. A cup in the cabinet and '+money(WINPOT)+
-      ' in the bank. Nobody remembers fifth — they remember this.');
+      ' in the bank. Nobody remembers fifth — they remember this.',{from:vV('league'),about:vC(me()),rel:'crown'});
     try{chron('YOU won '+S.name)}catch(e){}
   } else if(runner&&runner.id===G.me){
     note('Beaten in the '+S.name+' final','Ninety minutes from it and you came second. '+
-      money(PRIZE[5])+' and a medal nobody wants.');
+      money(PRIZE[5])+' and a medal nobody wants.',{from:vV('league')});
   }
 }
 
@@ -3631,14 +4139,14 @@ function tellDraw(S,idx){
   if(!t){
     note('Exempt until the '+RNAME[Math.min(5,idx+1)],
       S.name+'. Too big to be dragged round the country in the '+RNAME[idx].toLowerCase()+
-      '. '+money(fee)+' for turning up to the draw.');
+      '. '+money(fee)+' for turning up to the draw.',{from:vV('league')});
     return;
   }
   const home=t.h===G.me,opp=C(home?t.a:t.h);
   const where=t.neutral?'On neutral ground.':(home?'At home.':'Away.');
   note('The draw: '+opp.name+(t.neutral?'':(home?' at home':' away')),
     S.name+' · '+RNAME[idx]+' · '+weekDate(rd.week)+'. '+where+' '+drawLine(me(),opp,home)+
-    ' '+money(fee)+' banked for getting this far.');
+    ' '+money(fee)+' banked for getting this far.',{from:vV('league'),about:vC(opp),rel:'drawn'});
 }
 function tellResult(S,rd,tie){
   if(rd.i===5)return;                        // the final gets its own moment in crown()
@@ -3654,12 +4162,12 @@ function tellResult(S,rd,tie){
     let body=sc+' against '+opp.name+'. ';
     if(tie.up)body+='A '+tierL(opp)+' side, out. They will be asked about that all week. ';
     body+=nxt?('Into the '+nxt+'. Wait for the draw.'):'';
-    note(rd.i===5?'CUP WINNERS':'Through — '+(nxt||'the final'),body);
+    note(rd.i===5?'CUP WINNERS':'Through — '+(nxt||'the final'),body,{from:vV('league')});
   } else {
     let body=sc+' against '+opp.name+'. ';
     if(opp.tier>me().tier)body+='A '+tierL(opp)+' side knocked you out. That one follows you around.';
     else body+='Out. Nothing to say that a win next week would not fix.';
-    note('Out of '+S.name,body);
+    note('Out of '+S.name,body,{from:vV('league')});
     S.outWeek=G.week;
   }
 }
@@ -3894,6 +4402,702 @@ SW.register({
 
 </script>
 <script>
+/* ==== module: 25-market.js ==== */
+/* ============================================================
+   SILVERWARE — module: market
+   The other direction.
+
+   The core's aiMarket() explicitly skips the human squad, so in a
+   finished season not one club ever came for one of your players.
+   There was a `listed` flag and a List button and nothing on earth
+   read either of them. This module is the missing half:
+
+     · AI clubs scan your squad every window and bid for it
+     · the transfer list changes who is watching, visibly
+     · an offer arrives as one decision on one sheet, never a loop
+     · selling a man the room rates costs you something
+     · the last week of a window is a flurry, not a new screen
+     · and the board's pot can finally be split between fees and wages
+
+   THE RULE THAT PROTECTS LONG SAVES. Every number a club is willing
+   to pay comes out of value() via askingPrice(). Nothing in here ever
+   reads a fee that was paid, ours or anybody's. No ratchet.
+   ============================================================ */
+(function(){
+'use strict';
+
+/* ---------- state ---------- */
+const DEF={
+  offers:[],      // open / countered bids for our players
+  oid:1,
+  told:false,     // has the manager been told what listing does
+  ceil:0,         // wage ceiling agreed with the board, % of revenue
+  potBase:0,      // this season's opening transfer budget — bounds the split
+  moves:0,        // budget splits used this season (3 allowed)
+  cashOut:0,      // wage room sold back for cash this season
+  breachWk:-9,
+  ledger:[],      // outgoing deals, newest first
+  inFees:0,
+  cool:{},        // pid -> week we last generated an approach
+  seeded:0        // season the summer approaches were seeded for
+};
+function S(){
+  const s=SW.state('market');
+  for(const k in DEF){
+    if(s[k]!==undefined)continue;
+    const d=DEF[k];
+    s[k]=Array.isArray(d)?[]:(d&&typeof d==='object')?{}:d;
+  }
+  return s;
+}
+const alive=()=>typeof G!=='undefined'&&G.clubs&&G.me!=null&&me();
+
+/* ============================================================
+   WHO IS WATCHING
+   One pass over the world per week, cached. 140 clubs x 25 of ours
+   is nothing if the per-club position table is built once.
+   ============================================================ */
+let CACHE={wk:-1,se:-1,sig:-1,pos:null,intr:null};
+
+function listSig(c){let n=0;for(const p of squadOf(c))if(p.listed)n+=p.id+1;return n}
+
+function scan(){
+  const c=alive();if(!c)return null;
+  const sig=listSig(c);
+  if(CACHE.intr&&CACHE.wk===G.week&&CACHE.se===G.season&&CACHE.sig===sig)return CACHE;
+  const pos=new Map();
+  for(const b of G.clubs){
+    if(b.id===G.me)continue;
+    const m={};
+    for(const p of squadOf(b)){const v=CA(p);if(!(m[p.pos]>=v))m[p.pos]=v}
+    pos.set(b.id,m);
+  }
+  let unhappy=null;
+  const mo=SW.get('morale');
+  if(mo&&mo.unhappy){try{unhappy=new Set(mo.unhappy().map(p=>p.id))}catch(e){}}
+  const intr={};
+  for(const p of squadOf(c))intr[p.id]=watchers(p,pos,unhappy);
+  CACHE={wk:G.week,se:G.season,sig,pos,intr};
+  return CACHE;
+}
+function bust(){CACHE.intr=null}
+
+/* Mood is a property of the player, not of the pairing — compute it once. */
+function moodBump(p,unhappy){
+  let s=0;
+  if(unhappy&&unhappy.has(p.id))s+=16;
+  if(p.morale<=22)s+=8;
+  return s;
+}
+/* How badly one club wants one of ours. Positive means they are looking. */
+function pairScore(p,b,bp,mood){
+  const c=me();
+  const theirs=(bp&&bp[p.pos])||0;
+  let s=clamp((CA(p)-(theirs||42))*3.4,-45,48);   // does he improve their side
+  if(p.listed)s+=36;                              // the list is the loudest signal
+  if(p.years<=1)s+=18;                            // running his deal down
+  s+=clamp((b.rep-me().rep)*0.9,-24,26);          // bigger clubs come calling
+  if(p.age<=23&&p.pa-CA(p)>=8)s+=10;              // they can see a project
+  if(p.age>=33)s-=18;
+  if(p.out>3)s-=10;
+  return s+mood;
+}
+/* A club only counts as a watcher if it could actually do the deal. */
+function canCarry(b,p){
+  return (wageBill(b)+Math.round(p.wage*1.12))*52/revenue(b)*100<=84;
+}
+function watchers(p,pos,unhappy){
+  const c=me(),mood=moodBump(p,unhappy),out=[];
+  let best=0;
+  for(const b of G.clubs){
+    if(b.id===G.me||b.bal<1.5e6)continue;
+    const s=pairScore(p,b,pos.get(b.id),mood);
+    if(s<38)continue;
+    const ask=askingPrice(p,c,b);
+    if(ask>b.bal*0.62)continue;
+    if(!canCarry(b,p))continue;
+    out.push({id:b.id,s});
+    if(s>best)best=s;
+  }
+  out.sort((x,y)=>y.s-x.s);
+  return {n:out.length,best,top:out.slice(0,8).map(x=>x.id)};
+}
+const LEVELS=[
+  {k:'—',t:'Nobody is asking',c:'var(--t3)'},
+  {k:'·',t:'One or two watching',c:'var(--t2)'},
+  {k:'▪',t:'Several clubs watching',c:'var(--trf)'},
+  {k:'▲',t:'They are queueing up',c:'var(--acc)'}
+];
+function level(n){return n===0?0:n<=2?1:n<=7?2:3}
+function interestOf(pid){
+  const sc=scan();if(!sc||!sc.intr[pid])return {n:0,best:0,top:[]};
+  return sc.intr[pid];
+}
+
+/* ============================================================
+   THE WINDOW
+   Summer is week 0 only; January is weeks 19–21. The last week of
+   each is deadline week: more clubs, more money, decide now.
+   ============================================================ */
+function isDeadline(){return (G.window==='summer'&&G.week===0)||G.week===21}
+
+function wpick(list,wf){
+  let t=0;const w=list.map(x=>{const v=Math.max(0.01,wf(x));t+=v;return v});
+  let r=rnd()*t;
+  for(let i=0;i<list.length;i++){r-=w[i];if(r<=0)return list[i]}
+  return list[list.length-1];
+}
+/* Nobody may strip us to the bone by accident. */
+function sellable(p,c){
+  if(p.youth)return false;
+  if(squadOf(c).length<=16)return false;
+  const samePos=squadOf(c).filter(x=>x.pos===p.pos).length;
+  if(p.pos==='GK'&&samePos<=2)return false;
+  return samePos>1;
+}
+function reasons(p,b){
+  const out=[];
+  if(p.listed)out.push('He is on the list');
+  if(p.years<=1)out.push('A year left on his deal');
+  const mo=SW.get('morale');
+  if(mo&&mo.unhappy){try{if(mo.unhappy().some(x=>x.id===p.id))out.push('He has been agitating')}catch(e){}}
+  const bp=(scan()||{}).pos;
+  const theirs=bp&&bp.get(b.id)?bp.get(b.id)[p.pos]||0:0;
+  if(CA(p)>theirs+4)out.push('He would walk straight into their side');
+  if(b.rep>me().rep+8)out.push('They are a bigger club than us');
+  return out.slice(0,3);
+}
+function genOffers(attempts,dl){
+  const s=S(),c=alive();if(!c||!windowOpen())return;
+  const sc=scan();if(!sc)return;
+  const maxOpen=dl?3:2;
+  const tried=new Set();
+  for(let i=0;i<attempts;i++){
+    if(s.offers.length>=maxOpen)break;
+    const cands=squadOf(c).filter(p=>{
+      const r=sc.intr[p.id];
+      if(!r||!r.n)return false;
+      if(tried.has(p.id))return false;
+      if(s.offers.some(o=>o.pid===p.id))return false;
+      if((s.cool[p.id]||-99)>G.week-3)return false;
+      return sellable(p,c);
+    });
+    if(!cands.length)break;
+    const p=wpick(cands,x=>Math.pow(Math.max(1,sc.intr[x.id].best-30),1.5));
+    const r=sc.intr[p.id];
+    let chance=clamp((r.best-40)/72,0.04,0.9);
+    if(dl)chance=Math.min(0.95,chance*1.35);
+    tried.add(p.id);
+    if(rnd()>chance)continue;
+    /* Only a real approach cools him. A club that thought about it and did not
+       ring must not block everybody else for the rest of the window. */
+    s.cool[p.id]=G.week;
+    const b=G.clubs[pick(r.top)];
+    if(!b)continue;
+    /* THE CEILING. Derived from value() through askingPrice() and from
+       nothing else. No club ever looks at what anybody paid. */
+    const ask=askingPrice(p,c,b);
+    let m=0.80+rnd()*0.18;
+    if(dl)m+=0.10+rnd()*0.18;
+    if(b.rep>c.rep+10)m+=0.05;
+    let fee=Math.round(ask*m/50000)*50000;
+    fee=Math.min(fee,Math.round(value(p)*2.2/50000)*50000,Math.round(b.bal*0.9/50000)*50000);
+    fee=Math.max(50000,fee);
+    s.offers.push({id:s.oid++,pid:p.id,nm:p.name,pos:p.pos,b:b.id,fee,ask,
+      wk:G.week,exp:dl?G.week:G.week+1,st:'open',dem:0,dl:!!dl,why:reasons(p,b)});
+  }
+}
+
+/* ============================================================
+   RESOLUTION — one counter round, settled on the next Continue
+   ============================================================ */
+function headroom(p,b,ask){
+  return Math.min(value(p)*2.2,b.bal*0.9,ask*1.35);
+}
+function resolveCounters(){
+  const s=S(),c=alive();if(!c)return;
+  for(const o of s.offers){
+    if(o.st!=='counter')continue;
+    const b=G.clubs[o.b],p=c.squad.find(x=>x.id===o.pid);
+    if(!b||!p){o.st='done';continue}
+    const head=headroom(p,b,o.ask);
+    let ch=o.dem<=head?clamp(0.88-0.62*(o.dem/head),0.12,0.80):0.04;
+    if(o.dl)ch+=0.18;
+    if(rnd()<ch){
+      const nm=p.name,bn=b.name;
+      complete(o,o.dem);
+      note(bn+' paid it','You asked '+money(o.dem)+' for '+nm+'. They did not blink.',{from:vC(b),about:vP(p),rel:'bought'});
+    }else{
+      note(b.name+' walked','You wanted '+money(o.dem)+' for '+p.name+'. They are not going there.',{from:vC(b),about:vP(p),rel:'for'});
+      o.st='done';
+    }
+  }
+  s.offers=s.offers.filter(o=>o.st!=='done');
+}
+
+/* ============================================================
+   THE SALE, AND WHAT IT COSTS
+   ============================================================ */
+function snapshot(c,p){
+  const order=squadOf(c).sort((a,b)=>CA(b)-CA(a));
+  const cu=SW.get('culture');
+  let tr=0,cap=false;
+  if(cu){
+    try{if(cu.trust)tr=cu.trust(p.id)}catch(e){}
+    try{if(cu.captain)cap=cu.captain()===p.id}catch(e){}
+  }
+  return {rank:order.findIndex(x=>x.id===p.id),tr,cap,val:value(p),
+          ratio:costRatio(c),listed:!!p.listed,wage:p.wage};
+}
+function complete(o,fee){
+  const s=S(),c=alive();if(!c)return null;
+  const b=G.clubs[o.b],p=c.squad.find(x=>x.id===o.pid);
+  if(!b||!p){o.st='done';return null}
+  const pre=snapshot(c,p);
+  doTransfer(p,c,b,fee,Math.round(p.wage*1.12));
+  s.inFees+=fee;
+  s.ledger.unshift({s:G.season,w:G.week,nm:p.name,fee,club:b.name});
+  if(s.ledger.length>40)s.ledger.length=40;
+  o.st='done';
+  fallout(p,pre,fee,b);
+  chron('Sold '+p.name+' to '+b.name+' for '+money(fee));
+  return {p,b,fee,pre};
+}
+function fallout(p,pre,fee,b){
+  const c=me(),mo=SW.get('morale'),bd=SW.get('board');
+  const over=fee/Math.max(1,pre.val);
+  let room=pre.rank<5?-10:pre.rank<12?-4:2;
+  if(pre.cap)room-=8;
+  if(pre.tr>=45)room-=4;
+  if(over>=1.35)room+=5;
+  if(pre.listed)room+=4;
+  room=clamp(Math.round(room),-24,8);
+  if(mo&&mo.adjust&&room!==0){
+    const why=room<0
+      ?(pre.cap?'you sold the captain':'you sold '+p.name)
+      :'you got real money for '+p.name;
+    for(const x of squadOf(c)){try{mo.adjust(x.id,room,why)}catch(e){}}
+  }
+  if(bd&&bd.adjust){
+    try{
+      if(over>=1.4)bd.adjust(4,'sold '+p.name+' for well over his value');
+      else if(pre.rank<3&&G.week>=19)bd.adjust(-6,'sold your best player in January');
+      else if(over<0.85)bd.adjust(-3,'let '+p.name+' go cheap');
+    }catch(e){}
+  }
+  const vb=vC(b), vpl=vP(p);
+  if(pre.cap)note('You sold the captain',p.name+' has gone to '+b.name+'. Somebody else wears it now, and they all know why it is free.',{from:vb,about:vpl,rel:'took'});
+  else if(pre.rank<5)note('Sold '+p.name,money(fee)+' from '+b.name+'. The room noticed.',{from:vb,about:vpl,rel:'took'});
+  else note('Sold '+p.name,money(fee)+' from '+b.name+'. '+money(pre.wage)+'/wk off the bill.',{from:vb,about:vpl,rel:'took'});
+}
+
+/* ============================================================
+   THE POT — one control, two jobs
+   Transfer budget is c.bal. The wage side is the ceiling we agreed
+   with the board, expressed as a % of revenue. Moving cash into wages
+   lifts the ceiling; selling wage room back returns 80p in the pound,
+   which is what stops it being a money printer. The league's own 85%
+   cap is enforced by the core and is not ours to move.
+   ============================================================ */
+function initCeil(c){return clamp(Math.round(costRatio(c))+10,55,85)}
+function ceilOf(){const s=S(),c=alive();if(!c)return 85;if(!s.ceil)s.ceil=initCeil(c);return s.ceil}
+function wageAt(pct){const c=me();return revenue(c)*pct/100/52}
+function roomLeft(){const c=me();return Math.max(0,wageAt(ceilOf())-wageBill(c))}
+const UNIT=()=>{const s=S();return Math.max(1e6,Math.round(Math.max(s.potBase,4e6)*0.08/1e5)*1e5)};
+function ptsFor(cash){return cash/revenue(me())*100}
+function cashFor(pts){return pts/100*revenue(me())}
+
+function shiftOpts(){
+  const s=S(),c=alive();if(!c)return [];
+  const out=[],u=UNIT(),cur=Math.ceil(costRatio(c)),ce=ceilOf();
+  const outCap=Math.max(0,s.potBase*0.12-s.cashOut);
+  for(const amt of [u,u*2]){
+    if(amt<=c.bal&&ce+ptsFor(amt)<=85.001)
+      out.push({dir:'wages',amt,ceil:Math.min(85,ce+ptsFor(amt)),bal:c.bal-amt});
+  }
+  for(const amt of [u,u*2]){
+    const cash=Math.round(amt*0.8);
+    if(cash>outCap+1)continue;
+    const nc=ce-ptsFor(amt);
+    if(nc<cur||nc<40)continue;
+    out.push({dir:'budget',amt,cash,ceil:nc,bal:c.bal+cash});
+  }
+  return out;
+}
+function shiftAdvice(){
+  const c=alive();if(!c)return 'hold';
+  const r=costRatio(c),ce=ceilOf();
+  if(ce-r<=2&&c.bal>UNIT()*1.5)return 'wages';
+  if(ce-r>=14&&c.bal<UNIT())return 'budget';
+  return 'hold';
+}
+
+/* ============================================================
+   SCREENS
+   ============================================================ */
+function offerById(id){return S().offers.find(o=>o.id===id)}
+function findMine(pid){const c=alive();return c?c.squad.find(x=>x.id===pid):null}
+
+function readOf(o,p){
+  const c=me(),over=o.fee/Math.max(1,value(p));
+  const order=squadOf(c).sort((a,b)=>CA(b)-CA(a));
+  const rank=order.findIndex(x=>x.id===p.id);
+  const cu=SW.get('culture');
+  let cap=false;try{if(cu&&cu.captain)cap=cu.captain()===p.id}catch(e){}
+  if(cap)return {t:'He wears the armband. Sell him and you are picking a new one in every sense of it.',r:'reject'};
+  if(rank<3&&over<1.2)return {t:'One of your best three, and they are not even paying over the odds. Tell them no.',r:'reject'};
+  if(over>=1.45)return {t:money(o.fee)+' for a man we value at '+money(value(p))+'. Take it and shake hands quickly.',r:'accept'};
+  if(rank>=12&&over>=0.95)return {t:'He is nowhere near the side. That is money for nothing.',r:'accept'};
+  if(p.years<=1)return {t:'A year left. Sell him now or watch him walk for nothing in June.',r:'accept'};
+  if(over<0.82)return {t:'Well short of what he is worth. Ask for the proper number.',r:'demand'};
+  if(rank<8)return {t:'Fair money, but he plays. Push them and see how badly they want it.',r:'demand'};
+  return {t:'Fair money for a squad man. Your call.',r:'accept'};
+}
+function demandFor(o,p){
+  return Math.max(50000,Math.round(Math.max(o.fee*1.12,o.ask*1.05)/50000)*50000);
+}
+window.xferOpen=function(id){
+  const o=offerById(id);if(!o||o.st!=='open')return;
+  const c=alive(),p=findMine(o.pid),b=G.clubs[o.b];
+  if(!c||!p||!b){S().offers=S().offers.filter(x=>x.id!==id);render();return}
+  const rev=revenue(c),wb=wageBill(c);
+  const r0=costRatio(c),r1=Math.min(160,Math.round((wb-p.wage)*52/rev*100));
+  const adv=readOf(o,p),dem=demandFor(o,p);
+  const mo=SW.get('morale');
+  let wants=false;
+  if(mo&&mo.unhappy){try{wants=mo.unhappy().some(x=>x.id===p.id)}catch(e){}}
+  const cu=SW.get('culture');
+  const promisable=(wants||p.listed)&&cu&&cu.promise;
+  /* Two parties, one player: the club that wants him, and him. A 16px crest
+     was doing the work of naming the buyer. It cannot. */
+  sheet(`${speakerBar(vC(b),vP(p),'want',b.name+' have made an offer')}
+   <div class="row" style="margin-bottom:12px;align-items:flex-start">
+    <div style="min-width:0"><h3 style="margin:0">${esc(p.name)}</h3>
+      <div class="dim" style="font-size:13px">${p.pos} · ${p.age} · ${p.years} yr${p.years===1?'':'s'} left</div></div>
+    <span class="spacer"></span>
+    <div style="text-align:right"><div class="disp" style="font-size:26px;font-weight:800;color:var(--trf);line-height:28px">${money(o.fee)}</div>
+      <div class="dim" style="font-size:11px">valued ${money(value(p))}</div></div></div>
+   ${o.dl?`<div class="card" style="margin-bottom:10px;border-color:var(--acc);background:var(--accw)">
+     <div style="font-size:13px;font-weight:700;color:var(--acc)">Deadline. This is gone the moment you continue.</div></div>`:''}
+   ${o.why.length?`<div class="card" style="background:var(--s1);margin-bottom:10px">
+     ${o.why.map(w=>`<div style="font-size:13px;color:var(--t2)">· ${esc(w)}</div>`).join('')}</div>`:''}
+   <div class="card" style="background:var(--s1);margin-bottom:10px">
+    <div class="kv"><span class="k2">Transfer budget</span>
+      <span class="v2">${money(c.bal)} → <b style="color:var(--win)">${money(c.bal+o.fee)}</b></span></div>
+    <div class="kv"><span class="k2">Weekly wage bill</span>
+      <span class="v2">${money(wb)} → <b style="color:var(--win)">${money(wb-p.wage)}</b></span></div>
+    <div class="kv"><span class="k2">Squad cost ratio</span>
+      <span class="v2">${r0}% → <b style="color:${r1>85?'var(--loss)':'var(--win)'}">${r1}%</b></span></div>
+    <div class="kv"><span class="k2">Squad size after</span>
+      <span class="v2">${squadOf(c).length-1}</span></div></div>
+   <div class="card" style="background:var(--s1);margin-bottom:12px;border-color:var(--acc)">
+     <div class="row" style="align-items:flex-start;gap:8px"><span style="color:var(--acc)">◆</span>
+     <div style="font-size:13px"><b>Assistant Coach</b> — ${esc(adv.t)}</div></div></div>
+   <div class="opt ${adv.r==='accept'?'rec':''}" onclick="xferAccept(${o.id})">
+     <div><div style="font-weight:600">Take the money</div>
+       <div class="dim" style="font-size:12px">${money(o.fee)} in, ${money(p.wage)}/wk off the bill</div></div>
+     ${adv.r==='accept'?'<span class="st">Advised</span>':''}</div>
+   <div class="opt ${adv.r==='demand'?'rec':''}" onclick="xferDemand(${o.id})">
+     <div><div style="font-weight:600">Ask ${money(dem)}</div>
+       <div class="dim" style="font-size:12px">One go. If they pay it, he goes — you get the answer when you continue</div></div>
+     ${adv.r==='demand'?'<span class="st">Advised</span>':''}</div>
+   <div class="opt ${adv.r==='reject'?'rec':''}" onclick="xferReject(${o.id},0)">
+     <div><div style="font-weight:600">He is not for sale</div>
+       <div class="dim" style="font-size:12px">They go away${o.dl?'':' — for now'}</div></div>
+     ${adv.r==='reject'?'<span class="st">Advised</span>':''}</div>
+   ${promisable?`<div class="opt" onclick="xferReject(${o.id},1)">
+     <div><div style="font-weight:600">Turn it down — tell him his move comes next window</div>
+       <div class="dim" style="font-size:12px">He will hold you to that</div></div></div>`:''}
+   <button class="btn ghost" style="margin-top:6px" onclick="closeSheet();render()">Leave it for now</button>`);
+};
+window.xferAccept=function(id){
+  const o=offerById(id);if(!o||o.st!=='open')return;
+  const c=alive(),p=findMine(o.pid);
+  if(!c||!p){closeSheet();render();return}
+  if(!sellable(p,c)){
+    sheet(`<h3>You cannot</h3><div class="sh-sub">Sell him and you have no cover there at all.
+      Find a replacement first.</div>
+     <button class="btn ghost" onclick="closeSheet();render()">Close</button>`);
+    return;
+  }
+  const nm=p.name,bn=G.clubs[o.b].name,fee=o.fee;
+  complete(o,fee);
+  S().offers=S().offers.filter(x=>x.id!==id);
+  bust();save();
+  sheet(`<div class="slab" style="margin-bottom:14px"><div class="k">Sold</div>
+    <div class="v" style="font-size:26px;line-height:29px">${esc(nm)}</div>
+    <div class="d">${money(fee)} to ${esc(bn)}</div></div>
+   <div class="card" style="background:var(--s1)">
+    <div class="kv"><span class="k2">Transfer budget</span><span class="v2">${money(me().bal)}</span></div>
+    <div class="kv"><span class="k2">Squad cost ratio</span><span class="v2">${costRatio(me())}%</span></div></div>
+   <button class="btn" style="margin-top:12px" onclick="closeSheet();render()">Continue</button>`);
+};
+window.xferDemand=function(id){
+  const o=offerById(id);if(!o||o.st!=='open')return;
+  const p=findMine(o.pid);if(!p){closeSheet();render();return}
+  o.dem=demandFor(o,p);o.st='counter';
+  const b=G.clubs[o.b];
+  note('You named your price',money(o.dem)+' for '+p.name+'. '+b.name+' are thinking about it.',{from:vC(b),about:vP(p),rel:'want'});
+  S().cool[p.id]=G.week;
+  save();closeSheet();render();
+};
+window.xferReject=function(id,promised){
+  const o=offerById(id);if(!o)return;
+  const p=findMine(o.pid),b=G.clubs[o.b];
+  S().offers=S().offers.filter(x=>x.id!==id);
+  if(p&&promised){
+    const cu=SW.get('culture');
+    if(cu&&cu.promise){try{cu.promise(p.id,'his move would come in the next window',22)}catch(e){}}
+    note('You told him to wait',p.name+' stays. You also told him he goes next window. He will remember that.',{from:vP(p)});
+  }else if(p&&b){
+    note('Turned down',b.name+' offered '+money(o.fee)+' for '+p.name+'. You said no.',{from:vC(b),about:vP(p),rel:'wanted'});
+  }
+  if(p)S().cool[p.id]=G.week;          // they do not ring again next week
+  save();closeSheet();render();
+};
+
+/* ---------- the Sell screen ---------- */
+function sellView(){
+  const c=alive();if(!c)return '<div class="card">No club.</div>';
+  const s=S(),sc=scan();
+  const list=squadOf(c).sort((a,b)=>{
+    const d=(sc?sc.intr[b.id].n:0)-(sc?sc.intr[a.id].n:0);
+    return d||CA(b)-CA(a);
+  });
+  const open=s.offers.filter(o=>o.st==='open');
+  const pend=s.offers.filter(o=>o.st==='counter');
+  return `<div class="card" style="margin-bottom:10px">
+    <div style="font-size:13px;color:var(--t2)"><b style="color:var(--t1)">What listing does.</b>
+    Every club in the world is told he is available. Far more of them come in, and they come in lower —
+    you are advertising that you want him gone. His wages leave the bill the day he does.
+    ${windowOpen()?'':'Nobody can bid until the window opens.'}</div></div>
+   ${open.length?`<div class="sechead">On the table<span class="n">${open.length}</span></div>
+    ${open.map(o=>{const b=G.clubs[o.b];return `<div class="act" onclick="xferOpen(${o.id})">
+      <div class="ic" style="background:#0E2340;color:var(--trf)">⇄</div>
+      <div class="tx"><div class="a">${esc(b?b.name:'A club')} — ${money(o.fee)}</div>
+        <div class="b">${esc(o.nm)}${o.dl?' · gone when you continue':''}</div></div>
+      <div class="ch">›</div></div>`}).join('')}`:''}
+   ${pend.length?`<div class="sechead">Waiting on them</div>
+    ${pend.map(o=>`<div class="card" style="margin-bottom:8px"><div style="font-size:13px;color:var(--t2)">
+      You asked ${money(o.dem)} for ${esc(o.nm)}. They answer when you continue.</div></div>`).join('')}`:''}
+   <div class="sechead">Your squad<span class="n">${list.length}</span></div>
+   <div class="card" style="padding:6px 14px 12px">
+   ${list.map(p=>{
+     const r=sc?sc.intr[p.id]:{n:0};
+     const L=LEVELS[level(r.n)];
+     return `<div class="plr">
+      <div onclick="showPlayer(${p.id})" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+       ${pface(p,46)}
+       <div class="pos">${p.pos}</div>
+       <div class="nmw"><div class="nm2">${esc(p.name)}</div>
+        <div class="meta"><span>${p.age}</span><span style="color:var(--trf)">${money(value(p))}</span>
+          <span>${money(p.wage)}/wk</span></div>
+        <div class="meta" style="margin-top:2px;color:${L.c}"><span>${L.k} ${esc(L.t)}</span></div></div></div>
+      <button class="btn ${p.listed?'':'ghost'} xs" style="margin-left:6px"
+        onclick="event.stopPropagation();xferList(${p.id})">${p.listed?'Listed':'List'}</button></div>`}).join('')}</div>
+   ${s.ledger.length?`<div class="sechead">Sold</div><div class="card">
+     ${s.ledger.slice(0,8).map(d=>`<div class="kv"><span class="k2">${esc(d.nm)} → ${esc(d.club)}</span>
+       <span class="v2" style="color:var(--win)">${money(d.fee)}</span></div>`).join('')}
+     <div class="kv" style="border-top:1px solid var(--hair);margin-top:6px;padding-top:8px">
+       <span class="k2">Fees banked, all time</span><span class="v2">${money(s.inFees)}</span></div></div>`:''}`;
+}
+window.xferList=function(pid){
+  const c=alive();if(!c)return;
+  const p=c.squad.find(x=>x.id===pid);if(!p)return;
+  const s=S();
+  if(!p.listed&&!s.told){
+    sheet(`<h3>Put ${esc(p.name)} on the list?</h3>
+     <div class="sh-sub">It is not a quiet thing. Every club is told he is available, so far more of them
+       ring — and every one of them knows you want him gone, so they ring with less. He hears about it too.</div>
+     <div class="opt rec" onclick="xferListGo(${pid})"><div><div style="font-weight:600">List him</div>
+       <div class="dim" style="font-size:12px">Interest goes up, the price comes down</div></div>
+       <span class="st">Do it</span></div>
+     <button class="btn ghost" style="margin-top:6px" onclick="closeSheet()">Leave him alone</button>`);
+    return;
+  }
+  p.listed=!p.listed;bust();save();render();
+};
+window.xferListGo=function(pid){
+  const c=alive();if(!c)return;
+  const p=c.squad.find(x=>x.id===pid);if(!p)return;
+  S().told=true;p.listed=true;bust();closeSheet();save();render();
+};
+
+/* ---------- the pot ---------- */
+function potBlock(){
+  const c=alive();if(!c)return '';
+  const s=S(),ce=ceilOf(),r=costRatio(c),room=roomLeft();
+  const left=Math.max(0,3-s.moves);
+  return `<div class="sechead">The pot</div>
+   <div class="card">
+    <div class="row" style="gap:18px;align-items:flex-start">
+      <div><div class="dim" style="font-size:10px;letter-spacing:.06em;text-transform:uppercase">Transfer budget</div>
+        <div class="disp" style="font-size:24px;font-weight:800;color:var(--acc)">${money(c.bal)}</div></div>
+      <div class="spacer"></div>
+      <div style="text-align:right"><div class="dim" style="font-size:10px;letter-spacing:.06em;text-transform:uppercase">Wage room left</div>
+        <div class="disp" style="font-size:24px;font-weight:800;color:${room>0?'var(--win)':'var(--loss)'}">${money(room)}</div>
+        <div class="dim" style="font-size:11px">per week, under ${ce}%</div></div></div>
+    <div style="height:8px;background:var(--s3);border-radius:4px;margin:12px 0 8px;overflow:hidden;position:relative">
+      <div style="height:100%;width:${Math.min(100,r/1.6)}%;background:${r>ce?'var(--loss)':'var(--acc)'}"></div>
+      <div style="position:absolute;left:${Math.min(99,ce/1.6)}%;top:-3px;bottom:-3px;width:2px;background:var(--acc)"></div>
+      <div style="position:absolute;left:${85/1.6}%;top:-3px;bottom:-3px;width:2px;background:var(--t1)"></div></div>
+    <div style="font-size:12px;color:var(--t3)">Wages are ${r}% of revenue. You agreed ${ce}% with the board.
+      The league's cap is 85% and that one is not negotiable.</div>
+    <button class="btn ghost sm" style="margin-top:11px" ${left?'':'disabled'} onclick="xferPot()">
+      ${left?'Move money · '+left+' left this season':'No moves left this season'}</button></div>`;
+}
+window.xferPot=function(){
+  const c=alive();if(!c)return;
+  const s=S(),opts=shiftOpts(),ce=ceilOf(),adv=shiftAdvice();
+  const row=o=>`<div class="opt ${adv===o.dir&&o===opts.find(x=>x.dir===adv)?'rec':''}"
+     onclick="xferShift('${o.dir}',${o.amt})">
+    <div><div style="font-weight:600">${o.dir==='wages'?'Move '+money(o.amt)+' to wages':'Take '+money(o.cash)+' into the budget'}</div>
+      <div class="dim" style="font-size:12px">Budget ${money(c.bal)} → ${money(o.bal)} ·
+        ceiling ${ce}% → ${Math.round(o.ceil)}% (${money(wageAt(o.ceil))}/wk)</div></div>
+    ${adv===o.dir&&o===opts.find(x=>x.dir===adv)?'<span class="st">Advised</span>':''}</div>`;
+  sheet(`<h3>The pot</h3>
+   <div class="sh-sub">One pot, two jobs. A fee is paid once; a wage is paid every week until his deal runs out.
+     Three moves a season — you have ${Math.max(0,3-s.moves)}.</div>
+   <div class="opt ${adv==='hold'?'rec':''}" onclick="closeSheet();render()">
+     <div><div style="font-weight:600">Leave it as it is</div>
+       <div class="dim" style="font-size:12px">Budget ${money(c.bal)} · ceiling ${ce}% ·
+         ${money(roomLeft())}/wk of room</div></div>
+     ${adv==='hold'?'<span class="st">Advised</span>':''}</div>
+   ${opts.map(row).join('')||'<div class="dim" style="padding:12px 0">Nothing left to move either way.</div>'}
+   <div style="font-size:12px;color:var(--t3);margin:10px 2px 0">Wage room sold back returns 80p in the pound —
+     the board keep the rest. You cannot promise a ceiling you are already through.</div>
+   <button class="btn ghost" style="margin-top:10px" onclick="closeSheet()">Close</button>`);
+};
+window.xferShift=function(dir,amt){
+  const c=alive();if(!c)return;
+  const s=S();
+  const o=shiftOpts().find(x=>x.dir===dir&&x.amt===amt);
+  if(!o||s.moves>=3){closeSheet();render();return}
+  if(dir==='wages'){
+    if(amt>c.bal){closeSheet();render();return}
+    c.bal-=amt;s.ceil=Math.min(85,o.ceil);
+    note('Money moved to wages','Budget down to '+money(c.bal)+'. You can carry '+money(wageAt(s.ceil))+' a week now.',{from:vV('board')});
+  }else{
+    c.bal+=o.cash;s.ceil=Math.max(40,o.ceil);s.cashOut+=o.cash;
+    note('Wage room sold','Budget up to '+money(c.bal)+'. Your ceiling is '+Math.round(s.ceil)+'% — do not go through it.',{from:vV('board')});
+  }
+  if(c.bal<0)c.bal=0;
+  s.moves++;
+  save();closeSheet();render();
+};
+
+/* ============================================================
+   REGISTRATION
+   ============================================================ */
+SW.register({
+  id:'market',
+
+  init(){
+    const s=SW.state('market');
+    for(const k in s)delete s[k];
+    const st=S(),c=alive();
+    if(c){st.potBase=c.bal;st.ceil=initCeil(c)}
+    bust();
+    /* The first window a new manager sees must not be silent. */
+    if(c&&windowOpen()){st.seeded=G.season;genOffers(4,true)}
+  },
+  onLoad(){S();bust()},
+
+  onWeek(w){
+    const s=S(),c=alive();if(!c)return;
+    bust();
+    resolveCounters();
+    if(!windowOpen()){
+      if(s.offers.length){
+        s.offers=[];
+        note('The window is shut','Whatever was on the table is off it.',{from:vV('league')});
+      }
+      return;
+    }
+    const gone=s.offers.filter(o=>o.st==='open'&&w>o.exp);
+    if(gone.length){
+      s.offers=s.offers.filter(o=>!(o.st==='open'&&w>o.exp));
+      note('They moved on',gone.map(o=>o.nm).join(', ')+' — nobody waits for ever.',{from:vV('staff')});
+    }
+    const dl=isDeadline();
+    if(dl){
+      note('Deadline week','Last chance for everybody. The phone will not stop.',{from:vV('league')});
+      aiMarket(6);                       // the rest of the world panics too
+    }
+    genOffers(dl?5:3,dl);            // the core saves for us straight after this hook
+  },
+
+  /* Enforce the ceiling where we actually can: the moment a signing puts
+     us through the number we gave the board. */
+  onTransfer(p,seller,buyer){
+    if(!buyer||buyer.id!==G.me)return;
+    bust();
+    const s=S(),c=alive();if(!c)return;
+    const r=costRatio(c);
+    if(r>ceilOf()&&G.week-s.breachWk>3){
+      s.breachWk=G.week;
+      const bd=SW.get('board');
+      if(bd&&bd.adjust){try{bd.adjust(-4,'took the wage bill through the ceiling you agreed')}catch(e){}}
+      note('Through the ceiling','Wages are '+r+'% of revenue. You told them '+ceilOf()+'%. They have it written down.',{from:vV('board')});
+    }
+  },
+
+  onSeasonEndAfter(){
+    const s=S(),c=alive();if(!c)return;
+    s.offers=[];s.cool={};s.moves=0;s.cashOut=0;
+    s.potBase=c.bal;s.ceil=initCeil(c);
+    bust();
+    if(s.seeded!==G.season){s.seeded=G.season;genOffers(5,true)}
+  },
+
+  hubCards(){
+    const s=S(),c=alive();if(!c)return [];
+    const open=s.offers.filter(o=>o.st==='open').sort((a,b)=>b.fee-a.fee);
+    if(!open.length)return [];
+    const o=open[0],b=G.clubs[o.b];
+    const more=open.length-1;
+    return [{ic:'⇄',bg:'#0E2340',col:'var(--trf)',priority:o.dl?78:68,
+      a:(b?b.name:'A club')+' want '+o.nm,
+      b:money(o.fee)+' — '+(o.dl?'gone when you continue':'they want an answer')+(more?' · '+more+' more on the table':''),
+      fn:'xferOpen('+o.id+')'}];
+  },
+
+  marketViews(){return [{key:'sell',label:'Sell',render:sellView}]},
+
+  clubBlocks(){const h=potBlock();return h?[h]:[]},
+
+  playerBlocks(p,club){
+    if(!club||club.id!==G.me||p.youth)return [];
+    const r=interestOf(p.id),L=LEVELS[level(r.n)];
+    const o=S().offers.find(x=>x.pid===p.id);
+    return [`<div class="card" style="margin-top:10px;background:var(--s1)">
+      <div class="row"><span class="dim" style="font-size:10px;letter-spacing:.06em;
+        text-transform:uppercase">Who is watching</span><span class="spacer"></span>
+        <span style="font-weight:700;font-size:13px;color:${L.c}">${L.k} ${esc(L.t)}</span></div>
+      ${o?`<div style="font-size:13px;color:var(--trf);margin-top:7px">
+        ${o.st==='counter'?'You have asked '+money(o.dem)+'. They answer when you continue.'
+          :esc((G.clubs[o.b]||{}).name||'A club')+' have bid '+money(o.fee)+'.'}</div>`:''}
+      <div style="font-size:13px;color:var(--t2);margin-top:7px">
+        ${p.listed?'He is on the transfer list. Everybody knows, including him.'
+          :'Listing him tells every club he is available — more offers, smaller ones.'}</div>
+      ${o&&o.st==='open'?`<button class="btn sm" style="margin-top:10px" onclick="closeSheet();xferOpen(${o.id})">See the offer</button>`
+        :`<button class="btn ${p.listed?'':'ghost'} sm" style="margin-top:10px"
+          onclick="xferList(${p.id})">${p.listed?'Take him off the list':'Put him on the list'}</button>`}</div>`];
+  },
+
+  /* ---- published interface ---- */
+  interest(pid){const r=interestOf(Number(pid));return {clubs:r.n,level:level(r.n),label:LEVELS[level(r.n)].t}},
+  offers(){return S().offers.map(o=>({id:o.id,player:o.pid,club:o.b,fee:o.fee,stage:o.st}))},
+  wageCeiling(){return ceilOf()},
+  wageRoom(){return alive()?roomLeft():0},
+  listed(pid,on){const c=alive();if(!c)return false;
+    const p=c.squad.find(x=>x.id===Number(pid));if(!p)return false;
+    p.listed=on===undefined?!p.listed:!!on;bust();return p.listed}
+});
+})();
+
+</script>
+<script>
 /* ==== module: 30-board.js ==== */
 /* ============================================================
    SILVERWARE module: board
@@ -4010,11 +5214,13 @@ function escalate(stage){
     s.warnAt=s.games;
     s.log.unshift({s:G.season,w:G.week,d:0,r:'formal warning issued'});
     note('A formal warning',
-      'The chairman put it in writing. "We are not going to sit through much more of this. Results, or we make a change."');
+      'The chairman put it in writing. "We are not going to sit through much more of this. Results, or we make a change."',
+      {from:vV('board')});
     return 'warn2';
   }
   note('A quiet word',
-    'The chairman caught you in the corridor. "Nobody is panicking. But they are starting to say your name in that tone."');
+    'The chairman caught you in the corridor. "Nobody is panicking. But they are starting to say your name in that tone."',
+    {from:vV('board')});
   return 'warn1';
 }
 
@@ -4048,7 +5254,7 @@ function review(){
   if(!parts.length)return;
   parts.forEach(([v,r])=>adjust(v,r));
   if(tot<=-3){
-    note('The board met',parts.filter(p=>p[0]<0).map(p=>p[1]).join('; ')+'. They did not enjoy it.');
+    note('The board met',parts.filter(p=>p[0]<0).map(p=>p[1]).join('; ')+'. They did not enjoy it.',{from:vV('board')});
   }
 }
 
@@ -4141,7 +5347,8 @@ function showSack(reasonLine,snap){
      <div class="v" style="font-size:30px;line-height:33px">The board have seen enough.<br>Clear your desk.</div>
      <div class="d">${esc(q)}</div></div>
    <div class="sechead">What they said</div>
-   <div class="card"><div style="font-size:14px;color:var(--t2);line-height:20px">${esc(reasonLine)}</div></div>
+   ${speakerBar(vV('board'),null,'',c.name+' \u00b7 board')}
+   <div class="card" style="margin-top:-4px"><div style="font-size:14px;color:var(--t2);line-height:20px">${esc(reasonLine)}</div></div>
    <div class="sechead">Your record there</div>
    <div class="card">
      <div class="kv"><span class="k2">Games</span><span class="v2">${recLine()}</span></div>
@@ -4159,8 +5366,8 @@ function showSack(reasonLine,snap){
 /* ---------- the offers screen ---------- */
 function offerCard(o,isRec){
   const c=G.clubs[o.cid];
-  return `<div class="opt ${isRec?'rec':''}" onclick="boardTakeJob(${o.cid})" style="align-items:flex-start">
-    ${crestSVG(c,34)}
+  return `<div class="opt ${isRec?'rec':''}" onclick="boardTakeJob(${o.cid})" style="align-items:flex-start;gap:13px">
+    ${avatar(vC(c),64)}
     <div style="min-width:0;flex:1">
       <div style="font-weight:700;font-size:15px">${esc(c.name)}</div>
       <div class="dim" style="font-size:12px">${esc(o.league)} · reputation ${o.rep}</div>
@@ -4230,7 +5437,8 @@ function takeJob(cid){
   s.wStreak=0;s.lStreak=0;s.react='';
   s.log.unshift({s:G.season,w:G.week,d:0,r:'appointed at '+c.name});
   chron('Took the job at '+c.name);
-  note('You have a job again',c.name+'. They want: '+G.objective.text+'. Agree it and get to work.');
+  note('You have a job again',c.name+'. They want: '+G.objective.text+'. Agree it and get to work.',
+    {from:vV('board'),about:vC(c),rel:'hired by'});
   const h=SW.get('history');
   if(h&&typeof h.record==='function'){try{h.record('era','Took over at '+c.name+(from?' after '+from:''))}catch(e){}}
   closeTakeover();
@@ -4239,7 +5447,7 @@ function takeJob(cid){
 function declineOffers(){
   const s=S();
   s.offers=[];
-  note('You turned them down','You told them no. Word gets round that you are settled.');
+  note('You turned them down','You told them no. Word gets round that you are settled.',{from:vV('board')});
   closeTakeover();save();render();
 }
 
@@ -4251,6 +5459,8 @@ function showWarning(){
      <div class="k">Formal warning</div>
      <div class="v" style="font-size:28px;line-height:31px">You are on borrowed time.</div>
      <div class="d">"Results, or we make a change. That is the whole conversation."</div></div>
+   <div class="sechead">Who said it</div>
+   ${speakerBar(vV('board'),null,'',(me()?me().name:'')+' \u00b7 in writing')}
    <div class="sechead">Where you are</div>
    <div class="card">
      <div class="kv"><span class="k2">Board confidence</span><span class="v2" style="color:var(--loss)">${Math.round(s.conf)} / 100</span></div>
@@ -4293,6 +5503,7 @@ function panel(){
   const target=(G.objective&&G.objective.pos)||10,pos=myPos();
   sheet(`<h3>The board</h3>
    <div class="sh-sub">${esc(b.t)}</div>
+   ${speakerBar(vV('board'),null,'',c.name+' \u00b7 boardroom')}
    ${meter()}
    <div class="sechead">What moved it</div>
    <div class="card" style="background:var(--s1)">${logRows(8)||'<div class="dim">Nothing yet. Play a game.</div>'}</div>
@@ -4434,7 +5645,7 @@ SW.register({
     /* offers expiring */
     if(s.offers&&s.offers.length&&!s.sacked){
       const live=s.offers.filter(o=>o.exp>=week);
-      if(live.length!==s.offers.length&&!live.length)note('The approach cooled','They appointed somebody else. You stay put.');
+      if(live.length!==s.offers.length&&!live.length)note('The approach cooled','They appointed somebody else. You stay put.',{from:vV('staff')});
       s.offers=live;
     }
     /* an unsolicited approach when you are doing well */
@@ -4443,7 +5654,7 @@ SW.register({
       if(list.length){
         list.forEach(o=>{o.exp=week+3});
         note('Somebody wants you',(list.length===1?G.clubs[list[0].cid].name+' have':'Two clubs have')+
-          ' asked to speak to you. You have three weeks to decide.');
+          ' asked to speak to you. You have three weeks to decide.',{from:vV('board'),about:vC(G.clubs[list[0].cid]),rel:'want you'});
       }
     }
   },
@@ -4486,8 +5697,8 @@ SW.register({
       }catch(e){}},0);
       return;
     }
-    if(info.hit)note('The board are pleased','You did what they asked. '+b.t+' Confidence '+v+'.');
-    else note('The verdict','You did not. '+reasons.join(', ')+'. '+b.t+' Confidence '+v+'.');
+    if(info.hit)note('The board are pleased','You did what they asked. '+b.t+' Confidence '+v+'.',{from:vV('board')});
+    else note('The verdict','You did not. '+reasons.join(', ')+'. '+b.t+' Confidence '+v+'.',{from:vV('board')});
     evaluate();
     if(s.stage>=2)setTimeout(()=>{try{showWarning()}catch(e){}},0);
   },
@@ -4582,6 +5793,12 @@ function ensure(){
   if(st.clubs.indexOf(G.me)<0)st.clubs.push(G.me);
   return st;
 }
+
+/* ---------- who is talking ----------
+   The pundit has a name, so he gets a face. The press pack does not, so it
+   gets the institutional mark: three microphones on newsprint. */
+function vPundit(){const st=S();return st.pundit?vH(st.pundit.name,'pundit','eng',49):vV('press')}
+function vPress(){return vV('press')}
 
 /* ---------- the pundit ---------- */
 const ROLES=[
@@ -4738,7 +5955,7 @@ function setHead(t,big,end,keep){
   if(st.papers[0]&&st.papers[0].s===p.s&&st.papers[0].w===p.w&&!end)st.papers[0]=p;
   else st.papers.unshift(p);
   if(st.papers.length>14)st.papers.length=14;
-  if(big)note('Back page','"'+t+'" — and the phone has not stopped ringing.');
+  if(big)note('Back page','"'+t+'" — and the phone has not stopped ringing.',{from:vPress()});
 }
 function resultHeadline(c){
   const my=UP(c.myName), opp=UP(c.oppName), sc=c.scorer?UP(surname(c.scorer)):null;
@@ -5004,8 +6221,10 @@ function shock(id){
 function refCharge(){
   const c=me(), fine=Math.round((18000+c.rep*900)/1000)*1000;
   punditAdj(-4);
-  if(c.bal>fine*4){ c.bal-=fine; note('Charged','A misconduct charge and a '+money(fine)+' fine. Worth it, probably.'); }
-  else note('Charged','A misconduct charge. They have let you off the fine. This time.');
+  if(c.bal>fine*4){ c.bal-=fine; note('Charged','A misconduct charge and a '+money(fine)+' fine. Worth it, probably.',
+    {from:vV('league'),about:vC(c),rel:'charge'}); }
+  else note('Charged','A misconduct charge. They have let you off the fine. This time.',
+    {from:vV('league'),about:vC(c),rel:'charge'});
   bAdj(-3,'dragged the club in front of a disciplinary panel');
 }
 
@@ -5145,9 +6364,10 @@ hubBlocks(){
         onclick="SWmedia.papers()">
     ${h?`<div style="font-family:var(--disp);font-weight:800;font-size:20px;line-height:22px;
       text-transform:uppercase;letter-spacing:-.01em">${esc(h)}</div>`:''}
-    <div style="font-size:12.5px;color:var(--t2);line-height:17px;${h?'border-top:1px solid var(--hair);margin-top:10px;padding-top:9px':''}">
-      &ldquo;${esc(st.line)}&rdquo;<br>
-      <span style="color:var(--t3)">${esc(st.pundit.name)} &middot; ${esc(st.pundit.role)}</span></div>
+    <div class="row" style="gap:11px;align-items:flex-start;${h?'border-top:1px solid var(--hair);margin-top:10px;padding-top:10px':''}">
+      ${avatar(vPundit(),52)}
+      <div style="min-width:0"><div style="font-size:12.5px;color:var(--t2);line-height:17px">&ldquo;${esc(st.line)}&rdquo;</div>
+      <div style="color:var(--t3);font-size:11px;margin-top:4px;font-weight:600">${esc(st.pundit.name)} &middot; ${esc(st.pundit.role)}</div></div></div>
    </div>`];
 },
 
@@ -5225,15 +6445,26 @@ function renderPress(){
   const hint = q.rec==='blame' ? 'Take it yourself. They are fishing for a row.'
     : q.rec==='back' ? 'Get behind them. They will hear about it before you are back.'
     : 'Give them something. Just watch what it costs.';
+  /* every question has an asker and a subject: the pundit when he is being
+     quoted, the man you are being asked about when there is one */
+  const asker = q.needs==='pundit' ? vPundit() : vPress();
+  const subj  = q.needs==='struggler'&&c.strugglerId
+        ? vP((me().squad.find(x=>x.id===c.strugglerId))||null)
+      : q.tag==='hat'&&c.hat ? vP(me().squad.find(x=>x.name===c.hat))
+      : (c.derby||c.returning||c.upsetWin||c.upsetLoss||c.heavy) ? vC(G.clubs[c.oppId])
+      : null;
   sheet(`<h3>The press room</h3>
    <div class="sh-sub">${esc(c.myName)} ${c.gf}&ndash;${c.ga} ${esc(c.oppName)} &middot; ${esc(c.comp)}
      &middot; question ${L.i+1} of ${n}</div>
-   <div class="card" style="background:var(--s1);padding:13px 14px;margin-bottom:12px">
-     <div style="font-size:15px;font-weight:600;line-height:21px">&ldquo;${esc(q.q(c))}&rdquo;</div>
+   ${speakerBar(asker,subj,subj&&subj.k==='c'?'vs':'about',
+      q.needs==='pundit'?S().pundit.role:'Question '+(L.i+1)+' of '+n)}
+   <div class="qcard">
+     <span class="qmark">&ldquo;</span>
+     <div style="font-size:15.5px;font-weight:600;line-height:22px">${esc(q.q(c))}</div>
    </div>
-   <div class="row" style="gap:8px;margin:0 2px 12px;align-items:flex-start">
-     <span style="color:var(--acc);font-size:12px;margin-top:1px">&#9670;</span>
-     <div style="font-size:12px;color:var(--t2);line-height:16px"><b>Assistant</b> &mdash; ${esc(hint)}</div>
+   <div class="asrow">${avatar(vV('assist'),44)}
+     <div style="font-size:12.5px;color:var(--t2);line-height:17px"><b style="color:var(--acc)">Assistant</b>
+       &mdash; ${esc(hint)}</div>
    </div>
    ${q.a.map((a,i)=>`<div class="opt${a.k===q.rec?' rec':''}" onclick="SWmedia.answer(${i})">
      <div><div style="font-weight:600;font-size:14px;line-height:19px">${esc(a.t)}</div>
@@ -5272,11 +6503,11 @@ window.SWmedia={
        <div style="font-family:var(--disp);font-weight:800;font-size:15px;line-height:18px;text-transform:uppercase">${esc(p.t)}</div>
        <div class="dim" style="font-size:11px;margin-top:5px">${p.s}/${String(p.s+1).slice(2)} &middot; ${p.end?'end of season':'week '+(p.w+1)}</div>
      </div>`).join(''):'<div class="card" style="background:var(--s1)">Nothing worth printing yet.</div>'}
-     <div class="card" style="background:var(--s1);margin-top:10px">
-       <div class="kv"><span class="k2">${esc(st.pundit.name)}</span>
-         <span class="v2">${st.view>=45?'On your side':st.view>=15?'Coming round':st.view<=-45?'Wants you gone':st.view<=-15?'Not convinced':'Undecided'}</span></div>
-       <div style="font-size:12.5px;color:var(--t2);line-height:17px;padding-top:9px;border-top:1px solid var(--hair)">
-         &ldquo;${esc(st.line)}&rdquo;</div></div>
+     <div class="sechead">The man with the microphone</div>
+     ${speakerBar(vPundit(),null,'',st.pundit.role+' \u00b7 '+
+       (st.view>=45?'On your side':st.view>=15?'Coming round':st.view<=-45?'Wants you gone':st.view<=-15?'Not convinced':'Undecided'))}
+     <div class="card" style="background:var(--s1);margin-top:-4px">
+       <div style="font-size:13.5px;color:var(--t1);line-height:19px">&ldquo;${esc(st.line)}&rdquo;</div></div>
      <button class="btn" style="margin-top:12px" onclick="closeSheet()">Close</button>`);
   }
 };
@@ -5295,9 +6526,10 @@ function finishPress(){
        text-transform:uppercase;color:var(--acc)">Back page</div>
      <div style="font-family:var(--disp);font-weight:800;font-size:22px;line-height:24px;
        text-transform:uppercase;margin-top:6px">${esc(h)}</div>
-     <div style="font-size:12.5px;color:var(--t2);line-height:17px;border-top:1px solid var(--hair);
-       margin-top:11px;padding-top:9px">&ldquo;${esc(st.line)}&rdquo;<br>
-       <span style="color:var(--t3)">${esc(st.pundit.name)} &middot; ${esc(st.pundit.role)}</span></div>
+     <div class="row" style="gap:11px;align-items:flex-start;border-top:1px solid var(--hair);
+       margin-top:12px;padding-top:11px">${avatar(vPundit(),52)}
+       <div style="min-width:0"><div style="font-size:12.5px;color:var(--t2);line-height:17px">&ldquo;${esc(st.line)}&rdquo;</div>
+       <div style="color:var(--t3);font-size:11px;margin-top:4px;font-weight:600">${esc(st.pundit.name)} &middot; ${esc(st.pundit.role)}</div></div></div>
    </div>
    <button class="btn" style="margin-top:14px" onclick="closeSheet();render()">Done</button>`);
 }
@@ -5640,7 +6872,7 @@ function promises(c){
       t.tr=clamp(t.tr-2,-3,3);
       note(p.name+' has stopped believing you',
         'You told him he was in your plans in '+monthOf(t.prom.w)+'. He has started '+gained+
-        ' game'+(gained===1?'':'s')+' since. He is not coming to see you again in a good mood.');
+        ' game'+(gained===1?'':'s')+' since. He is not coming to see you again in a good mood.',{from:vP(p)});
       t.ask=-99;
     }
     t.prom=null;
@@ -5657,7 +6889,7 @@ function requests(c){
       t.req=G.week; p.listed=true;
       const why=drivers(c,p).find(x=>x.neg);
       note(p.name+' has asked to leave',
-        (why?why.txt+'. ':'')+'He wants away. He is on the list until you change his mind or someone takes him.');
+        (why?why.txt+'. ':'')+'He wants away. He is on the list until you change his mind or someone takes him.',{from:vP(p)});
       chron(p.name+' asked to leave');
       bump(p,-4,'Handed in a transfer request');
     }
@@ -5673,7 +6905,7 @@ function leaderLoss(c){
     if(now.has(rec.id))return;
     squadOf(c).forEach(p=>bump(p,-(6+rnd()*7),'Lost '+rec.n+', and they knew who held that room together'));
     note('The room feels different','You sold '+rec.n+'. He was the one who sorted things out in there '+
-      'before they reached you. Somebody else has to do it now, and nobody has volunteered.');
+      'before they reached you. Somebody else has to do it now, and nobody has volunteered.',{from:vV('staff')});
   });
   s.was=s.ld.map(id=>{const p=c.squad.find(x=>x.id===id);return p?{id,n:p.name}:null}).filter(Boolean);
 }
@@ -5845,7 +7077,7 @@ function talk(id){
       <span class="v2" style="color:${k.ok?'var(--win)':'var(--loss)'}">${k.ok?'✓ landed':'✗ backfired'} · ${esc(monthOf(k.w))}</span></div>`);
   });
   sheet(`<div class="row" style="margin-bottom:12px;align-items:flex-start">
-     ${pface(p,56)}
+     ${avatar(vP(p),76)}
      <div style="min-width:0"><h3 style="margin:0">${esc(p.name)}</h3>
       <div class="dim" style="font-size:13px">${p.pos} · ${p.age} · ${esc(moodWord(get(p)))}</div></div>
      <span class="spacer"></span>${moodStrip(get(p))}</div>
@@ -5900,9 +7132,10 @@ function answer(id,mode){
   let extra='';
   if(t.req&&get(p)>-25){t.req=0;p.listed=false;
     extra='<div class="pill acc" style="margin-top:12px;padding:9px 12px">He has withdrawn the request. Off the list.</div>';
-    note(p.name+' is staying','He has taken his transfer request back. Do not waste it.');}
+    note(p.name+' is staying','He has taken his transfer request back. Do not waste it.',{from:vP(p)});}
 
-  sheet(`<h3>${esc(head)}</h3>
+  sheet(`${speakerBar(vP(p),null,'',p.pos+' \u00b7 '+p.age+' \u00b7 '+moodWord(get(p)))}
+   <h3>${esc(head)}</h3>
    <div class="sh-sub">${esc(body)}</div>
    <div class="card" style="background:var(--s1)">
      <div class="kv"><span class="k2">${esc(p.name)}</span>
@@ -6121,7 +7354,15 @@ SW.register({
 const DEF={
   set:false, standards:[], captain:null,
   trust:{}, breaches:{}, seen:{}, promises:[], precedent:{},
-  identity:[], log:[], proactive:0, reactive:0, pending:null, nextEv:4, hypo:0
+  identity:[], log:[], proactive:0, reactive:0, pending:null, nextEv:4, hypo:0,
+  /* ---- part two: where they stand, and what the room made of it ---- */
+  roles:{},          // the draft you are editing on the roles screen
+  told:{},           // pid -> {role,week,season,over,wronged}  what you actually said
+  standing:{},       // pid -> -100..100  what his TEAMMATES make of him
+  grief:[],          // the last few times the room passed judgement
+  griefSeen:{},      // pid -> absolute week, so the same man is not re-tried monthly
+  st:{}, gm:0,       // starts and games, tracked here so roles never has to ask morale
+  roleSeason:-1, roleOpen:0, lastArb:-99, tally:null
 };
 function S(){const s=SW.state('culture');
   for(const k in DEF)if(s[k]===undefined)
@@ -6234,7 +7475,7 @@ function hypocrisyCheck(key,upheld,p){
   bumpBreach();
   note('They noticed',
     `You have handled the same thing two different ways. ${esc(harder)} carried it, ${esc(softer)} did not. `+
-    `Nobody said anything. They did not have to.`);
+    `Nobody said anything. They did not have to.`,{from:vV('staff')});
   return {softer,harder};
 }
 function bumpBreach(){
@@ -6249,19 +7490,22 @@ function bumpBreach(){
 }
 
 /* ---------- promises ---------- */
-function promise(pid,what,weeks){
+function promise(pid,what,weeks,tag){
   const s=S();
-  s.promises.unshift({pid,what,due:G.week+(weeks||6),season:G.season,state:'open'});
-  if(s.promises.length>30)s.promises.length=30;
+  s.promises.unshift({pid,what,due:G.week+(weeks||6),season:G.season,state:'open',tag:tag||null});
+  if(s.promises.length>40)s.promises.length=40;
 }
-function settle(pid,kept,what){
+/* tag lets one kind of promise be settled without disturbing another. A squad
+   role is a promise like any other — it just gets judged on a season, not a
+   fortnight, and it is judged by the teamsheet rather than by a conversation. */
+function settle(pid,kept,why,tag){
   const s=S();
-  const i=s.promises.findIndex(x=>x.pid===pid&&x.state==='open');
+  const i=s.promises.findIndex(x=>x.pid===pid&&x.state==='open'&&(tag?x.tag===tag:!x.tag));
   if(i<0)return;
   s.promises[i].state=kept?'kept':'broken';
-  const c=me(),p=c.squad.find(x=>x.id===pid);
+  const c=me(),p=c&&c.squad.find(x=>x.id===pid);
   if(!p)return;
-  moveTrust(pid,kept?9:-18,kept?'you did what you said you would':'you said one thing and did another');
+  moveTrust(pid,kept?9:-18,why||(kept?'you did what you said you would':'you said one thing and did another'));
   if(!kept)bumpBreachOne(pid);
 }
 function bumpBreachOne(pid){
@@ -6271,12 +7515,12 @@ function bumpBreachOne(pid){
    quietly rots a dressing room. */
 function sweepPromises(){
   const s=S(),c=me();
-  s.promises.filter(x=>x.state==='open'&&G.week>x.due).forEach(x=>{
+  s.promises.filter(x=>x.state==='open'&&!x.tag&&G.week>x.due).forEach(x=>{
     x.state='forgotten';
     const p=c.squad.find(y=>y.id===x.pid);
     moveTrust(x.pid,-11,'you never came back to him about '+x.what);
     if(p&&stature(p)>=1&&rnd()<0.5)
-      note('He is still waiting',`You told ${esc(p.name)} ${esc(x.what)}. That was a while ago now.`);
+      note('He is still waiting',`You told ${esc(p.name)} ${esc(x.what)}. That was a while ago now.`,{from:vP(p),rel:'promised'});
   });
 }
 window.cultPromise=promise;
@@ -6306,19 +7550,21 @@ function lastResult(){
 }
 
 /* --- the protection moment: press, board or chairman come for one of yours --- */
-function evProtect(){
-  const p=pickTarget(rnd()<0.6?'star':null);if(!p)return null;
-  const src=pick(['press','board','fans']);
-  const line={
-    press:`The back pages have gone after ${p.name}. One of them called him "the most expensive mistake at the club".`,
-    board:`The chairman raised ${p.name} in a meeting. He wants him gone in January and he wants you to say so publicly.`,
-    fans:`${p.name} was booed by his own supporters when his number went up.`
-  }[src];
-  return {
-    id:'protect', pid:p.id, key:'protect',
-    title:'They have come for '+p.name.split(' ').pop(),
-    body:line,
-    opts:[
+/* Options are rebuilt from (player, args) rather than closed over, because
+   G.mod is JSON-serialised on save — a closure does not survive a reload, and
+   an event you answered after loading used to do nothing at all, silently. */
+const EVOPTS={};
+function optsFor(ev){
+  const c=me();if(!c||!ev)return null;
+  const p=c.squad.find(x=>x.id===ev.pid);
+  const b=EVOPTS[ev.id];
+  if(!p||!b)return null;
+  try{return b(p,ev.a||{})}catch(e){console.error('[culture.optsFor]',e);return null}
+}
+
+EVOPTS.protect=function(p,a){
+  const src=a.src;
+  return [
       {t:'Stand in front of him',
        d:'Take it publicly. The heat comes to you instead.',
        fn:()=>{
@@ -6331,7 +7577,7 @@ function evProtect(){
          });
          const b=SW.get('board');if(b&&b.adjust&&src==='board')try{b.adjust(-6,'publicly contradicted the chairman over '+p.name)}catch(e){}
          const mo=SW.get('morale');if(mo&&mo.adjust)try{mo.adjust(p.id,22,'the manager defended him in public')}catch(e){}
-         note('You took it for him','You said it was on you. He will not forget that, and neither will the rest of them.');
+         note('You took it for him','You said it was on you. He will not forget that, and neither will the rest of them.',{from:vV('staff'),about:vP(p)});
        }},
       {t:'Say nothing',
        d:'Stay out of it. It is not your fight to pick.',
@@ -6344,7 +7590,7 @@ function evProtect(){
            moveTrust(x.id,(x.id===p.id?-14:-4)*w,'left '+p.name.split(' ').pop()+' out there on his own');
          });
          bumpBreachOne(p.id);
-         note('You left him out there','You did not have to say much. You said nothing, and that was the answer.');
+         note('You left him out there','You did not have to say much. You said nothing, and that was the answer.',{from:vV('staff'),about:vP(p)});
        }},
       {t:'Agree with them',
        d:'Side with the criticism. Buys you room, costs you the room.',
@@ -6355,9 +7601,21 @@ function evProtect(){
          bumpBreach();
          const b=SW.get('board');if(b&&b.adjust)try{b.adjust(5,'backed the board over a player')}catch(e){}
          const mo=SW.get('morale');if(mo&&mo.adjust)try{mo.adjust(p.id,-40,'the manager sided against him publicly')}catch(e){}
-         note('You agreed with them','Twenty-four other players read that quote this morning.');
+         note('You agreed with them','Twenty-four other players read that quote this morning.',{from:vV('press'),about:vP(p)});
        }}
-    ]};
+  ];
+};
+function evProtect(){
+  const p=pickTarget(rnd()<0.6?'star':null);if(!p)return null;
+  const src=pick(['press','board','fans']);
+  const line={
+    press:`The back pages have gone after ${p.name}. One of them called him "the most expensive mistake at the club".`,
+    board:`The chairman raised ${p.name} in a meeting. He wants him gone in January and he wants you to say so publicly.`,
+    fans:`${p.name} was booed by his own supporters when his number went up.`
+  }[src];
+  return {id:'protect', pid:p.id, key:'protect', a:{src},
+    title:'They have come for '+p.name.split(' ').pop(),
+    body:line, opts:EVOPTS.protect(p,{src})};
 }
 
 /* --- the standard being tested, which is the only way a standard becomes real --- */
@@ -6376,10 +7634,14 @@ function evStandard(){
   }[st]||`${p.name} has fallen short of it.`;
   const isStar=stature(p)===2;
   return {
-    id:'standard', pid:p.id, key:'std_'+st,
+    id:'standard', pid:p.id, key:'std_'+st, a:{st},
     title:'"'+def.t+'"',
     body:body+(isStar?' He is also the best player you have, and you play on Saturday.':''),
-    opts:[
+    opts:EVOPTS.standard(p,{st})};
+}
+EVOPTS.standard=function(p,a){
+  const st=a.st, sn=p.name.split(' ').pop(), isStar=stature(p)===2;
+  return [
       {t:'Apply it. No exceptions.',
        d:isStar?'He sits out. You are weaker for it, and everybody knows why.':'He sits out.',
        fn:()=>{
@@ -6389,7 +7651,7 @@ function evStandard(){
          squadOf(c).forEach(x=>moveTrust(x.id,x.id===p.id?-6:(isStar?11:5),'held the standard, even with '+sn));
          if(isStar){p.cond=Math.min(100,p.cond+6);p.out=Math.max(p.out,0)}
          const mo=SW.get('morale');if(mo&&mo.adjust)try{mo.adjust(p.id,-16,'dropped for falling below the standard')}catch(e){}
-         note('The standard held','It cost you. That is what made it worth something.');
+         note('The standard held','It cost you. That is what made it worth something.',{from:vV('staff'),about:vP(p)});
        }},
       {t:'Let it go this once',
        d:'Have a quiet word. Move on. Nobody needs to know.',
@@ -6399,10 +7661,10 @@ function evStandard(){
          const c=me();
          squadOf(c).forEach(x=>moveTrust(x.id,x.id===p.id?4:-7,'let it slide for '+sn));
          bumpBreach();
-         note('You let it go','They all knew about it before you did. Now they know what it is worth.');
+         note('You let it go','They all knew about it before you did. Now they know what it is worth.',{from:vV('staff'),about:vP(p)});
        }}
-    ]};
-}
+  ];
+};
 
 /* --- the proactive/reactive axis: seeing a man before he becomes a problem --- */
 function evCheckIn(){
@@ -6416,10 +7678,13 @@ function evCheckIn(){
   const p=forgotten.sort((a,b)=>CA(b)-CA(a))[0];
   const care=CARES[caresOf(p)];
   return {
-    id:'checkin', pid:p.id, key:'checkin',
+    id:'checkin', pid:p.id, key:'checkin', a:{},
     title:'You have not spoken to '+p.name.split(' ').pop()+' since August',
     body:`He has not started a game and he has not been told why. ${care.w}`,
-    opts:[
+    opts:EVOPTS.checkin(p,{})};
+}
+EVOPTS.checkin=function(p){
+  return [
       {t:'Tell him the truth',
        d:'Where he stands, and what would change it.',
        fn:()=>{
@@ -6428,7 +7693,7 @@ function evCheckIn(){
          moveTrust(p.id,14*w,'told him the truth to his face');
          promise(p.id,'he would get a look in',8);
          const mo=SW.get('morale');if(mo&&mo.adjust)try{mo.adjust(p.id,12,'the manager was straight with him')}catch(e){}
-         note('You were straight with him','He did not like it. He respected it.');
+         note('You were straight with him','He did not like it. He respected it.',{from:vP(p)});
        }},
       {t:'Tell him what he wants to hear',
        d:'Keep it sweet. Deal with it later.',
@@ -6436,17 +7701,17 @@ function evCheckIn(){
          S().seen[p.id]=G.week;S().reactive++;
          promise(p.id,'he would be starting soon',5);
          moveTrust(p.id,6,'told him what he wanted to hear');
-         note('You bought yourself some time','You have three weeks before that comes back.');
+         note('You bought yourself some time','You have three weeks before that comes back.',{from:vP(p)});
        }},
       {t:'Leave it',
        d:'You have a game on Saturday.',
        fn:()=>{
          S().reactive++;
          moveTrust(p.id,-9,'could not find ten minutes for him');
-         note('You left it','It is on the list. It has been on the list since August.');
+         note('You left it','It is on the list. It has been on the list since August.',{from:vV('assist'),about:vP(p)});
        }}
-    ]};
-}
+  ];
+};
 
 function nextEvent(){
   const s=S();
@@ -6524,7 +7789,7 @@ function cultureView(){
   const v=cultureScore(),vd=verdict(),ident=identity();
   const cap=c.squad.find(p=>p.id===s.captain);
   const sq=squadOf(c).slice().sort((a,b)=>trustOf(a.id)-trustOf(b.id));
-  const open=s.promises.filter(p=>p.state==='open');
+  const open=s.promises.filter(p=>p.state==='open'&&c.squad.some(x=>x.id===p.pid));
   return `<div class="card">
     <div class="row"><span class="dim" style="font-size:10px;letter-spacing:.06em;text-transform:uppercase">The room</span>
       <span class="spacer"></span><span style="font-weight:700;color:${vd.c};font-size:13px">${esc(vd.t)}</span></div>
@@ -6537,6 +7802,9 @@ function cultureView(){
       <span class="spacer"></span>
       <button class="btn ghost xs" onclick="cultCaptain()">Armband</button></div></div>
 
+   ${rolesBlock()}
+   ${griefBlock()}
+
    ${ident.length?`<div class="sechead">What this team has become</div>
      <div class="card">${ident.map(l=>`<div style="display:flex;gap:9px;padding:7px 0;font-size:14px;
        line-height:19px;border-top:1px solid var(--hair)">
@@ -6546,20 +7814,21 @@ function cultureView(){
 
    <div class="sechead">Your word<span class="n">${open.length} open</span></div>
    <div class="card">
-   ${s.promises.length?s.promises.slice(0,7).map(pr=>{
+   ${(function(){const mine=s.promises.filter(pr=>c.squad.some(x=>x.id===pr.pid));
+     return mine.length?mine.slice(0,7).map(pr=>{
      const p=c.squad.find(x=>x.id===pr.pid);
      const col={open:'var(--acc)',kept:'var(--win)',broken:'var(--loss)',forgotten:'var(--t3)'}[pr.state];
      const lbl={open:'OPEN',kept:'KEPT',broken:'BROKEN',forgotten:'FORGOTTEN'}[pr.state];
-     return `<div class="kv"><span class="k2">${p?esc(p.name.split(' ').pop()):'—'} — ${esc(pr.what)}</span>
+     return `<div class="kv"><span class="k2">${esc(surn(p))} — ${esc(pr.what)}</span>
        <span class="v2" style="color:${col};font-size:11px;letter-spacing:.05em">${lbl}</span></div>`}).join('')
-    :'<div class="dim" style="font-size:13px">You have not promised anybody anything yet.</div>'}</div>
+    :'<div class="dim" style="font-size:13px">You have not promised anybody anything yet.</div>'})()}</div>
 
    <div class="sechead">Where you stand with them</div>
    <div class="card" style="padding:6px 14px 12px">
    ${sq.slice(0,10).map(p=>{
      const t=trustOf(p.id),care=CARES[caresOf(p)];
      return `<div class="plr" onclick="showPlayer(${p.id})">
-       ${pface(p,44)}
+       ${avatar(vP(p),60)}
        <div class="nmw"><div class="nm2">${esc(p.name)}</div>
         <div class="meta"><span>${p.pos}</span><span>${p.age}</span>
           <span style="color:var(--t3)">cares about ${esc(care.t)}</span></div></div>
@@ -6604,7 +7873,7 @@ window.cultConfirm=function(){
     s.captain=cands[0]?cands[0].id:null;
   }
   squadOf(c).forEach(p=>{s.seen[p.id]=G.week});
-  note('The standards are set','You said them out loud. That is the easy part.');
+  note('The standards are set','You said them out loud. That is the easy part.',{from:vV('staff')});
   save();render();
 };
 window.cultCaptain=function(){
@@ -6629,19 +7898,33 @@ window.cultSetCap=function(id){
     if(o){moveTrust(old,-18,'took the armband off him');bumpBreachOne(old)}
   }
   moveTrust(id,12,'gave him the armband');
-  note(p.name+' is your captain','He speaks for them now, and for you.');
+  note(p.name+' is your captain','He speaks for them now, and for you.',{from:vP(p)});
   closeSheet();save();render();
 };
 window.cultAnswer=function(i){
   const s=S(),ev=s.pending;if(!ev)return;
-  const o=ev.opts[i];if(!o)return;
+  let o=ev.opts&&ev.opts[i];
+  if(!o||typeof o.fn!=='function'){const re=optsFor(ev);if(re&&re[i])o=re[i]}
+  if(!o||typeof o.fn!=='function'){s.pending=null;closeSheet();render();return}
   s.pending=null;
   try{o.fn()}catch(e){console.error('[culture.answer]',e)}
   closeSheet();save();render();
 };
+/* Culture moments have always carried a pid. It was never rendered. */
+function evVoices(ev){
+  const c=me(); if(!c)return {sp:vV('assist'),sub:null};
+  const p=c.squad.find(x=>x.id===ev.pid)||null;
+  const src=(ev.a&&ev.a.src)||null;
+  const sp = src==='press'?vV('press') : src==='board'?vV('board') : src==='fans'?vV('fans')
+           : ev.id==='checkin'?vV('assist') : vV('staff');
+  return {sp, sub:p?vP(p):null,
+    rel: src==='fans'?'booed':src?'came for':(ev.id==='checkin'?'forgot':'about')};
+}
 function showEvent(){
   const s=S(),ev=s.pending;if(!ev)return;
-  sheet(`<h3>${esc(ev.title)}</h3>
+  const V=evVoices(ev);
+  sheet(`${speakerBar(V.sp,V.sub,V.rel,ev.key==='protect'?'They want an answer':'')}
+   <h3>${esc(ev.title)}</h3>
    <div class="sh-sub">${esc(ev.body)}</div>
    ${ev.opts.map((o,i)=>`<div class="opt${i===0?' rec':''}" onclick="cultAnswer(${i})">
      <div><div style="font-weight:600">${esc(o.t)}</div>
@@ -6649,30 +7932,612 @@ function showEvent(){
 }
 window.cultOpen=showEvent;
 
+/* ============================================================
+   PART TWO — WHERE THEY STAND, AND WHO THE ROOM SIDES WITH
+
+   Two mechanics, and they are the same idea seen from both ends.
+
+   1. Expectations are set in July, not argued about in November. You tell
+      every man what he is — key player, squad rotation, backup, surplus —
+      and that goes in the promises ledger with everything else you say,
+      because that is what it is. Tell a fringe man he is key and you have
+      written a cheque the teamsheet cannot cash. Tell a good man he is
+      surplus and he is right to agitate, and the room knows he is right.
+
+   2. A dressing room reacts to the GRIEVANCE, not to the complaint. Before
+      the room takes a side it asks three questions: is he actually good
+      enough to be playing, given who is in front of him? was he told where
+      he stood? have you kept your word to him? Then:
+        · he has a point            -> the room sides with him, harmony falls,
+                                       and if the culture is strong the senior
+                                       men bring it to your door instead of
+                                       letting it rot behind your back.
+        · he has no point, strong room -> they close ranks around the standard.
+                                       Harmony holds or improves, the seniors
+                                       deal with him privately, he loses
+                                       standing with his own teammates, and
+                                       your authority goes UP. You spent nothing.
+        · he has no point, weak room -> it spreads, because there is no
+                                       standard in there for anyone to defend.
+   ============================================================ */
+
+const ROLES={
+  key :{t:'Key player',     s:'Key',      d:'He plays when he is fit.',                     share:0.55,ord:3,col:'var(--win)'},
+  rot :{t:'Squad rotation', s:'Rotation', d:'In and out. Twenty-odd starts.',               share:0.25,ord:2,col:'var(--acc)'},
+  back:{t:'Backup',         s:'Backup',   d:'Cover. Cup ties and the last twenty minutes.', share:0.08,ord:1,col:'var(--t2)'},
+  surp:{t:'Surplus',        s:'Surplus',  d:'Not part of it. Find yourself a club.',        share:0.02,ord:0,col:'var(--loss)'}
+};
+const RKEYS=['key','rot','back','surp'];
+const MFULL={Aug:'August',Sep:'September',Oct:'October',Nov:'November',Dec:'December',
+  Jan:'January',Feb:'February',Mar:'March',Apr:'April',May:'May'};
+function surn(p){
+  const l=String(p.name).split(' ').pop(),c=me();
+  if(c&&c.squad.filter(x=>String(x.name).split(' ').pop()===l).length>1)return p.name;
+  return l;
+}
+function monthAt(w){return MFULL[MONTHS[clamp(w|0,0,37)]]||'pre-season'}
+const rankAt=(rk,id)=>rk[id]===undefined?99:rk[id];
+function rankMap(){
+  const c=me(),m={};if(!c)return m;
+  squadOf(c).slice().sort((a,b)=>CA(b)-CA(a)).forEach((p,i)=>m[p.id]=i);
+  return m;
+}
+function xiCA(c){
+  if(!c||!c.xi||!c.xi.length)return 55;
+  return c.xi.reduce((a,x)=>a+CA(x.p,x.slot),0)/c.xi.length;
+}
+function shareOf(pid){const s=S();return s.gm?(s.st[pid]||0)/s.gm:0}
+function roleOf(pid){const t=S().told[pid];return t?t.role:null}
+const absWeek=()=>G.season*38+G.week;
+
+/* The assistant's read. Every screen arrives already answered. */
+function suggestRoles(){
+  const c=me(),out={};if(!c)return out;
+  const sq=squadOf(c),rk=rankMap(),avg=xiCA(c);
+  sq.forEach(p=>{
+    const r=rankAt(rk,p.id);
+    if(p.listed)out[p.id]='surp';
+    else if(r<5)out[p.id]='key';
+    else if(r<12)out[p.id]='rot';
+    else if(sq.length>21&&r>=20&&CA(p)<avg-11)out[p.id]='surp';
+    else out[p.id]='back';
+  });
+  return out;
+}
+/* What he thinks he is. Ambitious men place themselves higher than the ability
+   table does, and nobody in the history of the game has ever thought he was
+   surplus. That gap is the whole reason this conversation is difficult. */
+function selfRole(p,rank){
+  const r=Math.max(0,rank-Math.round((p.amb-55)/13));
+  return r<5?'key':r<12?'rot':'back';
+}
+function draft(){
+  const s=S();
+  if(s.roleSeason!==G.season||!Object.keys(s.roles).length){
+    const sug=suggestRoles(),c=me();
+    if(c)squadOf(c).forEach(p=>{if(!s.roles[p.id])s.roles[p.id]=sug[p.id]||'back'});
+  }
+  return s.roles;
+}
+
+/* ---------- saying it out loud ---------- */
+function tellThem(){
+  const s=S(),c=me();if(!c)return;
+  const d=draft(),rk=rankMap(),mo=SW.get('morale');
+  const sq=squadOf(c);
+  const n={key:0,rot:0,back:0,surp:0};
+  sq.forEach(p=>{n[d[p.id]||'back']++});
+  /* tell nine men they are key and the word is worth nothing by October */
+  const glut=n.key>6?clamp((n.key-6)*0.13,0,0.55):0;
+  let wronged=0;
+
+  sq.forEach(p=>{
+    const r=d[p.id]||'back', prev=s.told[p.id];
+    /* changing your mind mid-season closes the old promise first */
+    if(prev&&prev.role!==r&&prev.season===G.season){
+      const down=ROLES[r].ord<ROLES[prev.role].ord;
+      const short=shareOf(p.id)<ROLES[prev.role].share*0.75;
+      settle(p.id,!(down&&short),
+        (down&&short)?('told him he was a '+ROLES[prev.role].t.toLowerCase()+', then took it off him'):null,'role');
+    }
+    if(prev&&prev.role===r&&prev.season===G.season)return;   // nothing new said
+
+    const rank=rankAt(rk,p.id);
+    const self=selfRole(p,rank);
+    const gap=ROLES[r].ord-ROLES[self].ord;
+    const soft=clamp(1.30-(p.prof-45)*0.008,0.60,1.30);      // pros take news better
+    const drive=clamp(0.75+(p.amb-55)*0.009,0.60,1.35);
+    const over=(r==='key'&&rank>=10)||(r==='rot'&&rank>=17);
+    const hurt=(r==='surp'&&rank<10);
+    let m=0,t=0,why='';
+
+    if(hurt){
+      m=-(30+rnd()*12); t=-10; why='told him he was finished here when he plainly is not';
+      p.listed=true; wronged++;
+      sq.forEach(x=>{if(x.id!==p.id)
+        moveTrust(x.id,-4*(caresOf(x)==='backed'?1.7:1),'told '+surn(p)+' he was finished, and he is not')});
+    } else if(gap>0){
+      m=(10+gap*8)*drive; t=5+(over?3:0);
+      why='told him he was more than he thought he was';
+    } else if(gap===0){
+      m=5+(caresOf(p)==='truth'?4:0);
+      t=(caresOf(p)==='truth'?9:5);
+      why='told him straight where he stood, in '+monthAt(G.week);
+    } else if(gap===-1){
+      m=-(10+rnd()*5)*soft*drive; t=(p.prof>=70?0:-3);
+      why='told him less than he wanted to hear';
+    } else {
+      m=-(22+rnd()*8)*soft*drive; t=-6;
+      why='told him he was a long way down the list';
+    }
+    if(r==='key'&&glut){t-=Math.round(glut*9);m*=(1-glut*0.5)}
+
+    s.told[p.id]={role:r,week:G.week,season:G.season,over:over?1:0,wronged:hurt?1:0};
+    s.seen[p.id]=G.week;
+    if(r!=='surp')promise(p.id,'he was a '+ROLES[r].t.toLowerCase()+' here',37-G.week,'role');
+    moveTrust(p.id,t,why);
+    if(mo&&mo.adjust)try{mo.adjust(p.id,m,'Told in '+monthAt(G.week)+' he was '+
+      (r==='key'?'a key player':r==='rot'?'in and out':r==='back'?'a backup':'surplus'))}catch(e){}
+  });
+
+  s.roleSeason=G.season; s.proactive++;
+  if(glut)note('You have told half of them they are key',
+    n.key+' men walked out of your office believing they start every week. Eleven of them can. '+
+    'The other '+(n.key-11>0?n.key-11:'few')+' will work that out by October and so will everyone else.',{from:vV('staff')});
+  if(wronged)note('That will be in the papers by Friday',
+    'You have told a player who is plainly good enough that he is not part of it. '+
+    'He is entitled to be angry and the room knows he is entitled to be angry.',{from:vV('press')});
+  note('They know where they stand',
+    n.key+' key, '+n.rot+' rotation, '+n.back+' backup'+(n.surp?', '+n.surp+' told to find a club':'')+
+    '. You said it in '+monthAt(G.week)+'. What matters now is whether the teamsheet agrees with you.',{from:vV('staff')});
+}
+
+/* ---------- the teamsheet catches up with what you said ---------- */
+function finishRole(x,p,ok){
+  const s=S();
+  x.state=ok?'kept':'broken';
+  if(!s.tally||s.tally.s!==G.season)s.tally={s:G.season,kept:0,broke:0,names:[]};
+  if(ok)s.tally.kept++;
+  else{s.tally.broke++;
+    const t0=s.told[p.id];
+    const nm=surn(p);
+    if((!t0||t0.role!=='back')&&s.tally.names.length<4&&s.tally.names.indexOf(nm)<0)s.tally.names.push(nm)}
+  const t=s.told[p.id],lbl=t?ROLES[t.role].t.toLowerCase():'in the plans';
+  moveTrust(p.id,ok?10:-19,ok?('made him the '+lbl+' he said he would be')
+    :('told him he was a '+lbl+' and then never picked him'));
+  if(!ok){
+    bumpBreachOne(p.id);
+    const mo=SW.get('morale');
+    if(mo&&mo.adjust)try{mo.adjust(p.id,-15,'Told he was a '+lbl+'. The teamsheet said otherwise.')}catch(e){}
+  }
+}
+function roleDue(force){
+  const s=S(),c=me();if(!c)return {kept:0,broke:0,names:[]};
+  const out={kept:0,broke:0,names:[]};
+  s.promises.filter(x=>x.tag==='role'&&x.state==='open'&&(force||G.week>=x.due)).forEach(x=>{
+    const p=c.squad.find(y=>y.id===x.pid);
+    if(!p){x.state='forgotten';return}
+    const t=s.told[p.id];
+    const need=ROLES[(t&&t.role)||'back'].share*0.70;
+    const ok=s.gm>=6?shareOf(p.id)>=need:true;
+    finishRole(x,p,ok);
+    if(ok)out.kept++;else{out.broke++;if(!t||t.role!=='back')out.names.push(surn(p))}
+  });
+  return out;
+}
+
+/* ---------- the standing correction ----------------------------------
+   This is the mechanic the coach actually asked for. A man who was told in
+   July that he is a backup, and is being used as a backup, has nothing to
+   be aggrieved about and his mood should say so. A man who was told he was
+   key and is watching should be angrier than the raw minutes justify. It is
+   applied through morale.adjust so morale keeps owning morale — small,
+   every week, and self-limiting, because morale pulls back to its own
+   target and the two settle against each other.
+   -------------------------------------------------------------------- */
+function standingCorrection(){
+  const s=S(),c=me(),mo=SW.get('morale');
+  if(!c||!mo||!mo.adjust||s.gm<4)return;
+  squadOf(c).forEach(p=>{
+    const t=s.told[p.id],share=shareOf(p.id);
+    if(!t){
+      /* nobody ever told him anything, so he has decided for himself */
+      if(share<0.3)try{mo.adjust(p.id,-1.0,null)}catch(e){}
+      return;
+    }
+    const want=ROLES[t.role].share;
+    let d;
+    if(t.role==='surp')      d=share>0.10?1.4:-0.5;
+    else if(share>=want-0.05)d=1.7;
+    else                     d=clamp((share-want)*9,-2.4,0);
+    if(t.over&&d<0)d*=1.35;                       // you knew you could not keep it
+    try{mo.adjust(p.id,d,null)}catch(e){}
+  });
+}
+
+/* ============================================================
+   THE ARBITRATION
+   ============================================================ */
+function justification(p){
+  const s=S(),c=me();if(!c)return {j:0.3,why:[]};
+  const rk=rankMap(),rank=rankAt(rk,p.id);
+  const share=shareOf(p.id),starts=s.st[p.id]||0;
+  let j=0.30;const why=[];
+
+  /* 1. is he good enough to be playing, given who is in front of him? */
+  const ahead=(c.xi||[]).filter(x=>x.slot===p.pos);
+  const bar=ahead.length?Math.min.apply(null,ahead.map(x=>CA(x.p,x.slot))):xiCA(c);
+  const edge=CA(p)-bar;
+  if(edge>=4){j+=0.30;why.push('he is better than the man in front of him and everybody can see it')}
+  else if(edge>=-3){j+=0.10;why.push('there is nothing between him and the man playing')}
+  else{j-=0.26;why.push('he is nowhere near the men ahead of him')}
+
+  /* 2. was he told? */
+  const t=s.told[p.id];
+  if(!t){j+=0.22;why.push('nobody ever told him where he stood')}
+  else if(t.wronged){j+=0.34;why.push('you told him he was finished and he was not')}
+  else{
+    const want=ROLES[t.role].share,gap=share-want;
+    if(t.role==='surp')                {j-=0.10;why.push('he was told in '+monthAt(t.week)+' to find a club')}
+    else if(gap>=-0.06)                {j-=0.36;why.push('he was told in '+monthAt(t.week)+' he was a '+ROLES[t.role].t.toLowerCase()+', and that is exactly what he has been')}
+    else if(gap<=-0.26)                {j+=0.30;why.push('you told him he was a '+ROLES[t.role].t.toLowerCase()+' and he has started '+starts+' of '+s.gm)}
+    else                               {j-=0.08;why.push('he is a little short of what he was told, not much')}
+  }
+
+  /* 3. have you kept your word to him? */
+  const pr=s.promises.filter(x=>x.pid===p.id);
+  const bad=pr.filter(x=>x.state==='broken'||x.state==='forgotten').length;
+  const good=pr.filter(x=>x.state==='kept').length;
+  if(bad){j+=Math.min(bad*0.16,0.32);why.push('you have gone back on your word to him '+bad+' time'+(bad>1?'s':''))}
+  if(good)j-=Math.min(good*0.08,0.16);
+
+  return {j:clamp(j,0,1),why,rank,edge,starts};
+}
+/* How much policing this room can actually do. Culture, the senior pros who
+   are playing, whether the standards have ever been held, and whether you
+   have been caught having two of them. */
+function policing(){
+  const s=S(),c=me(),mo=SW.get('morale');
+  if(!c)return 0;
+  let lead=0;
+  if(mo&&mo.isLeader)try{lead=squadOf(c).filter(p=>mo.isLeader(p.id)).length}catch(e){}
+  let held=0,tested=0;
+  s.standards.forEach(k=>{const h=s.precedent['std_'+k]||[];tested+=h.length;held+=h.filter(x=>x.up).length});
+  const disc=tested?held/tested:0.45;
+  const base=clamp((cultureScore()+15)/80,0,1)*0.50
+    +(lead>=2?0.28:lead?0.18:0.02)
+    +disc*0.22;
+  return clamp(base*clamp(1-s.hypo*0.11,0.35,1),0,1);
+}
+function standWord(v){
+  return v>=25?'They rate him in there'
+    :v>=-10?'Nothing said about him either way'
+    :v>=-35?'They have him down as a moaner'
+    :'They have stopped listening to him';
+}
+function logGrief(head,txt,col){
+  const s=S();
+  s.grief.unshift({w:G.week,s:G.season,head,txt,col});
+  if(s.grief.length>8)s.grief.length=8;
+}
+
+/* the one that reaches your desk */
+EVOPTS.grievance=function(p,a){
+  const up=a.up||'rot';
+  return [
+    {t:'Admit you got it wrong',
+     d:'Move him up to '+ROLES[up].t.toLowerCase()+'. Now you have to pick him.',
+     fn:()=>{
+       const s=S(),c=me(),mo=SW.get('morale');
+       settle(p.id,false,'he was right, and you had told him otherwise','role');
+       s.roles[p.id]=up;
+       s.told[p.id]={role:up,week:G.week,season:G.season,over:0,wronged:0};
+       promise(p.id,'he would be a '+ROLES[up].t.toLowerCase()+' from here',10,'role');
+       moveTrust(p.id,14,'admitted he had been wrong about him');
+       squadOf(c).forEach(x=>{if(x.id!==p.id)moveTrust(x.id,5,'listened when the senior men came to him')});
+       if(mo&&mo.adjust)try{mo.adjust(p.id,26,'The manager admitted he had got it wrong');
+         squadOf(c).forEach(x=>{if(x.id!==p.id)mo.adjust(x.id,4,'the manager listened')})}catch(e){}
+       s.proactive++;
+       logGrief('You moved '+surn(p)+' up',
+         'The senior men came to you about him and you did not argue. Now the teamsheet has to say the same thing.','var(--win)');
+       note('You said you had got it wrong',
+         'No player has ever thought less of a manager for that. Plenty have thought less of the ones who could not.',{from:vV('staff'),about:vP(p)});
+     }},
+    {t:'Hold the line',
+     d:'Tell them your reasons and stand on them.',
+     fn:()=>{
+       const s=S(),c=me();
+       const ok=rnd()<clamp(transmission()*0.55+0.12,0.1,0.85);
+       squadOf(c).forEach(x=>moveTrust(x.id,ok?2:-6,
+         ok?'stood on his reasons and they held':'would not hear it when they came to him'));
+       if(!ok)bumpBreach();
+       s.reactive++;
+       logGrief(ok?'You held the line on '+surn(p):'They did not buy it',
+         ok?'You gave them your reasons. The captain carried them back in and that was that.'
+           :'You gave them your reasons and they did not land. Now they think you will not be told.',
+         ok?'var(--acc)':'var(--loss)');
+       note(ok?'They took your reasons':'They did not take it',
+         ok?'The captain took it back in there for you. It held.'
+           :'You had an answer for everything. They went back in with none of it.',{from:vV('staff'),about:vP(p)});
+     }},
+    {t:'Tell them it is not their business',
+     d:'You pick the team. Nobody else.',
+     fn:()=>{
+       const s=S(),c=me();
+       squadOf(c).forEach(x=>moveTrust(x.id,-9*(caresOf(x)==='respect'?1.4:1),
+         'shut the senior men down when they came to him'));
+       bumpBreach(); s.reactive++;
+       logGrief('You shut them down',
+         'They will not come to you again. That is not the same as the problem going away.','var(--loss)');
+       note('They will not come to you again',
+         'You were right that you pick the team. You were wrong that it was the point.',{from:vV('staff'),about:vP(p)});
+     }}
+  ];
+};
+
+function arbitrate(){
+  const s=S(),c=me(),mo=SW.get('morale');
+  if(!c||!mo||!mo.unhappy||s.pending)return;
+  if(G.week<6||s.gm<4)return;
+  if(absWeek()-s.lastArb<6)return;
+
+  let list=[];try{list=mo.unhappy()||[]}catch(e){return}
+  const cand=list.filter(p=>{
+    if(p.youth)return false;
+    const seen=s.griefSeen[p.id];
+    if(seen!==undefined&&absWeek()-seen<12)return false;
+    /* a man the room has already refused to back does not get a second hearing.
+       They have stopped listening to him, which is the whole point of standing —
+       his misery is now his own problem and nobody else's. */
+    if((s.standing[p.id]||0)<=-20)return false;
+    /* only playing-time grievances. Wages and contracts belong to their own men. */
+    let why='';try{why=mo.reasonFor(p.id)||''}catch(e){}
+    return /start|bench|watching|minutes/i.test(why);
+  });
+  if(!cand.length)return;
+
+  const p=cand[0];
+  s.griefSeen[p.id]=absWeek(); s.lastArb=absWeek();
+  const {j,why}=justification(p);
+  const pol=policing();
+  const sq=squadOf(c);
+  const cap=c.squad.find(x=>x.id===s.captain);
+  const capName=cap&&cap.id!==p.id?surn(cap):'The senior lads';
+  const head=why[0]||'he is unhappy';
+  const stand=v=>{s.standing[p.id]=clamp(Math.round((s.standing[p.id]||0)+v),-100,100)};
+
+  /* ---- he has a point ---- */
+  if(j>=0.55){
+    const strong=pol>=0.50;
+    sq.forEach(x=>{
+      if(x.id===p.id)return;
+      const w=caresOf(x)==='backed'?1.5:caresOf(x)==='truth'?1.3:1;
+      moveTrust(x.id,-(strong?4:7)*w,'they think '+surn(p)+' has been hard done by');
+      try{mo.adjust(x.id,-(strong?3:5)*w,'the room thinks '+surn(p)+' has a point')}catch(e){}
+    });
+    stand(10);
+    if(strong){
+      const up=(justification(p).edge>=4)?'key':'rot';
+      s.pending={id:'grievance',pid:p.id,key:'grievance',a:{up},
+        title:'The senior men have come to you about '+surn(p),
+        body:capName+' has been in with two of the older ones about '+surn(p)+'. '+
+          'They are not asking you to pick him. They are asking you to look at it again, because '+head+'.',
+        opts:EVOPTS.grievance(p,{up})};
+      logGrief('The room backed '+surn(p),'They think he has a case — '+head+'. They brought it to your door rather than let it sit.','var(--inj)');
+    } else {
+      logGrief('The room backed '+surn(p),
+        'They think he has a case — '+head+'. Nobody brought it to you. They just stopped giving you the benefit of the doubt.','var(--loss)');
+      note('You found out from the papers',
+        surn(p)+' has a point and the whole room knows it. Nobody came to your door about it, because there is nobody in there who would.',{from:vV('press'),about:vP(p)});
+    }
+    return;
+  }
+
+  /* ---- he has no point ---- */
+  if(pol>=0.55){
+    const hard=(p.trait==='Mercenary'||p.trait==='Hot-headed');
+    sq.forEach(x=>{
+      if(x.id===p.id)return;
+      moveTrust(x.id,3+rnd()*2,'the standard held in there without you having to say a word');
+      try{mo.adjust(x.id,2+rnd()*2,'the room closed ranks')}catch(e){}
+    });
+    try{mo.adjust(p.id,hard?3:(9+rnd()*6),hard?'was told, and did not take it'
+      :'the senior players had a word with him')}catch(e){}
+    stand(hard?-32:-24);
+    logGrief('The room did not back '+surn(p),
+      'He had plenty to say about his minutes and nobody in there wanted to hear it. '+
+      (hard?'He has not taken it, but he is on his own with it.':'It was dealt with before it reached you.'),'var(--win)');
+    note('They sorted it themselves',
+      surn(p)+' had a lot to say about not playing. '+capName+' told him what the rest of them were already thinking '+
+      'and that was the end of it. You did not spend a thing, and that is what the standards are for.',{from:vV('staff'),about:vP(p)});
+    chron('The squad closed ranks over '+surn(p));
+    return;
+  }
+  if(pol<=0.32){
+    const weak=sq.filter(x=>x.id!==p.id&&trustOf(x.id)<12);
+    weak.forEach(x=>{
+      try{mo.adjust(x.id,-(2+rnd()*3),'nobody told '+surn(p)+' he was out of order')}catch(e){}
+      moveTrust(x.id,-2,'');
+    });
+    stand(-6);
+    const spread=s.grief.filter(g=>g.s===G.season&&g.head==='It spread').length;
+    logGrief('It spread',surn(p)+' had no case and it made no difference. There is nothing in that room to tell him so.','var(--loss)');
+    /* say it once, say it twice, then stop writing the same letter every month —
+       by the third time it is not news, it is just what this club is like now. */
+    if(spread<2)note('Nobody told him he was out of order',
+      'Because there is nobody in there who would. '+weak.length+' of them have started saying the same thing, '+
+      'and most of them have even less of a case than he has.',{from:vV('staff'),about:vP(p)});
+    else if(spread===2)note('This is just what it is like in there now',
+      'Another one with nothing to complain about, complaining. Nobody corrects anybody. '+
+      'You are the only person at this club who tells anyone anything.',{from:vV('staff'),about:vP(p)});
+    return;
+  }
+  stand(-10);
+  logGrief('One or two said something',
+    'A couple of the older ones had a word with '+surn(p)+'. It did not really take.','var(--acc)');
+  note('It half got dealt with',
+    'A couple of them had a word with '+surn(p)+'. There is not enough in that room yet for it to stick, '+
+    'so it is still your problem — just a smaller one.',{from:vV('staff'),about:vP(p)});
+}
+
+/* ============================================================
+   THE ROLES SCREEN — a sheet, because the Squad tab cannot carry
+   another chip and this is a July job, not a weekly one.
+   ============================================================ */
+function roleChip(r,small){
+  const d=ROLES[r]||ROLES.back;
+  return `<span class="pill" style="background:var(--s3);color:${d.col};font-size:${small?10:11}px">${d.s}</span>`;
+}
+function rolesSheet(){
+  const s=S(),c=me();if(!c)return;
+  const d=draft(),rk=rankMap();
+  const sq=squadOf(c).slice().sort((a,b)=>rankAt(rk,a.id)-rankAt(rk,b.id));
+  const n={key:0,rot:0,back:0,surp:0};sq.forEach(p=>n[d[p.id]||'back']++);
+  const warn=[];
+  if(n.key>6)warn.push('You have told '+n.key+' men they are key. Eleven start, and the same eleven. That word is already worth less.');
+  const overreach=sq.filter(p=>d[p.id]==='key'&&rankAt(rk,p.id)>=10);
+  if(overreach.length)warn.push(surn(overreach[0])+' is your '+ord(rankAt(rk,overreach[0].id)+1)+
+    ' best player. Calling him key is a promise the teamsheet will break for you.');
+  const wronged=sq.filter(p=>d[p.id]==='surp'&&rankAt(rk,p.id)<10);
+  if(wronged.length)warn.push(surn(wronged[0])+' is in your best ten and you are telling him to find a club. '+
+    'He will agitate, and he will be right to.');
+
+  const row=p=>{
+    const r=d[p.id]||'back',open=s.roleOpen===p.id;
+    return `<div class="plr" style="align-items:center" onclick="cultRoleOpen(${p.id})">
+      ${pface(p,40)}
+      <div class="pos">${p.pos}</div>
+      <div class="nmw"><div class="nm2">${esc(p.name)}</div>
+        <div class="meta"><span>${p.age}</span><span>${ord(rankAt(rk,p.id)+1)} best</span>
+        <span style="color:var(--t3)">${esc(CARES[caresOf(p)].t)}</span></div></div>
+      ${roleChip(r)}</div>
+     ${open?`<div class="chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 12px">
+      ${RKEYS.map(k=>`<button class="btn ${k===r?'':'ghost'} xs" style="min-height:44px;flex:1 1 44%"
+        onclick="cultRoleSet(${p.id},'${k}')">${ROLES[k].t}</button>`).join('')}
+      <div class="dim" style="font-size:12px;flex:1 1 100%">${esc(ROLES[r].d)}</div></div>`:''}`;
+  };
+
+  sheet(`<h3>Where they stand</h3>
+   <div class="sh-sub">Tell every man what he is now, in ${esc(monthAt(G.week))}, and he has no argument in November.
+     Get it wrong and you have said something you cannot take back.</div>
+   <div class="card" style="background:var(--s1);margin-bottom:10px">
+     <div class="row" style="gap:10px;flex-wrap:wrap">
+       ${RKEYS.map(k=>`<div><div class="dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">${ROLES[k].s}</div>
+         <div style="font-weight:800;font-size:17px;color:${ROLES[k].col}">${n[k]}</div></div>`).join('')}
+       <span class="spacer"></span>
+       <button class="btn ghost xs" onclick="cultRoleAuto()">Assistant's call</button></div>
+     ${warn.map(w=>`<div style="font-size:12px;color:var(--inj);line-height:17px;margin-top:8px">${esc(w)}</div>`).join('')}</div>
+   <div class="card" style="padding:6px 14px 12px;max-height:46vh;overflow:auto">${sq.map(row).join('')}</div>
+   <button class="btn" style="margin-top:10px" onclick="cultRoleDone()">This is where they stand</button>
+   <button class="btn ghost" style="margin-top:8px" onclick="closeSheet();render()">Not yet</button>`);
+}
+window.cultRoles=function(){S().roleOpen=0;rolesSheet()};
+window.cultRoleOpen=function(pid){const s=S();s.roleOpen=(s.roleOpen===pid?0:pid);rolesSheet()};
+window.cultRoleSet=function(pid,r){const s=S();s.roles[pid]=r;s.roleOpen=0;rolesSheet()};
+window.cultRoleAuto=function(){const s=S();s.roles=suggestRoles();s.roleOpen=0;rolesSheet()};
+window.cultRoleDone=function(){tellThem();closeSheet();save();render()};
+
+/* ---------- the blocks that go in the Culture view ---------- */
+function rolesBlock(){
+  const s=S(),c=me();if(!c)return '';
+  const sq=squadOf(c),told=sq.filter(p=>s.told[p.id]);
+  if(!told.length)return `<div class="sechead">Where they stand</div>
+   <div class="card" style="border-color:var(--loss)">
+    <div style="font-weight:700;font-size:15px">Nobody has been told where they stand.</div>
+    <div style="font-size:13px;color:var(--t2);line-height:19px;margin-top:5px">
+      So every one of them has decided for himself, and every one of them has decided he should be playing.
+      When they start complaining in November the room will assume they have a point, because nobody
+      ever told them otherwise.</div>
+    <button class="btn" style="margin-top:11px" onclick="cultRoles()">Tell them where they stand</button></div>`;
+
+  const n={key:0,rot:0,back:0,surp:0};told.forEach(p=>n[s.told[p.id].role]++);
+  const gaps=told.filter(p=>s.told[p.id].role!=='surp').map(p=>{
+    const t=s.told[p.id];
+    return {p,t,gap:shareOf(p.id)-ROLES[t.role].share};
+  }).sort((a,b)=>a.gap-b.gap);
+  const bad=gaps.filter(x=>x.gap<=-0.18).slice(0,3);
+  const good=gaps.filter(x=>x.gap>=-0.05).slice(-1);
+  const line=x=>`<div class="kv"><span class="k2">${esc(surn(x.p))} — told ${ROLES[x.t.role].s.toLowerCase()} in ${esc(monthAt(x.t.week))}</span>
+    <span class="v2" style="font-size:12px;color:${x.gap<=-0.18?'var(--loss)':'var(--win)'}">${s.st[x.p.id]||0} of ${s.gm}</span></div>`;
+  return `<div class="sechead">Where they stand<span class="n">said in ${esc(monthAt(told[0]?s.told[told[0].id].week:0))}</span></div>
+   <div class="card">
+    <div class="row" style="gap:12px;flex-wrap:wrap">
+      ${RKEYS.map(k=>`<div><div class="dim" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em">${ROLES[k].s}</div>
+        <div style="font-weight:800;font-size:17px;color:${ROLES[k].col}">${n[k]}</div></div>`).join('')}
+      <span class="spacer"></span>
+      <button class="btn ghost xs" onclick="cultRoles()">Say it again</button></div>
+    ${bad.length||good.length?`<div style="border-top:1px solid var(--hair);margin-top:10px;padding-top:6px">
+      ${bad.map(line).join('')}${good.map(line).join('')}</div>`:''}
+    ${bad.length?`<div style="font-size:12px;color:var(--t3);line-height:17px;margin-top:6px">
+      Every one of those is a promise with your name on it. They get judged in May.</div>`:''}</div>`;
+}
+function griefBlock(){
+  const s=S();if(!s.grief.length)return '';
+  return `<div class="sechead">What the room did</div>
+   <div class="card">${s.grief.slice(0,4).map(g=>`<div style="padding:8px 0;border-top:1px solid var(--hair)">
+     <div style="font-size:13px;font-weight:700;color:${g.col}">${esc(g.head)}</div>
+     <div style="font-size:12px;color:var(--t2);line-height:17px;margin-top:3px">${esc(g.txt)}</div></div>`).join('')}</div>`;
+}
+
 /* ---------- registration ---------- */
 SW.register({
   id:'culture',
   init(){const s=SW.state('culture');for(const k in DEF)delete s[k];S();},
-  onWeek(){ sweepPromises(); nextEvent(); },
-  onMatchEnd(){
+  onWeek(){ sweepPromises(); roleDue(false); standingCorrection(); arbitrate(); nextEvent(); },
+  onMatchEnd(m){
     const s=S(),r=lastResult();
     if(!r)return;
-    /* Keeping your word is only worth something when it cost you. */
     const c=me();
+    /* starts are tracked here rather than asked of morale, so the roles model
+       still works with morale absent — and so the two never disagree about
+       what a "start" is. */
+    if(!m||m.hi===G.me||m.ai===G.me){
+      s.gm++;
+      (c.xi||[]).forEach(({p})=>{s.st[p.id]=(s.st[p.id]||0)+1});
+    }
+    /* Keeping your word is only worth something when it cost you. */
     c.xi.forEach(({p})=>{
-      const i=s.promises.findIndex(x=>x.pid===p.id&&x.state==='open'&&/start|look in/.test(x.what));
-      if(i>=0)settle(p.id,true,'started him');
+      const i=s.promises.findIndex(x=>x.pid===p.id&&x.state==='open'&&!x.tag&&/start|look in/.test(x.what));
+      if(i>=0)settle(p.id,true,null);
     });
     if(r.lost&&rnd()<0.25)squadOf(c).forEach(p=>moveTrust(p.id,-1,''));
   },
-  onSeasonEndAfter(){ const s=S(); s.nextEv=2; },
+  /* May: every role you handed out in July gets read back to you. */
+  onSeasonEndBefore(){
+    const s=S();if(!s.set)return;
+    roleDue(true);
+    const r=(s.tally&&s.tally.s===G.season)?s.tally:null;
+    if(r&&r.kept+r.broke>=4)note('What your word was worth this season',
+      r.kept+' of the '+(r.kept+r.broke)+' men you gave a role to got what you told them they would. '+
+      (r.broke?('The other '+r.broke+' did not'+(r.names.length?', and '+r.names.slice(0,2).join(' and ')+' will not forget it':'')+'.')
+             :'Nobody in that room can say you told them one thing and did another.',{from:vV('staff')}));
+  },
+  onSeasonEndAfter(){
+    const s=S(); s.nextEv=2;
+    s.st={}; s.gm=0; s.told={}; s.roles={}; s.roleSeason=-1; s.roleOpen=0;
+    /* the room remembers who moans, but it fades over a summer */
+    Object.keys(s.standing).forEach(k=>{s.standing[k]=Math.round(s.standing[k]*0.55);
+      if(!s.standing[k])delete s.standing[k]});
+    s.griefSeen={};
+  },
   hubCards(){
     const s=S(),out=[];
     if(!s.set)out.push({ic:'◆',bg:'var(--accw)',col:'var(--acc)',priority:85,
       a:'Set your standards',b:'Three non-negotiables, before a ball is kicked',
       fn:"G.tab='squad';G.squadView='culture';render()"});
-    if(s.pending)out.push({ic:'❝',bg:'#2A1C40',col:'var(--loan)',priority:64,
-      a:s.pending.title,b:'They are waiting to see what you do',fn:'cultOpen()'});
+    if(s.pending)out.push({ic:s.pending.id==='grievance'?'⚑':'❝',
+      bg:s.pending.id==='grievance'?'#3A1C12':'#2A1C40',
+      col:s.pending.id==='grievance'?'var(--inj)':'var(--loan)',
+      priority:s.pending.id==='grievance'?66:64,
+      a:s.pending.title,
+      b:s.pending.id==='grievance'?'The senior men think you have got one wrong':'They are waiting to see what you do',
+      fn:'cultOpen()'});
+    /* July, and again in January. Not a weekly nag. */
+    if(s.set&&s.roleSeason!==G.season&&(G.week<=3||(G.week>=19&&G.week<=21)))
+      out.push({ic:'≡',bg:'var(--accw)',col:'var(--acc)',priority:76,
+        a:G.week<=3?'Tell them where they stand':'Tell them again where they stand',
+        b:'Key, rotation, backup, surplus — before they decide for themselves',
+        fn:'cultRoles()'});
     return out;
   },
   squadViews(){ return [{key:'culture',label:'Culture',render:cultureView}] },
@@ -6681,10 +8546,25 @@ SW.register({
     const s=S();if(!s.set)return [];
     const t=trustOf(p.id),care=CARES[caresOf(p)],f=fuseOf(p);
     const br=s.breaches[p.id]||0;
+    const told=s.told[p.id], st=s.standing[p.id]||0;
+    let roleLine='';
+    if(told){
+      const need=ROLES[told.role].share, got=shareOf(p.id);
+      const short=told.role!=='surp'&&s.gm>=5&&got<need*0.70;
+      roleLine=`<div style="font-size:13px;margin-top:7px;color:${short?'var(--loss)':'var(--t2)'}">
+        Told in ${esc(monthAt(told.week))} he was ${esc(told.role==='key'?'a key player':told.role==='rot'?'in and out'
+          :told.role==='back'?'a backup':'surplus to requirements')}. ${s.gm?('He has started '+(s.st[p.id]||0)+' of '+s.gm+'.'):''}
+        ${short?' You have not kept that.':''}</div>`;
+    } else if(s.set){
+      roleLine=`<div style="font-size:13px;margin-top:7px;color:var(--inj)">He has never been told where he stands.</div>`;
+    }
+    const stLine=Math.abs(st)>=10?`<div style="font-size:12px;color:${st>=0?'var(--t3)':'var(--inj)'};margin-top:6px">
+      ${esc(standWord(st))}.</div>`:'';
     return [`<div class="card" style="margin-top:10px;background:var(--s1)">
       <div class="row"><span class="dim" style="font-size:10px;letter-spacing:.06em;
         text-transform:uppercase">What he makes of you</span><span class="spacer"></span>${trustDots(t)}</div>
       <div style="font-size:13px;color:var(--t2);margin-top:7px">${esc(care.w)}</div>
+      ${roleLine}${stLine}
       ${br>0?`<div style="font-size:12px;color:${br>=f?'var(--loss)':'var(--inj)'};margin-top:6px">
         ${br>=f?'He has stopped giving you the benefit of the doubt.'
               :'He has let '+br+' thing'+(br>1?'s':'')+' go so far.'}</div>`:''}</div>`];
@@ -6722,6 +8602,14 @@ SW.register({
     return 1+clamp(m*tr,-0.20,0.20);
   },
   /* published interface */
+  role(pid){const t=S().told[pid];return t?t.role:null},
+  roleLabel(pid){const t=S().told[pid];return t?ROLES[t.role].t:null},
+  setRoles(){cultRoles()},
+  standing(pid){return S().standing[pid]||0},
+  /* 0..1 — how much of a case an unhappy player actually has, and why */
+  grievance(pid){const c=me(),p=c&&c.squad.find(x=>x.id===Number(pid));
+    return p?justification(p):null},
+  policing(){return policing()},
   trust(id){return trustOf(id)},
   culture(){return cultureScore()},
   captain(){return S().captain},
@@ -6913,7 +8801,7 @@ function finish(c,p){
     const before=c.capacity; applyCap(c,s);
     note('The new stand is open',
       c.stadium+' holds '+c.capacity.toLocaleString()+' now, '+(c.capacity-before).toLocaleString()+
-      ' more than it did. It was full on Saturday.');
+      ' more than it did. It was full on Saturday.',{from:vV('board'),about:vC(me()),rel:'built'});
     chron('Expanded '+c.stadium+' to '+c.capacity.toLocaleString());
     if(h&&h.record) try{ h.record('milestone', c.stadium+' expanded to '+c.capacity.toLocaleString()) }catch(e){}
     return;
@@ -6924,7 +8812,7 @@ function finish(c,p){
                   DESC.academy[p.to]+' Ask again in five years whether it was worth it.'],
                 medical:['The medical department is finished',
                   DESC.medical[p.to]+' Your physio has stopped apologising.']}[p.k];
-  note(line[0], line[1]);
+  note(line[0], line[1],{from:vV('board')});
   chron(NAME[p.k]+' upgraded to level '+p.to);
   if(h&&h.record) try{ h.record('milestone', NAME[p.k]+' rebuilt — level '+p.to) }catch(e){}
 }
@@ -7110,7 +8998,7 @@ SW.register({
       const p=projOn(kind);
       note('Work starts on the '+NAME[kind].toLowerCase(),
         money(p.cost)+' gone out of the budget. '+p.tot+' season'+(p.tot>1?'s':'')+
-        ' of mess before anybody sees a thing.');
+        ' of mess before anybody sees a thing.',{from:vV('board')});
     }
     closeSheet(); save(); render();
   }
@@ -7253,7 +9141,7 @@ function sale(s,name,fee,to){
 
 /* ---------- records ---------- */
 function breakNote(s,title,body){
-  safe(()=>note(title,body));
+  safe(()=>note(title,body,{from:vV('staff')}));
   pushChron(s,'record',body);
   s.cur.rec.push(body);
   (s.lastRec=s.lastRec||[]).push({t:title,b:body});
@@ -7291,7 +9179,8 @@ function checkMilestones(s){
           safe(()=>note(p.name+' — '+t+' games',vpick([
             'A '+t+' for us. He has seen three squads come and go.',
             t+' appearances. Whatever else happens, that is his.',
-            t+' games in this shirt. They know his name in the away end too.'],t+p.id)));
+            t+' games in this shirt. They know his name in the away end too.'],t+p.id),
+            {from:vV('staff'),about:vP(p),rel:'on'}));
           pushChron(s,'milestone',p.name+' made his '+t+'th appearance.');
         }
       }
@@ -7303,7 +9192,8 @@ function checkMilestones(s){
         safe(()=>note(p.name+' — '+t+' goals',vpick([
           t+' goals for this club. Not many get there.',
           'That is '+t+'. He keeps finding a yard.',
-          t+' goals. The kids in the stand do his celebration now.'],t+p.id)));
+          t+' goals. The kids in the stand do his celebration now.'],t+p.id),
+          {from:vV('staff'),about:vP(p),rel:'on'}));
         pushChron(s,'milestone',p.name+' reached '+t+' goals for the club.');
       }
     });
@@ -7511,7 +9401,7 @@ function inductions(s,w,season){
   }
   out.forEach(h=>{
     safe(()=>note(h.n+' is in the hall of fame',
-      h.ap+' games, '+h.gl+' goals, '+(h.tr?h.tr+' trophies. ':'')+h.ln));
+      h.ap+' games, '+h.gl+' goals, '+(h.tr?h.tr+' trophies. ':'')+h.ln,{from:vV('staff')}));
     pushChron(s,'milestone',h.n+' took his place in the hall of fame.',season);
   });
   return out;
@@ -8728,7 +10618,7 @@ SW.register({
       const weeks=l.injRec.weeks||ri(1,4);
       if(p&&p.out<weeks){ p.out=weeks;
         if(c.id===G.me)note(p.name+' limped off','Out for around '+weeks+' match'+(weeks>1?'es':'')+
-          '. That is what a thin bench costs you.') }
+          '. That is what a thin bench costs you.',{from:vV('medical'),about:vP(p),rel:'on'}) }
     }
     /* goals scored by men we brought on */
     let subGoals=0;
@@ -9030,7 +10920,7 @@ function payWages(){
   var gone = s.sc.shift();
   if(gone) note('You could not pay ' + gone.name,
     'The budget will not cover the network. He has gone to work for somebody who pays. ' +
-    (s.sc.length ? s.sc.length + ' scout' + (s.sc.length>1?'s':'') + ' left.' : 'You have nobody out there now.'));
+    (s.sc.length ? s.sc.length + ' scout' + (s.sc.length>1?'s':'') + ' left.' : 'You have nobody out there now.'), {from:vH(gone.name,'scout',gone.nat,52)});
   bill = 0; for(var j=0;j<s.sc.length;j++) bill += s.sc[j].wage;
   if(c.bal>=bill){ c.bal-=bill; s.spend+=bill; }
 }
@@ -9197,7 +11087,7 @@ function doRegion(sc,nat){
   }
   if(!pool.length){
     note(sc.name + ' came back with nothing',
-      'Three weeks in ' + NATIONS[nat].name + ' and not one of them is worth your money. It happens.');
+      'Three weeks in ' + NATIONS[nat].name + ' and not one of them is worth your money. It happens.', {from:vH(sc.name,'scout',sc.nat,52)});
     return;
   }
   /* broad sweep: the whole trip teaches you a little about everyone */
@@ -9236,7 +11126,8 @@ function doYouth(sc){
   var c=me(); if(!c) return;
   var kids = c.squad.filter(function(p){return p.youth});
   if(!kids.length){
-    note(sc.name + ' has nothing to look at', 'The academy is empty. Intake comes at the end of the season.');
+    note(sc.name + ' has nothing to look at', 'The academy is empty. Intake comes at the end of the season.',
+      {from:vH(sc.name,'scout',sc.nat,52)});
     return;
   }
   for(var i=0;i<kids.length;i++) learn(kids[i].id, 0.22 + sc.q*0.09);
@@ -9253,6 +11144,7 @@ function doYouth(sc){
 function file(sc,p,cl,k,gem){
   var s=st();
   var r = writeReport(sc,p,cl,k,gem);
+  r.scnat = sc.nat;                    // so his face survives him leaving
   s.rep[p.id] = r;
   s.nm[p.id] = p.name;
   if(s.unread.indexOf(p.id)<0) s.unread.push(p.id);
@@ -9264,11 +11156,11 @@ function file(sc,p,cl,k,gem){
     if(G.shortlist.indexOf(p.id)<0) G.shortlist.push(p.id);
     note(sc.name + ' has found somebody',
       p.name + ', ' + p.pos + ', ' + p.age + ', at ' + cl.name + '. ' +
-      '"Nobody is watching him and I do not understand why." Roughly ' + money(value(p)) + '. He is on your shortlist.');
+      '"Nobody is watching him and I do not understand why." Roughly ' + money(value(p)) + '. He is on your shortlist.', {from:vH(sc.name,'scout',sc.nat,52), about:vP(p), rel:'found'});
     chron(sc.name + ' found ' + p.name + ' at ' + cl.name);
   }else{
     note('Report in: ' + p.name,
-      sc.name + ' has filed on ' + p.pos + ', ' + p.age + ', ' + cl.name + '. ' + label(p.id,p) + ' by his reckoning.');
+      sc.name + ' has filed on ' + p.pos + ', ' + p.age + ', ' + cl.name + '. ' + label(p.id,p) + ' by his reckoning.', {from:vH(sc.name,'scout',sc.nat,52), about:vP(p), rel:'on'});
   }
 }
 
@@ -9283,7 +11175,10 @@ var UI = {
     var i=s.unread.indexOf(pid); if(i>=0) s.unread.splice(i,1);
     var p=pOf(pid);
     save();
+    var scv = vH(r.scn,'scout',r.scnat||'eng',52);
+    var pv  = p ? vP(p) : {k:'p',id:pid,n:r.nm,nat:'eng',age:24,mo:0,r:'',a:'#2A3038',b:'#1A1F26'};
     sheet(
+      speakerBar(scv, pv, 'filed on', r.cl + ' \u00b7 ' + agoTxt(r.w)) +
       '<h3>' + esc(r.nm) + '</h3>' +
       '<div class="sh-sub">' + esc(r.scn) + ' · ' + esc(r.cl) + ' · filed ' + agoTxt(r.w) + '</div>' +
       (r.gem ? '<div class="slab" style="margin-bottom:12px"><div class="k">He found one</div>' +
@@ -9320,6 +11215,7 @@ var UI = {
         '<div class="dim" style="font-size:12px">Shortlisted · ' + p.pos + ' · ' + weeksFor(sc,'player') + ' weeks, and he comes back sure</div></div></div>';
     }).join('');
     sheet(
+      speakerBar(vH(sc.name,'scout',sc.nat,52),null,'',STAR[sc.q] + ' \u00b7 ' + money(sc.wage) + '/wk') +
       '<h3>Where do you want ' + esc(sc.name) + '?</h3>' +
       '<div class="sh-sub">' + STAR[sc.q] + ' · ' + money(sc.wage) + '/wk. He will be gone ' +
         weeksFor(sc,'region') + ' weeks on a sweep, ' + weeksFor(sc,'player') + ' on one man.</div>' +
@@ -9412,9 +11308,9 @@ function viewScouts(){
     ? '<div class="sechead">Waiting on your desk<span class="n">' + unread.length + '</span></div>' +
       unread.slice(0,6).map(function(id){
         var r=s.rep[id];
+        var rp = pOf(+id);
         return '<div class="act" onclick="SW.get(\'scouting\').ui.read(' + id + ')">' +
-          '<div class="ic" style="background:' + (r.gem?'var(--accw)':'#0E2340') + ';color:' + (r.gem?'var(--acc)':'var(--trf)') + '">' +
-            (r.gem?'★':'◎') + '</div>' +
+          lockup(vH(r.scn,'scout',r.scnat||'eng',52), rp?vP(rp):null, 52) +
           '<div class="tx"><div class="a">' + esc(r.nm) + '</div>' +
           '<div class="b">' + esc(r.scn) + ' · ' + esc(r.cl) + ' · ' + agoTxt(r.w) + '</div></div>' +
           '<div class="ch">›</div></div>';
@@ -9443,8 +11339,9 @@ function viewScouts(){
                       : 'Idle — costing you money';
         var when = a ? (a.left<=1 ? 'Reports this week' : a.left + ' weeks out') : 'Give him a job';
         var hint = biasHint(sc);
-        return '<div class="plr" style="align-items:flex-start" onclick="SW.get(\'scouting\').ui.assign(' + sc.id + ')">' +
-          '<div class="pos" style="width:44px;color:var(--acc);border-color:var(--hair)">' + STAR[sc.q].replace(/☆/g,'') + '</div>' +
+        return '<div class="plr" style="align-items:flex-start;gap:11px" onclick="SW.get(\'scouting\').ui.assign(' + sc.id + ')">' +
+          avatar(vH(sc.name,'scout',sc.nat,52),52) +
+          '<div class="pos" style="width:38px;color:var(--acc);border-color:var(--hair)">' + STAR[sc.q].replace(/☆/g,'') + '</div>' +
           '<div class="nmw"><div class="nm2">' + esc(sc.name) + '</div>' +
           '<div class="meta"><span class="flag">' + NATIONS[sc.nat].code + '</span>' +
             '<span style="color:' + (a?'var(--t3)':'var(--inj)') + '">' + where + '</span></div>' +
@@ -9524,7 +11421,7 @@ SW.register({
       refreshCand();
       note('You inherited a scout',
         chief.name + ' has been here longer than you have. He is out in ' + NATIONS[chief.nat].name +
-        ' and he will file in ' + weeksFor(chief,'region') + ' weeks. Everyone else on the market is a rumour.');
+        ' and he will file in ' + weeksFor(chief,'region') + ' weeks. Everyone else on the market is a rumour.', {from:vV('staff')});
     }
   },
 
@@ -9570,7 +11467,7 @@ SW.register({
     if(c && s.sc.length){
       var kids = c.squad.filter(function(p){return p.youth});
       if(kids.length) note('New faces in the academy',
-        kids.length + ' of them, and nobody knows what any of them are. Put a scout on the place.');
+        kids.length + ' of them, and nobody knows what any of them are. Put a scout on the place.', {from:vV('academy')});
     }
   },
 
@@ -9895,7 +11792,8 @@ function finish(){
   const S=st(); if(S.done)return;
   S.done=1; setPref('off',true); persist();
   try{ note('That is the game',
-    'Objective agreed, team seen, plan set, match played. Everything else is you disagreeing with your assistant.') }catch(e){}
+    'Objective agreed, team seen, plan set, match played. Everything else is you disagreeing with your assistant.',
+    {from:vV('assist')}) }catch(e){}
 }
 
 /* --- step 1: the objective ------------------------------------------- */
@@ -9908,7 +11806,7 @@ OB.doObjective=function(){
      <div class="dim" style="font-size:12px">What they asked for. Budget stays as it is.</div></div>
      <span class="st">Accept</span></div>
    <div class="opt" onclick="acceptObj(1)"><div><div style="font-weight:600">Talk them down</div>
-     <div class="dim" style="font-size:12px">Easier target, 30% smaller budget, and they remember</div></div></div>`);
+     <div class="dim" style="font-size:12px">Easier target, 30% smaller budget, and they remember</div></div></div>`,{from:vV('assist')});
 };
 
 /* --- step 2: your best player ---------------------------------------- */
@@ -9999,7 +11897,7 @@ function beat(){
     if((S.played|0)<b.at)continue;
     if(b.need&&!SW.get(b.need)){ S.tips[b.k]=1; continue }   // module absent — skip silently
     S.offer=b.k; persist();
-    try{ note(b.t,b.l) }catch(e){}
+    try{ note(b.t,b.l,{from:vV('assist')}) }catch(e){}
     return b;
   }
   return null;

@@ -642,7 +642,7 @@ SW.register({
       const weeks=l.injRec.weeks||ri(1,4);
       if(p&&p.out<weeks){ p.out=weeks;
         if(c.id===G.me)note(p.name+' limped off','Out for around '+weeks+' match'+(weeks>1?'es':'')+
-          '. That is what a thin bench costs you.') }
+          '. That is what a thin bench costs you.',{from:vV('medical'),about:vP(p),rel:'on'}) }
     }
     /* goals scored by men we brought on */
     let subGoals=0;

@@ -52,6 +52,7 @@ SW.register({
   onMatchEnd(m){},                        // m = {R, f, hi, ai, mine}  mine = 0 if you were home
   onSeasonEndBefore(){},                  // before promotion/relegation, squads still intact
   onSeasonEndAfter(info){},               // info = {pos, hit}; new season already set up
+  onTransfer(p, seller, buyer, fee){},    // fired by the core after any completed transfer
   hubCards(){ return [ {...} ] },         // "Needs You" cards on the hub
   hubBlocks(){ return [ '<div…>' ] },     // raw HTML blocks under the hub
   squadViews(){ return [ {key,label,render} ] },   // sub-view inside the Squad tab
@@ -180,6 +181,16 @@ SW.get('contracts').renew(playerId, terms)          // bool
 
 SW.get('facilities').level(kind)                    // 'stadium'|'training'|'academy'|'medical' -> 1..5
 SW.get('cup').status()                              // {round, alive:bool, name} or null
+
+SW.get('culture').role(pid)                         // 'key'|'rot'|'back'|'surp'|null
+SW.get('culture').standing(pid)                     // -100..100, what his teammates make of him
+SW.get('culture').grievance(pid)                    // {j:0..1, why:[...]} how much of a case he has
+SW.get('culture').policing()                        // 0..1 how much the room handles itself
+
+SW.get('market').interest(playerId)                 // {clubs, level:0-3, label}
+SW.get('market').offers()                           // [{id, player, club, fee, stage}]
+SW.get('market').wageCeiling()                      // % of revenue agreed with the board
+SW.get('market').listed(playerId, on)               // set/toggle the transfer list
 ```
 
 ### Who fires what at whom

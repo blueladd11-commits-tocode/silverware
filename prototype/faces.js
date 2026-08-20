@@ -131,11 +131,12 @@ function faceSVG(seed,opts){
   const browY   = -mNorm*1.4;
   return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" class="face" aria-hidden="true">
    <defs>
-     <clipPath id="fc${seed}"><circle cx="50" cy="50" r="50"/></clipPath>
+     <clipPath id="fc${seed}">${opts.sq?'<rect x="-2" y="-2" width="104" height="104"/>':'<circle cx="50" cy="50" r="50"/>'}</clipPath>
      <clipPath id="lo${seed}"><rect x="20" y="60" width="60" height="30"/></clipPath>
    </defs>
    <g clip-path="url(#fc${seed})">
-    <rect width="100" height="100" fill="${bg}"/>
+    ${opts.sq?'':`<rect width="100" height="100" fill="${bg}"/>`}
+    <g transform="${opts.sq?'translate(50 55) scale(1.06) translate(-50 -55)':''}">
     <path d="M14 100 C14 86 30 80 50 80 C70 80 86 86 86 100 Z" fill="${kitA}"/>
     <path d="M44 100 L44 81 Q50 84 56 81 L56 100 Z" fill="${kitB}"/>
     <path d="M43 72 L57 72 L57 84 Q50 88 43 84 Z" fill="${shade}"/>
@@ -149,5 +150,6 @@ function faceSVG(seed,opts){
       <g transform="rotate(${-browRot} 60.5 43)">${BROW_R}</g></g>
     ${EYE}${NOSE}${MOUTH}
     ${HAIR[1]?`<path d="${HAIR[1]}" fill="${hc}"/>`:''}
+    </g>
    </g></svg>`;
 }

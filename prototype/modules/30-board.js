@@ -113,11 +113,13 @@ function escalate(stage){
     s.warnAt=s.games;
     s.log.unshift({s:G.season,w:G.week,d:0,r:'formal warning issued'});
     note('A formal warning',
-      'The chairman put it in writing. "We are not going to sit through much more of this. Results, or we make a change."');
+      'The chairman put it in writing. "We are not going to sit through much more of this. Results, or we make a change."',
+      {from:vV('board')});
     return 'warn2';
   }
   note('A quiet word',
-    'The chairman caught you in the corridor. "Nobody is panicking. But they are starting to say your name in that tone."');
+    'The chairman caught you in the corridor. "Nobody is panicking. But they are starting to say your name in that tone."',
+    {from:vV('board')});
   return 'warn1';
 }
 
@@ -151,7 +153,7 @@ function review(){
   if(!parts.length)return;
   parts.forEach(([v,r])=>adjust(v,r));
   if(tot<=-3){
-    note('The board met',parts.filter(p=>p[0]<0).map(p=>p[1]).join('; ')+'. They did not enjoy it.');
+    note('The board met',parts.filter(p=>p[0]<0).map(p=>p[1]).join('; ')+'. They did not enjoy it.',{from:vV('board')});
   }
 }
 
@@ -244,7 +246,8 @@ function showSack(reasonLine,snap){
      <div class="v" style="font-size:30px;line-height:33px">The board have seen enough.<br>Clear your desk.</div>
      <div class="d">${esc(q)}</div></div>
    <div class="sechead">What they said</div>
-   <div class="card"><div style="font-size:14px;color:var(--t2);line-height:20px">${esc(reasonLine)}</div></div>
+   ${speakerBar(vV('board'),null,'',c.name+' \u00b7 board')}
+   <div class="card" style="margin-top:-4px"><div style="font-size:14px;color:var(--t2);line-height:20px">${esc(reasonLine)}</div></div>
    <div class="sechead">Your record there</div>
    <div class="card">
      <div class="kv"><span class="k2">Games</span><span class="v2">${recLine()}</span></div>
@@ -262,8 +265,8 @@ function showSack(reasonLine,snap){
 /* ---------- the offers screen ---------- */
 function offerCard(o,isRec){
   const c=G.clubs[o.cid];
-  return `<div class="opt ${isRec?'rec':''}" onclick="boardTakeJob(${o.cid})" style="align-items:flex-start">
-    ${crestSVG(c,34)}
+  return `<div class="opt ${isRec?'rec':''}" onclick="boardTakeJob(${o.cid})" style="align-items:flex-start;gap:13px">
+    ${avatar(vC(c),64)}
     <div style="min-width:0;flex:1">
       <div style="font-weight:700;font-size:15px">${esc(c.name)}</div>
       <div class="dim" style="font-size:12px">${esc(o.league)} · reputation ${o.rep}</div>
@@ -333,7 +336,8 @@ function takeJob(cid){
   s.wStreak=0;s.lStreak=0;s.react='';
   s.log.unshift({s:G.season,w:G.week,d:0,r:'appointed at '+c.name});
   chron('Took the job at '+c.name);
-  note('You have a job again',c.name+'. They want: '+G.objective.text+'. Agree it and get to work.');
+  note('You have a job again',c.name+'. They want: '+G.objective.text+'. Agree it and get to work.',
+    {from:vV('board'),about:vC(c),rel:'hired by'});
   const h=SW.get('history');
   if(h&&typeof h.record==='function'){try{h.record('era','Took over at '+c.name+(from?' after '+from:''))}catch(e){}}
   closeTakeover();
@@ -342,7 +346,7 @@ function takeJob(cid){
 function declineOffers(){
   const s=S();
   s.offers=[];
-  note('You turned them down','You told them no. Word gets round that you are settled.');
+  note('You turned them down','You told them no. Word gets round that you are settled.',{from:vV('board')});
   closeTakeover();save();render();
 }
 
@@ -354,6 +358,8 @@ function showWarning(){
      <div class="k">Formal warning</div>
      <div class="v" style="font-size:28px;line-height:31px">You are on borrowed time.</div>
      <div class="d">"Results, or we make a change. That is the whole conversation."</div></div>
+   <div class="sechead">Who said it</div>
+   ${speakerBar(vV('board'),null,'',(me()?me().name:'')+' \u00b7 in writing')}
    <div class="sechead">Where you are</div>
    <div class="card">
      <div class="kv"><span class="k2">Board confidence</span><span class="v2" style="color:var(--loss)">${Math.round(s.conf)} / 100</span></div>
@@ -396,6 +402,7 @@ function panel(){
   const target=(G.objective&&G.objective.pos)||10,pos=myPos();
   sheet(`<h3>The board</h3>
    <div class="sh-sub">${esc(b.t)}</div>
+   ${speakerBar(vV('board'),null,'',c.name+' \u00b7 boardroom')}
    ${meter()}
    <div class="sechead">What moved it</div>
    <div class="card" style="background:var(--s1)">${logRows(8)||'<div class="dim">Nothing yet. Play a game.</div>'}</div>
@@ -537,7 +544,7 @@ SW.register({
     /* offers expiring */
     if(s.offers&&s.offers.length&&!s.sacked){
       const live=s.offers.filter(o=>o.exp>=week);
-      if(live.length!==s.offers.length&&!live.length)note('The approach cooled','They appointed somebody else. You stay put.');
+      if(live.length!==s.offers.length&&!live.length)note('The approach cooled','They appointed somebody else. You stay put.',{from:vV('staff')});
       s.offers=live;
     }
     /* an unsolicited approach when you are doing well */
@@ -546,7 +553,7 @@ SW.register({
       if(list.length){
         list.forEach(o=>{o.exp=week+3});
         note('Somebody wants you',(list.length===1?G.clubs[list[0].cid].name+' have':'Two clubs have')+
-          ' asked to speak to you. You have three weeks to decide.');
+          ' asked to speak to you. You have three weeks to decide.',{from:vV('board'),about:vC(G.clubs[list[0].cid]),rel:'want you'});
       }
     }
   },
@@ -589,8 +596,8 @@ SW.register({
       }catch(e){}},0);
       return;
     }
-    if(info.hit)note('The board are pleased','You did what they asked. '+b.t+' Confidence '+v+'.');
-    else note('The verdict','You did not. '+reasons.join(', ')+'. '+b.t+' Confidence '+v+'.');
+    if(info.hit)note('The board are pleased','You did what they asked. '+b.t+' Confidence '+v+'.',{from:vV('board')});
+    else note('The verdict','You did not. '+reasons.join(', ')+'. '+b.t+' Confidence '+v+'.',{from:vV('board')});
     evaluate();
     if(s.stage>=2)setTimeout(()=>{try{showWarning()}catch(e){}},0);
   },

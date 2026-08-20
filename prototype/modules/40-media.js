@@ -34,6 +34,12 @@ function ensure(){
   return st;
 }
 
+/* ---------- who is talking ----------
+   The pundit has a name, so he gets a face. The press pack does not, so it
+   gets the institutional mark: three microphones on newsprint. */
+function vPundit(){const st=S();return st.pundit?vH(st.pundit.name,'pundit','eng',49):vV('press')}
+function vPress(){return vV('press')}
+
 /* ---------- the pundit ---------- */
 const ROLES=[
   {r:'former centre-half',  tic:'played it in the old money'},
@@ -189,7 +195,7 @@ function setHead(t,big,end,keep){
   if(st.papers[0]&&st.papers[0].s===p.s&&st.papers[0].w===p.w&&!end)st.papers[0]=p;
   else st.papers.unshift(p);
   if(st.papers.length>14)st.papers.length=14;
-  if(big)note('Back page','"'+t+'" — and the phone has not stopped ringing.');
+  if(big)note('Back page','"'+t+'" — and the phone has not stopped ringing.',{from:vPress()});
 }
 function resultHeadline(c){
   const my=UP(c.myName), opp=UP(c.oppName), sc=c.scorer?UP(surname(c.scorer)):null;
@@ -455,8 +461,10 @@ function shock(id){
 function refCharge(){
   const c=me(), fine=Math.round((18000+c.rep*900)/1000)*1000;
   punditAdj(-4);
-  if(c.bal>fine*4){ c.bal-=fine; note('Charged','A misconduct charge and a '+money(fine)+' fine. Worth it, probably.'); }
-  else note('Charged','A misconduct charge. They have let you off the fine. This time.');
+  if(c.bal>fine*4){ c.bal-=fine; note('Charged','A misconduct charge and a '+money(fine)+' fine. Worth it, probably.',
+    {from:vV('league'),about:vC(c),rel:'charge'}); }
+  else note('Charged','A misconduct charge. They have let you off the fine. This time.',
+    {from:vV('league'),about:vC(c),rel:'charge'});
   bAdj(-3,'dragged the club in front of a disciplinary panel');
 }
 
@@ -596,9 +604,10 @@ hubBlocks(){
         onclick="SWmedia.papers()">
     ${h?`<div style="font-family:var(--disp);font-weight:800;font-size:20px;line-height:22px;
       text-transform:uppercase;letter-spacing:-.01em">${esc(h)}</div>`:''}
-    <div style="font-size:12.5px;color:var(--t2);line-height:17px;${h?'border-top:1px solid var(--hair);margin-top:10px;padding-top:9px':''}">
-      &ldquo;${esc(st.line)}&rdquo;<br>
-      <span style="color:var(--t3)">${esc(st.pundit.name)} &middot; ${esc(st.pundit.role)}</span></div>
+    <div class="row" style="gap:11px;align-items:flex-start;${h?'border-top:1px solid var(--hair);margin-top:10px;padding-top:10px':''}">
+      ${avatar(vPundit(),52)}
+      <div style="min-width:0"><div style="font-size:12.5px;color:var(--t2);line-height:17px">&ldquo;${esc(st.line)}&rdquo;</div>
+      <div style="color:var(--t3);font-size:11px;margin-top:4px;font-weight:600">${esc(st.pundit.name)} &middot; ${esc(st.pundit.role)}</div></div></div>
    </div>`];
 },
 
@@ -676,15 +685,26 @@ function renderPress(){
   const hint = q.rec==='blame' ? 'Take it yourself. They are fishing for a row.'
     : q.rec==='back' ? 'Get behind them. They will hear about it before you are back.'
     : 'Give them something. Just watch what it costs.';
+  /* every question has an asker and a subject: the pundit when he is being
+     quoted, the man you are being asked about when there is one */
+  const asker = q.needs==='pundit' ? vPundit() : vPress();
+  const subj  = q.needs==='struggler'&&c.strugglerId
+        ? vP((me().squad.find(x=>x.id===c.strugglerId))||null)
+      : q.tag==='hat'&&c.hat ? vP(me().squad.find(x=>x.name===c.hat))
+      : (c.derby||c.returning||c.upsetWin||c.upsetLoss||c.heavy) ? vC(G.clubs[c.oppId])
+      : null;
   sheet(`<h3>The press room</h3>
    <div class="sh-sub">${esc(c.myName)} ${c.gf}&ndash;${c.ga} ${esc(c.oppName)} &middot; ${esc(c.comp)}
      &middot; question ${L.i+1} of ${n}</div>
-   <div class="card" style="background:var(--s1);padding:13px 14px;margin-bottom:12px">
-     <div style="font-size:15px;font-weight:600;line-height:21px">&ldquo;${esc(q.q(c))}&rdquo;</div>
+   ${speakerBar(asker,subj,subj&&subj.k==='c'?'vs':'about',
+      q.needs==='pundit'?S().pundit.role:'Question '+(L.i+1)+' of '+n)}
+   <div class="qcard">
+     <span class="qmark">&ldquo;</span>
+     <div style="font-size:15.5px;font-weight:600;line-height:22px">${esc(q.q(c))}</div>
    </div>
-   <div class="row" style="gap:8px;margin:0 2px 12px;align-items:flex-start">
-     <span style="color:var(--acc);font-size:12px;margin-top:1px">&#9670;</span>
-     <div style="font-size:12px;color:var(--t2);line-height:16px"><b>Assistant</b> &mdash; ${esc(hint)}</div>
+   <div class="asrow">${avatar(vV('assist'),44)}
+     <div style="font-size:12.5px;color:var(--t2);line-height:17px"><b style="color:var(--acc)">Assistant</b>
+       &mdash; ${esc(hint)}</div>
    </div>
    ${q.a.map((a,i)=>`<div class="opt${a.k===q.rec?' rec':''}" onclick="SWmedia.answer(${i})">
      <div><div style="font-weight:600;font-size:14px;line-height:19px">${esc(a.t)}</div>
@@ -723,11 +743,11 @@ window.SWmedia={
        <div style="font-family:var(--disp);font-weight:800;font-size:15px;line-height:18px;text-transform:uppercase">${esc(p.t)}</div>
        <div class="dim" style="font-size:11px;margin-top:5px">${p.s}/${String(p.s+1).slice(2)} &middot; ${p.end?'end of season':'week '+(p.w+1)}</div>
      </div>`).join(''):'<div class="card" style="background:var(--s1)">Nothing worth printing yet.</div>'}
-     <div class="card" style="background:var(--s1);margin-top:10px">
-       <div class="kv"><span class="k2">${esc(st.pundit.name)}</span>
-         <span class="v2">${st.view>=45?'On your side':st.view>=15?'Coming round':st.view<=-45?'Wants you gone':st.view<=-15?'Not convinced':'Undecided'}</span></div>
-       <div style="font-size:12.5px;color:var(--t2);line-height:17px;padding-top:9px;border-top:1px solid var(--hair)">
-         &ldquo;${esc(st.line)}&rdquo;</div></div>
+     <div class="sechead">The man with the microphone</div>
+     ${speakerBar(vPundit(),null,'',st.pundit.role+' \u00b7 '+
+       (st.view>=45?'On your side':st.view>=15?'Coming round':st.view<=-45?'Wants you gone':st.view<=-15?'Not convinced':'Undecided'))}
+     <div class="card" style="background:var(--s1);margin-top:-4px">
+       <div style="font-size:13.5px;color:var(--t1);line-height:19px">&ldquo;${esc(st.line)}&rdquo;</div></div>
      <button class="btn" style="margin-top:12px" onclick="closeSheet()">Close</button>`);
   }
 };
@@ -746,9 +766,10 @@ function finishPress(){
        text-transform:uppercase;color:var(--acc)">Back page</div>
      <div style="font-family:var(--disp);font-weight:800;font-size:22px;line-height:24px;
        text-transform:uppercase;margin-top:6px">${esc(h)}</div>
-     <div style="font-size:12.5px;color:var(--t2);line-height:17px;border-top:1px solid var(--hair);
-       margin-top:11px;padding-top:9px">&ldquo;${esc(st.line)}&rdquo;<br>
-       <span style="color:var(--t3)">${esc(st.pundit.name)} &middot; ${esc(st.pundit.role)}</span></div>
+     <div class="row" style="gap:11px;align-items:flex-start;border-top:1px solid var(--hair);
+       margin-top:12px;padding-top:11px">${avatar(vPundit(),52)}
+       <div style="min-width:0"><div style="font-size:12.5px;color:var(--t2);line-height:17px">&ldquo;${esc(st.line)}&rdquo;</div>
+       <div style="color:var(--t3);font-size:11px;margin-top:4px;font-weight:600">${esc(st.pundit.name)} &middot; ${esc(st.pundit.role)}</div></div></div>
    </div>
    <button class="btn" style="margin-top:14px" onclick="closeSheet();render()">Done</button>`);
 }

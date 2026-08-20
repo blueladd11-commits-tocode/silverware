@@ -331,7 +331,7 @@ function promises(c){
       t.tr=clamp(t.tr-2,-3,3);
       note(p.name+' has stopped believing you',
         'You told him he was in your plans in '+monthOf(t.prom.w)+'. He has started '+gained+
-        ' game'+(gained===1?'':'s')+' since. He is not coming to see you again in a good mood.');
+        ' game'+(gained===1?'':'s')+' since. He is not coming to see you again in a good mood.',{from:vP(p)});
       t.ask=-99;
     }
     t.prom=null;
@@ -348,7 +348,7 @@ function requests(c){
       t.req=G.week; p.listed=true;
       const why=drivers(c,p).find(x=>x.neg);
       note(p.name+' has asked to leave',
-        (why?why.txt+'. ':'')+'He wants away. He is on the list until you change his mind or someone takes him.');
+        (why?why.txt+'. ':'')+'He wants away. He is on the list until you change his mind or someone takes him.',{from:vP(p)});
       chron(p.name+' asked to leave');
       bump(p,-4,'Handed in a transfer request');
     }
@@ -364,7 +364,7 @@ function leaderLoss(c){
     if(now.has(rec.id))return;
     squadOf(c).forEach(p=>bump(p,-(6+rnd()*7),'Lost '+rec.n+', and they knew who held that room together'));
     note('The room feels different','You sold '+rec.n+'. He was the one who sorted things out in there '+
-      'before they reached you. Somebody else has to do it now, and nobody has volunteered.');
+      'before they reached you. Somebody else has to do it now, and nobody has volunteered.',{from:vV('staff')});
   });
   s.was=s.ld.map(id=>{const p=c.squad.find(x=>x.id===id);return p?{id,n:p.name}:null}).filter(Boolean);
 }
@@ -536,7 +536,7 @@ function talk(id){
       <span class="v2" style="color:${k.ok?'var(--win)':'var(--loss)'}">${k.ok?'✓ landed':'✗ backfired'} · ${esc(monthOf(k.w))}</span></div>`);
   });
   sheet(`<div class="row" style="margin-bottom:12px;align-items:flex-start">
-     ${pface(p,56)}
+     ${avatar(vP(p),76)}
      <div style="min-width:0"><h3 style="margin:0">${esc(p.name)}</h3>
       <div class="dim" style="font-size:13px">${p.pos} · ${p.age} · ${esc(moodWord(get(p)))}</div></div>
      <span class="spacer"></span>${moodStrip(get(p))}</div>
@@ -591,9 +591,10 @@ function answer(id,mode){
   let extra='';
   if(t.req&&get(p)>-25){t.req=0;p.listed=false;
     extra='<div class="pill acc" style="margin-top:12px;padding:9px 12px">He has withdrawn the request. Off the list.</div>';
-    note(p.name+' is staying','He has taken his transfer request back. Do not waste it.');}
+    note(p.name+' is staying','He has taken his transfer request back. Do not waste it.',{from:vP(p)});}
 
-  sheet(`<h3>${esc(head)}</h3>
+  sheet(`${speakerBar(vP(p),null,'',p.pos+' \u00b7 '+p.age+' \u00b7 '+moodWord(get(p)))}
+   <h3>${esc(head)}</h3>
    <div class="sh-sub">${esc(body)}</div>
    <div class="card" style="background:var(--s1)">
      <div class="kv"><span class="k2">${esc(p.name)}</span>

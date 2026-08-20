@@ -99,7 +99,7 @@ function wageShock(p){
     grumps.forEach(x=>{try{mor.adjust(x.id,hit,'new signing on far more than him')}catch(e){}});
   else grumps.forEach(x=>{x.morale=clamp((x.morale||50)+hit,0,100)});
   note('The dressing room has done the maths',
-    p.name+' is on '+money(p.wage)+'/wk. Nobody else is close, and they all know it now.');
+    p.name+' is on '+money(p.wage)+'/wk. Nobody else is close, and they all know it now.',{from:vV('staff')});
 }
 
 /* ---------- charge an agent ---------- */
@@ -110,7 +110,7 @@ function charge(fee,who,why){
     const took=Math.max(0,c.bal);
     c.bal-=took;
     note("The agent got paid, you didn't",
-      who+"'s man took "+money(took)+" — everything left in the account. "+why);
+      who+"'s man took "+money(took)+" — everything left in the account. "+why,{from:vV('staff')});
     return false;
   }
   c.bal-=fee;
@@ -151,7 +151,8 @@ window.ctrRenew=function(pid){
   const push=Math.max(1000,Math.round(t.wage*0.86/1000)*1000);
   const pushFee=Math.round(push*52*ag.fee);
   const ratioAfter=Math.min(160,Math.round((wageBill(c)-cur+t.wage)*52/revenue(c)*100));
-  sheet(`<h3>${esc(p.name)}</h3>
+  sheet(`${speakerBar(vH(ag.name,'agent','eng',52),vP(p),'for',ag.d)}
+   <h3>${esc(p.name)}</h3>
    <div class="sh-sub">His agent is ${esc(ag.name)} — ${esc(ag.d)}. ${m<=0?'The deal is up.'
      :m<=6?'Six months or less. He can talk to anyone he likes.':'He has '+m+' months to run.'}</div>
    <div class="card" style="background:var(--s1);margin-bottom:14px">
@@ -206,7 +207,8 @@ window.ctrPush=function(pid){
       fee:Math.round(push*52*ag.fee),agent:ag};
     if(!apply(p,terms))return;
     save();
-    sheet(`<h3>He blinked</h3>
+    sheet(`${speakerBar(vH(ag.name,'agent','eng',52),vP(p),'for',ag.d)}
+     <h3>He blinked</h3>
      <div class="sh-sub">${esc(ag.name)} looked at the door, looked at the offer, and signed.
        ${money(push)}/wk over ${t.years} years${dropCl?'. No clause.':t.clause?'. The clause stays at '+money(t.clause)+'.':''}</div>
      <button class="btn" onclick="closeSheet();render()">Done</button>`);
@@ -219,14 +221,15 @@ window.ctrPush=function(pid){
   if(mor&&typeof mor.adjust==='function'){try{mor.adjust(p.id,hit,'his renewal was low-balled')}catch(e){}}
   else p.morale=clamp((p.morale||50)+hit,0,100);
   save();
-  sheet(`<h3>He walked out</h3>
+  sheet(`${speakerBar(vH(ag.name,'agent','eng',52),vP(p),'for',ag.d)}
+   <h3>He walked out</h3>
    <div class="sh-sub">${esc(ag.name)} put his coat on before you finished the sentence.
      ${esc(p.name)} is not happy and the number has gone up, not down.</div>
    <div class="card" style="background:var(--s1);margin-bottom:14px"><div style="font-size:13px;color:var(--t2)">
     He will listen once more, at his price. Push again and there is nothing left to push.</div></div>
    <button class="btn" onclick="ctrRenew(${pid})">Look at it again</button>
    <button class="btn ghost" style="margin-top:8px" onclick="closeSheet();render()">Leave him to it</button>`);
-  note(p.name+' turned the offer down','His agent says the club is not serious. He is six months closer to leaving.');
+  note(p.name+' turned the offer down','His agent says the club is not serious. He is six months closer to leaving.',{from:vH(ag.name,'agent','eng',52),about:vP(p),rel:'for'});
 };
 
 window.ctrWalk=function(){closeSheet();render()};
@@ -260,7 +263,7 @@ window.ctrFree=function(pid){
   const c=me(),ag=agentOf(p),w=faWage(p),fee=faFee(p);
   const ratioAfter=Math.min(160,Math.round((wageBill(c)+w)*52/revenue(c)*100));
   const blocked=costRatio(c)>85;
-  sheet(`<div class="row" style="margin-bottom:14px;align-items:flex-start">${pface(p,56)}
+  sheet(`<div class="row" style="margin-bottom:14px;align-items:flex-start;gap:13px">${avatar(vP(p),76)}
     <div style="min-width:0"><h3 style="margin:0">${esc(p.name)}</h3>
      <div class="dim" style="font-size:13px">${p.pos} · ${p.age} · ${p.nat.toUpperCase()} · unattached</div></div>
     <span class="spacer"></span>
@@ -308,7 +311,7 @@ window.ctrSignFree=function(pid){
   s.deals[p.id]={w:p.wage,y:p.years,cl:0,s:G.season};
   autoXI(c);
   wageShock(p);
-  note('Signed '+p.name+' on a free',money(w)+'/wk over '+p.years+' years. '+money(fee)+' to the agent.');
+  note('Signed '+p.name+' on a free',money(w)+'/wk over '+p.years+' years. '+money(fee)+' to the agent.',{from:vC(me()),about:vP(p),rel:'sign'});
   chron('Signed '+p.name+' on a free transfer');
   save();
   sheet(`<div class="slab" style="margin-bottom:14px"><div class="k">Free transfer</div>
@@ -340,7 +343,7 @@ function clauseWatch(){
     s.known=s.known.filter(x=>x!==pid);
     doTransfer(p,c,b,cl,wage);
     note(p.name+' is gone',
-      b.name+' paid the release clause. '+money(cl)+', and you had no say in it. You agreed that clause.');
+      b.name+' paid the release clause. '+money(cl)+', and you had no say in it. You agreed that clause.',{from:vV('staff'),about:vP(p),rel:'on'});
     chron(p.name+' left for '+b.name+' — release clause triggered');
     return;  // one a week, not a fire sale
   }
@@ -357,7 +360,7 @@ function bosmanWatch(){
     if(!s.warned[p.id]){
       s.warned[p.id]=true;
       note(p.name+' can talk to anyone now',
-        'Six months left. Any club in Europe can sit down with him and you cannot stop it.');
+        'Six months left. Any club in Europe can sit down with him and you cannot stop it.',{from:vV('staff'),about:vP(p),rel:'on'});
     }
     if(mLeft(p)>3)return;
     if(rnd()>0.03+p.amb/3500)return;
@@ -366,7 +369,7 @@ function bosmanWatch(){
     const b=pick(suit);
     s.pre[p.id]=b.id;
     note(p.name+' has agreed terms elsewhere',
-      b.name+' have him on a pre-contract. He plays out the season and then he is theirs for nothing.');
+      b.name+' have him on a pre-contract. He plays out the season and then he is theirs for nothing.',{from:vV('staff'),about:vP(p),rel:'on'});
   });
 }
 
@@ -386,11 +389,11 @@ function myExpiries(){
       const b=G.clubs[to];
       p.wage=Math.round(wageFor(p)*1.15);p.years=ri(2,4);p.listed=false;p.morale=60;
       b.squad.push(p);
-      note(p.name+' has gone',b.name+' get him for nothing. You had all season to sort it.');
+      note(p.name+' has gone',b.name+' get him for nothing. You had all season to sort it.',{from:vC(b),about:vP(p),rel:'took'});
       chron(p.name+' left on a free to '+b.name);
     } else {
       releaseToPool(p);
-      note(p.name+"'s deal is up",'Nobody offered him anything, including you. He is out of the building.');
+      note(p.name+"'s deal is up",'Nobody offered him anything, including you. He is out of the building.',{from:vV('staff'),about:vP(p),rel:'on'});
     }
   });
   if(out.length)autoXI(c);
@@ -453,7 +456,7 @@ function arrivals(){
     if(fee<=0)return;
     const ok=charge(fee,p.name,'');
     if(ok)note("Agent's fee — "+p.name,
-      money(fee)+' to '+ag.name+'. It never shows up in the transfer figure.');
+      money(fee)+' to '+ag.name+'. It never shows up in the transfer figure.',{from:vH(agentOf(p).name,'agent','eng',52),about:vP(p),rel:'for'});
     wageShock(p);
   });
 }
@@ -577,7 +580,7 @@ SW.register({
       const risk=squadOf(me()).filter(p=>p.years<=1);
       if(risk.length)note(risk.length+' deal'+(risk.length===1?'':'s')+' up in June',
         risk.slice(0,3).map(p=>p.name).join(', ')+(risk.length>3?' and '+(risk.length-3)+' more':'')+
-        '. Sort them or lose them for nothing.');
+        '. Sort them or lose them for nothing.',{from:vV('staff')});
     }catch(e){console.error('[contracts.onSeasonEndAfter]',e)}
   },
 

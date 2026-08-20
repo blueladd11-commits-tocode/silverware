@@ -131,7 +131,7 @@ function sale(s,name,fee,to){
 
 /* ---------- records ---------- */
 function breakNote(s,title,body){
-  safe(()=>note(title,body));
+  safe(()=>note(title,body,{from:vV('staff')}));
   pushChron(s,'record',body);
   s.cur.rec.push(body);
   (s.lastRec=s.lastRec||[]).push({t:title,b:body});
@@ -169,7 +169,8 @@ function checkMilestones(s){
           safe(()=>note(p.name+' — '+t+' games',vpick([
             'A '+t+' for us. He has seen three squads come and go.',
             t+' appearances. Whatever else happens, that is his.',
-            t+' games in this shirt. They know his name in the away end too.'],t+p.id)));
+            t+' games in this shirt. They know his name in the away end too.'],t+p.id),
+            {from:vV('staff'),about:vP(p),rel:'on'}));
           pushChron(s,'milestone',p.name+' made his '+t+'th appearance.');
         }
       }
@@ -181,7 +182,8 @@ function checkMilestones(s){
         safe(()=>note(p.name+' — '+t+' goals',vpick([
           t+' goals for this club. Not many get there.',
           'That is '+t+'. He keeps finding a yard.',
-          t+' goals. The kids in the stand do his celebration now.'],t+p.id)));
+          t+' goals. The kids in the stand do his celebration now.'],t+p.id),
+          {from:vV('staff'),about:vP(p),rel:'on'}));
         pushChron(s,'milestone',p.name+' reached '+t+' goals for the club.');
       }
     });
@@ -389,7 +391,7 @@ function inductions(s,w,season){
   }
   out.forEach(h=>{
     safe(()=>note(h.n+' is in the hall of fame',
-      h.ap+' games, '+h.gl+' goals, '+(h.tr?h.tr+' trophies. ':'')+h.ln));
+      h.ap+' games, '+h.gl+' goals, '+(h.tr?h.tr+' trophies. ':'')+h.ln,{from:vV('staff')}));
     pushChron(s,'milestone',h.n+' took his place in the hall of fame.',season);
   });
   return out;
