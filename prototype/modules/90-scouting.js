@@ -131,7 +131,13 @@ function label(id,p){
     p = p || pOf(id);
     out = p ? String(Math.round(CA(p))) : '??';
   }else if(k<0.15){
-    out = '??';
+    p = p || pOf(id);
+    if(!p){ out='??'; }
+    else {
+      var e0 = looseEst(p,k);
+      var w0 = Math.ceil(16*(1-k))+1;          // covers the worst-case bias: truth stays inside
+      out = Math.max(1,Math.round(e0-w0)) + '\u2013' + Math.min(99,Math.round(e0+w0));
+    }
   }else{
     var s=st(), r=s.rep[id], e;
     if(r) e = r.est;
@@ -709,6 +715,13 @@ SW.register({
   /* --- published interface --- */
   knowledge: knowledge,
   reveal: reveal,
+  estimate: function(id){
+    var k=knowledge(id), p=pOf(id);
+    if(!p)return null;
+    if(k>=0.92)return Math.round(CA(p));
+    var s2=st(), r=s2.rep[id];
+    return Math.round(r ? r.est : looseEst(p,k));
+  },
   reportFor: reportFor,
   label: label,
   ceiling: ceilLabel,

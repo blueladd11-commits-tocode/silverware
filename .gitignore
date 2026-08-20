@@ -11,3 +11,6 @@ prototype/mdonly.html
 # Scratch render tests and harnesses (repo root and prototype)
 _*.html
 _*.js
+_shots/
+_*.py
+prototype/_shots/

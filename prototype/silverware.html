@@ -387,16 +387,23 @@ h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
 .evt .evg{flex:0 0 auto;opacity:.9}
 /* the live feed: same tile as the report, plus the marks and the goal slab */
 .mev{margin-bottom:7px;animation:evin .3s var(--ease) both}
+/* commentary is a sentence, not a name — it wraps, it does not get an ellipsis */
+.mev .evn b{white-space:normal;overflow:visible;line-height:18px}
 .mev .evmin{flex:0 0 auto;min-width:30px;height:24px;padding:0 6px;border-radius:8px;
   display:grid;place-items:center;background:var(--s3);color:var(--t2);
   font-family:var(--disp);font-weight:800;font-size:12px;font-variant-numeric:tabular-nums}
-.mev.us .evmin{background:var(--accw);color:var(--acc)}
-.mev.goal{border-left-color:var(--acc);padding:11px;
-  background:var(--noise),linear-gradient(120deg,#3A2E10,#12161B 68%),var(--s1);
+/* A goal is a slab either way — it is the moment of the match. But theirs is
+   not a celebration: same size, same weight, cold plate, no amber. */
+.mev.goal{padding:11px;
+  background:var(--noise),linear-gradient(120deg,#232A33,#0F1318 68%),var(--s1);
   background-blend-mode:overlay,normal,normal;box-shadow:var(--sh-2),var(--rim);
   animation:goalpop .9s cubic-bezier(.24,1.5,.4,1) both}
+.mev.goal.us{border-left-color:var(--acc);
+  background:var(--noise),linear-gradient(120deg,#3A2E10,#12161B 68%),var(--s1);
+  background-blend-mode:overlay,normal,normal}
 .mev.goal .evn b{font-family:var(--disp);font-weight:800;font-size:17px;letter-spacing:-.01em}
-.mev.goal .evmin{background:var(--acc);color:#0A0C0F}
+.mev.goal .evmin{background:var(--strong);color:var(--t1)}
+.mev.goal.us .evmin{background:var(--acc);color:#0A0C0F}
 @keyframes goalpop{
   0%{opacity:0;transform:translateY(-10px) scale(.94)}
   46%{opacity:1;transform:translateY(0) scale(1.035)}
@@ -501,6 +508,8 @@ tr.me td{background:var(--accw)}
 tr.me td:nth-child(2){font-weight:700}
 .zone{width:3px;border-radius:2px;display:inline-block;height:14px;vertical-align:-3px;margin-right:5px}
 /* ---- the ladder (research 09 §6.3) ---- */
+.zkey{display:inline-flex;align-items:center;gap:4px;margin:0 11px 4px 0;white-space:nowrap}
+.zkey b{color:var(--t2);font-variant-numeric:tabular-nums}
 .lad{display:flex;flex-direction:column;gap:4px}
 .ldr{position:relative;display:flex;align-items:center;gap:8px;min-height:48px;padding:6px 11px 6px 0;
   border-radius:12px;cursor:pointer;overflow:hidden;
@@ -3359,7 +3368,9 @@ function pcard(p,o){
   if(o.foot==='none')foot='';
   else if(o.footHTML!==undefined)foot=o.footHTML;
   else if(o.fee!==undefined)
-    foot=`${club?crestSVG(club,cz):''}<span class="pc-v" style="font-size:${Math.round(w*0.085)}px;color:${
+    /* his own crest tells him nothing; his shirt number does */
+    foot=`${mine?kitChip(club,p,Math.round(w*0.155)):(club?crestSVG(club,cz):'')}
+      <span class="pc-v" style="font-size:${Math.round(w*0.085)}px;color:${
       o.feeCol||'var(--trf)'}">${money(o.fee)}</span>`;
   else if(mine)
     /* our own men wear the shirt: same kit token as the pitch view, same number,
@@ -3530,7 +3541,12 @@ function abilityLabel(p){
 }
 function abilityColour(p){
   const sc=SW.get('scouting');
-  if(sc&&sc.knowledge){try{ if(sc.knowledge(p.id)<0.55)return 'var(--t2)' }catch(e){}}
+  if(sc&&sc.knowledge){try{
+    if(sc.knowledge(p.id)<0.55&&sc.estimate){
+      const e=sc.estimate(p.id);
+      return e==null?'var(--t2)':ramp(e);   // tinted by the scout's guess, never the truth
+    }
+  }catch(e){}}
   return ramp(CA(p));
 }
 /* A market result is a card, not a row: six of them fill a phone screen with the
@@ -3670,13 +3686,17 @@ function viewWorld(){
     body=`${ladder(tab,{zone:i=>l.tier===0
         ?(i<3?'var(--ucl)':i<6?'var(--uel)':i<9?'var(--uecl)':i>=17?'var(--loss)':'')
         :(i<3?'var(--win)':i>=17?'var(--loss)':'')})}
-     ${l.tier===0?`<div class="card" style="margin-top:10px;font-size:12px;color:var(--t3)">
-       <span class="zone" style="background:var(--ucl)"></span> Champions Cup &nbsp;
-       <span class="zone" style="background:var(--uel)"></span> Europa Cup &nbsp;
-       <span class="zone" style="background:var(--uecl)"></span> Conference Cup</div>`:
-       `<div class="card" style="margin-top:10px;font-size:12px;color:var(--t3)">
-       <span class="zone" style="background:var(--win)"></span> Promotion &nbsp;
-       <span class="zone" style="background:var(--loss)"></span> Relegation</div>`}`;
+     ${(()=>{
+       /* The zone bar is a colour. The key names the positions as well, so the
+          zones survive a greyscale pass and a colour-blind reader. */
+       const dropFrom=ord(tab.length-2)+'–'+ord(tab.length);
+       const k=(c,z,t)=>`<span class="zkey"><span class="zone" style="background:${c}"></span>
+         <b>${z}</b> ${t}</span>`;
+       return `<div class="card" style="margin-top:10px;font-size:12px;color:var(--t3)">
+       ${l.tier===0
+         ?k('var(--ucl)','1st–3rd','Champions Cup')+k('var(--uel)','4th–6th','Europa Cup')
+          +k('var(--uecl)','7th–9th','Conference Cup')+k('var(--loss)',dropFrom,'Relegation')
+         :k('var(--win)','1st–3rd','Promotion')+k('var(--loss)',dropFrom,'Relegation')}</div>`})()}`;
   } else {
     const E=G.euro[t.E.key];
     const groupsHTML=()=>E.groups.map((g,gi)=>`<div class="sechead">Group ${String.fromCharCode(65+gi)}</div>
@@ -3981,10 +4001,14 @@ const PHRASE={
  build:['Patient stuff in midfield.','They are keeping the ball well here.','A spell of pressure building.'],
  sub:['%s comes on.','Change made — %s is on.']
 };
+const _lastPhrase={};
 function evText(e){
   if(e.t==='sub')return (e.off?esc(e.off)+' off, ':'')+esc(e.who||'')+' on.';
   const pool=PHRASE[e.t]||PHRASE.build;
-  return pool[Math.floor(rnd()*pool.length)].replace('%s',e.who||'');
+  let i=Math.floor(rnd()*pool.length);
+  if(pool.length>1&&i===_lastPhrase[e.t])i=(i+1)%pool.length;   // never twice running
+  _lastPhrase[e.t]=i;
+  return pool[i].replace('%s',e.who||'');
 }
 function startMatch(){
   const f=nextFixture();
@@ -4052,7 +4076,7 @@ function evTile(s,mine){
     : e.t==='sub' ? 'for '+esc(e.off) : s.club.abbr;
   return `<div class="evt mev${goal?' goal':''}${us?' us':''}">
    <span class="evmin">${e.m}'</span>
-   ${hit?pface(hit.p,goal?46:38,{bg:'#141920',club:hit.c}):crestSVG(s.club,goal?38:30)}
+   ${hit?pface(hit.p,goal?54:44,{bg:'#141920',club:hit.c}):crestSVG(s.club,goal?44:34)}
    <span class="evn"><b>${esc(s.txt)}</b><span>${sub}</span></span>
    ${mark}</div>`;
 }
@@ -5811,12 +5835,14 @@ window.xferOpen=function(id){
   /* Two parties, one player: the club that wants him, and him. A 16px crest
      was doing the work of naming the buyer. It cannot. */
   sheet(`${speakerBar(vC(b),vP(p),'want',b.name+' have made an offer')}
-   <div class="row" style="margin-bottom:12px;align-items:flex-start">
-    <div style="min-width:0"><h3 style="margin:0">${esc(p.name)}</h3>
-      <div class="dim" style="font-size:13px">${p.pos} · ${p.age} · ${p.years} yr${p.years===1?'':'s'} left</div></div>
-    <span class="spacer"></span>
-    <div style="text-align:right"><div class="disp" style="font-size:26px;font-weight:800;color:var(--trf);line-height:28px">${money(o.fee)}</div>
-      <div class="dim" style="font-size:11px">valued ${money(value(p))}</div></div></div>
+   <div class="phero" style="margin-bottom:12px">
+    ${typeof pcard==='function'?pcard(p,{w:124,club:c,tap:'void 0'}):''}
+    <div class="pht" style="min-width:0"><h3 style="margin:0;font-size:20px;line-height:23px">${esc(p.name)}</h3>
+      <div class="dim" style="font-size:12px;margin-top:3px">${p.pos} · ${p.age} · ${p.years} yr${p.years===1?'':'s'} left</div>
+      <div class="disp" style="font-size:27px;font-weight:800;color:var(--trf);line-height:29px;margin-top:8px">${money(o.fee)}</div>
+      <div class="afford"><i style="width:${clamp(Math.round(o.fee/Math.max(1,value(p))*100),3,100)}%;background:${
+        o.fee>=value(p)?'var(--win)':'var(--trf)'}"></i></div>
+      <div class="dim" style="font-size:11px;margin-top:4px">valued ${money(value(p))}</div></div></div>
    ${o.dl?`<div class="card" style="margin-bottom:10px;border-color:var(--acc);background:var(--accw)">
      <div style="font-size:13px;font-weight:700;color:var(--acc)">Deadline. This is gone the moment you continue.</div></div>`:''}
    ${o.why.length?`<div class="card" style="background:var(--s1);margin-bottom:10px">
@@ -5921,19 +5947,16 @@ function sellView(){
     ${pend.map(o=>`<div class="card" style="margin-bottom:8px"><div style="font-size:13px;color:var(--t2)">
       You asked ${money(o.dem)} for ${esc(o.nm)}. They answer when you continue.</div></div>`).join('')}`:''}
    <div class="sechead">Your squad<span class="n">${list.length}</span></div>
-   <div class="card" style="padding:6px 14px 12px">
+   <div class="pcgrid">
    ${list.map(p=>{
      const r=sc?sc.intr[p.id]:{n:0};
      const L=LEVELS[level(r.n)];
-     return `<div class="plr">
-      <div onclick="showPlayer(${p.id})" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-       ${pface(p,46)}
-       <div class="pos">${p.pos}</div>
-       <div class="nmw"><div class="nm2">${esc(p.name)}</div>
-        <div class="meta"><span>${p.age}</span><span style="color:var(--trf)">${money(value(p))}</span>
-          <span>${money(p.wage)}/wk</span></div>
-        <div class="meta" style="margin-top:2px;color:${L.c}"><span>${L.k} ${esc(L.t)}</span></div></div></div>
-      <button class="btn ${p.listed?'':'ghost'} xs" style="margin-left:6px"
+     const w=pcw(2,11);
+     return `<div class="pccell" style="width:${w}px">
+      ${pcard(p,{w,club:c,fee:value(p)})}
+      <div style="font-size:10px;font-weight:700;letter-spacing:.04em;color:${L.c};text-align:center;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${L.k} ${esc(L.t)}</div>
+      <button class="btn ${p.listed?'':'ghost'} xs" style="min-height:34px"
         onclick="event.stopPropagation();xferList(${p.id})">${p.listed?'Listed':'List'}</button></div>`}).join('')}</div>
    ${s.ledger.length?`<div class="sechead">Sold</div><div class="card">
      ${s.ledger.slice(0,8).map(d=>`<div class="kv"><span class="k2">${esc(d.nm)} → ${esc(d.club)}</span>
@@ -11864,7 +11887,13 @@ function label(id,p){
     p = p || pOf(id);
     out = p ? String(Math.round(CA(p))) : '??';
   }else if(k<0.15){
-    out = '??';
+    p = p || pOf(id);
+    if(!p){ out='??'; }
+    else {
+      var e0 = looseEst(p,k);
+      var w0 = Math.ceil(16*(1-k))+1;          // covers the worst-case bias: truth stays inside
+      out = Math.max(1,Math.round(e0-w0)) + '\u2013' + Math.min(99,Math.round(e0+w0));
+    }
   }else{
     var s=st(), r=s.rep[id], e;
     if(r) e = r.est;
@@ -12442,6 +12471,13 @@ SW.register({
   /* --- published interface --- */
   knowledge: knowledge,
   reveal: reveal,
+  estimate: function(id){
+    var k=knowledge(id), p=pOf(id);
+    if(!p)return null;
+    if(k>=0.92)return Math.round(CA(p));
+    var s2=st(), r=s2.rep[id];
+    return Math.round(r ? r.est : looseEst(p,k));
+  },
   reportFor: reportFor,
   label: label,
   ceiling: ceilLabel,

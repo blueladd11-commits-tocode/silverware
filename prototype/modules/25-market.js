@@ -366,12 +366,14 @@ window.xferOpen=function(id){
   /* Two parties, one player: the club that wants him, and him. A 16px crest
      was doing the work of naming the buyer. It cannot. */
   sheet(`${speakerBar(vC(b),vP(p),'want',b.name+' have made an offer')}
-   <div class="row" style="margin-bottom:12px;align-items:flex-start">
-    <div style="min-width:0"><h3 style="margin:0">${esc(p.name)}</h3>
-      <div class="dim" style="font-size:13px">${p.pos} · ${p.age} · ${p.years} yr${p.years===1?'':'s'} left</div></div>
-    <span class="spacer"></span>
-    <div style="text-align:right"><div class="disp" style="font-size:26px;font-weight:800;color:var(--trf);line-height:28px">${money(o.fee)}</div>
-      <div class="dim" style="font-size:11px">valued ${money(value(p))}</div></div></div>
+   <div class="phero" style="margin-bottom:12px">
+    ${typeof pcard==='function'?pcard(p,{w:124,club:c,tap:'void 0'}):''}
+    <div class="pht" style="min-width:0"><h3 style="margin:0;font-size:20px;line-height:23px">${esc(p.name)}</h3>
+      <div class="dim" style="font-size:12px;margin-top:3px">${p.pos} · ${p.age} · ${p.years} yr${p.years===1?'':'s'} left</div>
+      <div class="disp" style="font-size:27px;font-weight:800;color:var(--trf);line-height:29px;margin-top:8px">${money(o.fee)}</div>
+      <div class="afford"><i style="width:${clamp(Math.round(o.fee/Math.max(1,value(p))*100),3,100)}%;background:${
+        o.fee>=value(p)?'var(--win)':'var(--trf)'}"></i></div>
+      <div class="dim" style="font-size:11px;margin-top:4px">valued ${money(value(p))}</div></div></div>
    ${o.dl?`<div class="card" style="margin-bottom:10px;border-color:var(--acc);background:var(--accw)">
      <div style="font-size:13px;font-weight:700;color:var(--acc)">Deadline. This is gone the moment you continue.</div></div>`:''}
    ${o.why.length?`<div class="card" style="background:var(--s1);margin-bottom:10px">
@@ -476,19 +478,16 @@ function sellView(){
     ${pend.map(o=>`<div class="card" style="margin-bottom:8px"><div style="font-size:13px;color:var(--t2)">
       You asked ${money(o.dem)} for ${esc(o.nm)}. They answer when you continue.</div></div>`).join('')}`:''}
    <div class="sechead">Your squad<span class="n">${list.length}</span></div>
-   <div class="card" style="padding:6px 14px 12px">
+   <div class="pcgrid">
    ${list.map(p=>{
      const r=sc?sc.intr[p.id]:{n:0};
      const L=LEVELS[level(r.n)];
-     return `<div class="plr">
-      <div onclick="showPlayer(${p.id})" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-       ${pface(p,46)}
-       <div class="pos">${p.pos}</div>
-       <div class="nmw"><div class="nm2">${esc(p.name)}</div>
-        <div class="meta"><span>${p.age}</span><span style="color:var(--trf)">${money(value(p))}</span>
-          <span>${money(p.wage)}/wk</span></div>
-        <div class="meta" style="margin-top:2px;color:${L.c}"><span>${L.k} ${esc(L.t)}</span></div></div></div>
-      <button class="btn ${p.listed?'':'ghost'} xs" style="margin-left:6px"
+     const w=pcw(2,11);
+     return `<div class="pccell" style="width:${w}px">
+      ${pcard(p,{w,club:c,fee:value(p)})}
+      <div style="font-size:10px;font-weight:700;letter-spacing:.04em;color:${L.c};text-align:center;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${L.k} ${esc(L.t)}</div>
+      <button class="btn ${p.listed?'':'ghost'} xs" style="min-height:34px"
         onclick="event.stopPropagation();xferList(${p.id})">${p.listed?'Listed':'List'}</button></div>`}).join('')}</div>
    ${s.ledger.length?`<div class="sechead">Sold</div><div class="card">
      ${s.ledger.slice(0,8).map(d=>`<div class="kv"><span class="k2">${esc(d.nm)} → ${esc(d.club)}</span>
