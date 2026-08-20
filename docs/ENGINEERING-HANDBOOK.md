@@ -109,12 +109,34 @@ morale,out,apps,goals,assists,ratings,wage,years,listed,youth}`
 `wageBill(c)` · `revenue(c)` · `costRatio(c)` % of revenue on wages, cap is 85 ·
 `autoXI(c)` · `leagueOf(cid)` · `leagueTable(l)` · `pts(c)` · `gd(c)` · `myPos()` · `myLeague()` ·
 `money(n)` → "£4.2m" · `ord(n)` → "3rd" · `esc(s)` **always escape any generated name** ·
-`note(title, body)` inbox message · `chron(text)` one line in the club chronicle ·
+`note(title, body, meta?)` inbox message · `chron(text)` one line in the club chronicle ·
 `sheet(html)` open a bottom sheet · `closeSheet()` · `render()` redraw · `save()` ·
 `crestSVG(club,size)` · `pface(player,size)` portrait · `ramp(v)` colour for an ability value ·
+`avatar(voice,size)` speaker · `subAvatar(voice,size)` subject · `lockup(from,about,size)` both ·
+`speakerBar(from,about,rel,sub)` the attribution plate at the top of a message sheet ·
 `fstrip(formArray)` W/D/L dots · `plrRow(p,slot)` a standard player row ·
 `ri(a,b)` random int · `pick(arr)` · `rnd()` · `gauss(m,s)` · `clamp(x,a,b)`
 **Always use `rnd()`, never `Math.random()`** — saves must stay reproducible.
+
+**Voices — every line of speech has a speaker.** `note()` takes an optional third argument
+`{from, about, rel}`. Build the descriptors with:
+
+```js
+vP(player)                     // a player — his own portrait, his own kit, his own mood
+vC(club)                       // a club — its crest on a colour wash
+vV(kind)                       // an institution: 'press' 'board' 'assist' 'medical'
+                               //   'league' 'academy' 'fans' 'staff'
+vH(name, role, nat, age)       // a named human who is not a player:
+                               //   role = 'agent' | 'pundit' | 'scout' | 'chairman'
+
+note('They have come for '+p.name, body, {from:vC(bidder), about:vP(p), rel:'want'});
+```
+
+Descriptors are **snapshots**, not references — they survive a save, a transfer and a
+retirement. `rel` is one or two words and appears above the subject ("want", "on", "filed on").
+Speakers render as chamfered squares, subjects as circles: the silhouette is the channel, never
+the colour. Any `note()` without a `from` falls back to the club-staff mark. **Every message you
+write should name who is talking; most should also name who it is about.**
 
 **Match state** (for the matchday module) — `matchInit`, `matchRun(S, untilMinute)`,
 `matchSub(S, side, outPlayerId, inPlayer)`, `matchResume()`, `MT` the live takeover object

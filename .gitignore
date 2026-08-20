@@ -8,5 +8,6 @@ dist/
 prototype/_*.html
 prototype/mdonly.html
 
-# Scratch render tests (repo root and prototype)
+# Scratch render tests and harnesses (repo root and prototype)
 _*.html
+_*.js
