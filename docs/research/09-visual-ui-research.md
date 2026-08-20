@@ -149,7 +149,7 @@ Rules:
 - **Surname only** on `sm`/`md`. Full name on `lg`. Truncation is a design failure — pick the shorter token.
 - **Rating is the largest glyph on the card at every size** (34 px on `md`, 64 px on `lg`), tabular numerals, tier-coloured.
 - **Never more than 9 words of type on an `md` card.**
-- Chamfer the **bottom-left corner at 45°/14 px** — it echoes the diagonal-cut language from `05` and makes the silhouette ownable at thumbnail size.
+- Chamfer **three corners at 45°/14 px** — both top corners and bottom-left, leaving bottom-right square. This echoes the diagonal-cut language from `05`, makes the silhouette ownable at thumbnail size, and the one square corner gives the card an orientation (it reads as *standing on* the bottom-right, not floating).
 
 ### 3.3 Tier system
 
@@ -267,7 +267,9 @@ Six tiers is the right number: five is not enough granularity for a 30–95 scal
 </div>
 ```
 
-Verified in Chrome/Safari/Firefox: `clip-path` with `calc()` inside `polygon()`, `aspect-ratio`, `background-blend-mode` and layered `drop-shadow()` filters are all baseline-supported. `@property` (§4.2) is the only newer feature used and it degrades to an instant, un-animated ring where unsupported.
+**This snippet was rendered and visually verified** (headless Chrome, all six tiers side by side): the chamfered silhouette, tier frames, gradient plates, rim light, name strip and crest/form footer all render as specified, and the six tiers are distinguishable at a glance in a row. `clip-path` with `calc()` inside `polygon()`, `aspect-ratio`, `background-blend-mode` and layered `drop-shadow()` filters are all baseline-supported. `@property` (§4.2) is the only newer feature used, and it degrades to an instant, un-animated ring where unsupported.
+
+Two things the render made obvious that are worth stating: **(a)** the rating numeral must be `800` weight or heavier — at `700` it stops dominating and the card immediately reads like a list row again; **(b)** the pips need the `box-shadow` glow on the filled state, because without it the filled/unfilled distinction disappears at 132 px.
 
 **Cost note:** this is ~60 lines of CSS and it consumes `pface()` and `crestSVG()` **unmodified**. The only change needed in the generators is to stop hard-coding `class="face"` sizing assumptions and accept a size argument (they already do). This is the highest ratio of visual gain to engineering cost in the entire document.
 

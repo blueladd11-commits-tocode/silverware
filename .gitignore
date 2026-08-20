@@ -7,3 +7,6 @@ dist/
 # Kept locally, not part of the project.
 prototype/_*.html
 prototype/mdonly.html
+
+# Scratch render tests (repo root and prototype)
+_*.html
