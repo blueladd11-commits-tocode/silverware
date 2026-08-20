@@ -553,18 +553,31 @@ const MIDW={GK:.02,CB:.12,FB:.30,DM:.70,CM:.80,AM:.60,W:.35,ST:.15};
 const DEFW={GK:.55,CB:.90,FB:.70,DM:.65,CM:.35,AM:.10,W:.12,ST:.05};
 const TRAITS=['Big-game player','Bottler','Injury prone','Model professional','Mercenary','Loyal servant',
  'Late bloomer','Dressing-room leader','Hot-headed','Fan favourite'];
+/* Real positional height averages: keepers and centre-halves tall, wide men and
+   number tens short. Filterable, and it feeds set-piece threat. */
+const HT={GK:189,CB:186,FB:178,DM:182,CM:179,AM:176,W:176,ST:183};
+const FOOT_L={FB:0.34,W:0.30,CB:0.24,DM:0.18,CM:0.20,AM:0.22,ST:0.20,GK:0.14};
 
 let PID=1;
+/* A 16-year-old is never a finished article. Without this, initial generation
+   happily produced 92-rated eighteen-year-olds. Young players are potential. */
+const AGE_CEIL={16:66,17:71,18:76,19:81,20:85,21:88,22:91,23:94};
 function makePlayer(pos,targetCA,natHome,forcedAge){
   const w=RW[pos];
   const age=forcedAge!==undefined?forcedAge:clamp(Math.round(gauss(25.5,4.2)),16,37);
+  targetCA=Math.min(targetCA,AGE_CEIL[age]||99);
   const nat=pick(NATPOOL[natHome]||NATPOOL.eng);
   const a=[0,0,0,0,0,0,0];
   for(let i=0;i<7;i++)a[i]=clamp(Math.round(targetCA*(0.55+w[i]*3.1)+gauss(0,7)),12,97);
   let ca=0;for(let i=0;i<7;i++)ca+=w[i]*a[i];
   const k=targetCA/ca;for(let i=0;i<7;i++)a[i]=clamp(Math.round(a[i]*k),12,97);
   const yf=clamp((PEAK[pos]-age+2)/9,0,1);
-  const p={id:PID++,name:personName(nat),nat,pos,age,a,
+  const height=clamp(Math.round(gauss(HT[pos]||180,5.6)),162,204);
+  const build=gauss(22.6,1.05);                                  // BMI-ish
+  const weight=clamp(Math.round((height/100)*(height/100)*build+(a[5]-55)*0.09),58,102);
+  const fr=rnd();
+  const foot=fr<(FOOT_L[pos]||0.2)?'L':(fr<(FOOT_L[pos]||0.2)+0.055?'B':'R');
+  const p={id:PID++,name:personName(nat),nat,pos,age,a,height,weight,foot,
     pa:clamp(Math.round(targetCA+yf*ri(2,26)+gauss(0,4)),targetCA,99),
     cons:ri(30,92),inj:ri(10,80),prof:ri(25,95),amb:ri(20,95),big:ri(20,90),
     trait:rnd()<0.34?pick(TRAITS):null, traitKnown:false,
@@ -589,7 +602,10 @@ function wageFor(p){const c=CA(p);
   return Math.max(1000,Math.round(Math.pow(c/10,4.2)*15/1000)*1000)}
 function value(p){
   const ca=CA(p),pa=p.pa;
-  const ageF=p.age<=21?1.55:p.age<=25?1.35:p.age<=28?1.0:p.age<=31?0.62:0.28;
+  /* Age curve is steep but not a cliff: an elite 33-year-old is still expensive,
+     he just carries obvious risk. Previously they fell out of the market entirely. */
+  const ageF=p.age<=21?1.50:p.age<=25?1.35:p.age<=28?1.00:
+             p.age<=30?0.78:p.age<=32?0.55:p.age<=34?0.36:0.22;
   const potF=1+Math.max(0,pa-ca)/85;
   const v=Math.pow(ca/10,4.35)*1400*ageF*potF;
   return Math.max(50000,Math.round(v/50000)*50000);
@@ -671,7 +687,9 @@ function betaSample(a,b){
 function pickShooter(c,setp){
   const wt={ST:34,W:19,AM:15,CM:9,DM:4,FB:4,CB:setp?7:2,GK:0};
   let tot=0,list=[];
-  c.xi.forEach(({slot,p})=>{let w=wt[slot]||1;if(setp&&(slot==='CB'||slot==='ST'))w*=1+p.a[5]/120;
+  c.xi.forEach(({slot,p})=>{let w=wt[slot]||1;
+    if(setp)w*=1+Math.max(0,((p.height||180)-178))*0.045;      // height wins headers
+    if(setp&&(slot==='CB'||slot==='ST'))w*=1+p.a[5]/120;
     w*=0.6+p.a[3]/90;tot+=w;list.push([p,tot])});
   const r=rnd()*tot;for(const [p,acc] of list)if(r<=acc)return p;
   return c.xi[10]?c.xi[10].p:c.xi[0].p}
@@ -1026,18 +1044,48 @@ function develop(c,half){
   c.squad.forEach(p=>{
     const yf=clamp((PEAK[p.pos]-p.age+2)/9,0,1);
     const ymul=(p.age<=21&&T.youth)?T.youth:(p.age<=21?1:(T.youth?0.55:1));
-    const mins=clamp(p.apps/(half?16:34),0,1);
-    const growth=4.6*Math.max(0,(p.pa-CA(p))/p.pa)*yf*(0.6+0.008*p.prof)
-      *(0.5+0.75*mins)*ymul*tq*Math.max(0.3,gauss(1,0.18))*(half?0.5:0.5);
-    const phys=(p.a[0]+p.a[5])/p.a.reduce((s,x)=>s+x,0);
-    const decl=0.85*Math.pow(Math.max(0,p.age-PEAK[p.pos]),1.55)*(0.70+3.15*phys)*(half?0.5:0.5);
+    let mins=clamp(p.apps/(half?16:34),0,1);
+    /* AI clubs loan their prospects out rather than letting them rot in a reserve
+       side, so a promising youngster still gets a season's football somewhere. */
+    if(c.id!==G.me&&p.age<=22&&(p.pa-CA(p))>10)mins=Math.max(mins,0.80);
+    const minsF=0.35+0.95*mins;
+    /* Growth is proportional to the ABSOLUTE gap to potential, not to a fraction
+       of it. The old form divided by potential, which throttled elite prospects
+       hardest: a potential-99 teenager gained under one point a season and never
+       became anything. Playing time is now the dominant term, which is both real
+       and the manager's actual decision. */
+    const gap=Math.max(0,p.pa-CA(p));
+    const growth=1.55*(gap/24)*yf*(0.6+0.008*p.prof)
+      *minsF*ymul*tq*Math.max(0.3,gauss(1,0.18))*0.5;
+    const phys=(p.a[0]+p.a[5])/p.a.reduce((s2,x)=>s2+x,0);
+    const decl=0.85*Math.pow(Math.max(0,p.age-PEAK[p.pos]),1.55)*(0.70+3.15*phys)*0.5;
     let d=growth-decl;
-    if(Math.abs(d)<0.05)return;
+    if(Math.abs(d)<0.001)return;
     const w=RW[p.pos];
+    /* Two bugs lived here. Growth was spread over seven attributes and then
+       rounded, so any gain under 1.0 per attribute was silently thrown away —
+       which is most of them, most of the time. And the spread was not normalised,
+       so only about half of the intended change ever reached the overall rating.
+       Fractions now carry over between sessions, and the weights are normalised
+       so a delta of d moves overall ability by d. */
+    if(!p.fr)p.fr=[0,0,0,0,0,0,0];
+    const gwArr=[],dwArr=[];
+    let normG=0,normD=0;
     for(let i=0;i<7;i++){
-      const gw=T.g[i]*(d>0?(0.6+w[i]*2.2):1);
-      const dw=(i===0||i===5)?2.4:1;
-      p.a[i]=clamp(Math.round(p.a[i]+(d>0?d*gw*0.55:d*dw*0.5)),12,97);
+      const gw=T.g[i]*(0.6+w[i]*2.2);
+      const dw=(i===0||i===5)?2.4:1;          // pace and physique go first
+      gwArr.push(gw);dwArr.push(dw);
+      normG+=w[i]*gw; normD+=w[i]*dw;
+    }
+    for(let i=0;i<7;i++){
+      const inc = d>0 ? d*gwArr[i]/(normG||1) : d*dwArr[i]/(normD||1);
+      p.fr[i]+=inc;
+      const whole=Math.trunc(p.fr[i]);
+      if(whole!==0){
+        const before=p.a[i];
+        p.a[i]=clamp(p.a[i]+whole,12,97);
+        p.fr[i]-=(p.a[i]-before);            // clamped? keep the remainder, do not lose it
+      }
     }
     p.wage=wageFor(p);
   });
@@ -1241,8 +1289,17 @@ function restock(c,base){
     c.squad.push(makePlayer(weakest.slot,clamp(Math.round(base+2+gauss(0,4)),18,95),c.nat,ri(21,27)));
     autoXI(c);
   }
+  /* Cull by what a player is WORTH TO THE CLUB, not by what he can do today.
+     Sorting on current ability alone quietly released potential-96 teenagers
+     before they ever developed — which destroys the wonderkid fantasy that the
+     whole genre runs on. */
+  const keepScore=p=>{
+    const ca=CA(p);
+    const youthWeight=clamp((26-p.age)/8,0,1);
+    return ca+Math.max(0,p.pa-ca)*youthWeight;
+  };
   while(squadOf(c).length>28){
-    const w=squadOf(c).sort((a,b)=>CA(a)-CA(b))[0];
+    const w=squadOf(c).slice().sort((a,b)=>keepScore(a)-keepScore(b))[0];
     if(!w||c.xi.some(x=>x.p.id===w.id))break;
     c.squad=c.squad.filter(p=>p.id!==w.id);
   }
@@ -1360,7 +1417,8 @@ function packPlayer(p){
     p.pa,p.cons,p.inj,p.prof,p.amb,p.big,
     p.trait||0,p.traitKnown?1:0,
     +(p.form||0).toFixed(2),Math.round(p.cond),Math.round(p.morale),p.out,
-    p.apps,p.goals,p.assists,p.wage,p.years,p.listed?1:0,p.youth?1:0];
+    p.apps,p.goals,p.assists,p.wage,p.years,p.listed?1:0,p.youth?1:0,
+    p.height||180,p.weight||75,p.foot||'R'];
 }
 function unpackPlayer(v){
   return {id:v[0],name:v[1],nat:v[2],pos:v[3],age:v[4],
@@ -1369,7 +1427,8 @@ function unpackPlayer(v){
     trait:v[18]||null,traitKnown:!!v[19],
     form:v[20],cond:v[21],morale:v[22],out:v[23],
     apps:v[24],goals:v[25],assists:v[26],wage:v[27],years:v[28],
-    listed:!!v[29],youth:!!v[30],ratings:[]};
+    listed:!!v[29],youth:!!v[30],
+    height:v[31]||180,weight:v[32]||75,foot:v[33]||'R',ratings:[]};
 }
 function save(){try{
   localStorage.setItem(KEY,JSON.stringify({
@@ -1696,6 +1755,51 @@ function promote(id){const c=me(),p=c.squad.find(x=>x.id===id);if(!p)return;
 /* ============================================================
    MARKET
    ============================================================ */
+/* ---------- market filters ----------
+   The engine is deliberately separate from the presentation: the market screen
+   is being redesigned, the filtering rules are not. */
+const MKT_DEF={pos:'ALL',ageBand:'ALL',price:'ALL',minCA:0,height:'ALL',foot:'ALL',nat:'ALL',sort:'ability'};
+function mkt(){ if(!G.mkt)G.mkt=Object.assign({},MKT_DEF); return G.mkt }
+function mktActive(){ const m=mkt(); let n=0;
+  for(const k in MKT_DEF) if(k!=='sort'&&k!=='pos'&&m[k]!==MKT_DEF[k])n++;
+  return n }
+const AGE_BANDS={ALL:[0,99],'U21':[0,20],'U24':[0,23],'U27':[0,26],'27+':[27,99]};
+const HEIGHTS={ALL:[0,999],'Tall':[186,999],'Average':[176,185],'Short':[0,175]};
+function priceCap(band){
+  const b=me().bal;
+  if(band==='ALL')return Infinity;
+  if(band==='Free')return 0.0001;
+  if(band==='Budget')return b;
+  if(band==='Half')return b*0.5;
+  if(band==='Quarter')return b*0.25;
+  return Infinity;
+}
+function mktFilter(pool){
+  const m=mkt();
+  const [aLo,aHi]=AGE_BANDS[m.ageBand]||AGE_BANDS.ALL;
+  const [hLo,hHi]=HEIGHTS[m.height]||HEIGHTS.ALL;
+  const cap=priceCap(m.price);
+  return pool.filter(({p,ask})=>{
+    if(m.pos!=='ALL'&&p.pos!==m.pos)return false;
+    if(p.age<aLo||p.age>aHi)return false;
+    if((p.height||180)<hLo||(p.height||180)>hHi)return false;
+    if(m.foot!=='ALL'&&(p.foot||'R')!==m.foot)return false;
+    if(m.nat!=='ALL'&&p.nat!==m.nat)return false;
+    if(m.minCA&&CA(p)<m.minCA)return false;
+    if(ask>cap)return false;
+    return true;
+  });
+}
+function mktSort(list){
+  const m=mkt();
+  const cmp={
+    ability:(a,b)=>CA(b.p)-CA(a.p),
+    price:(a,b)=>a.ask-b.ask,
+    age:(a,b)=>a.p.age-b.p.age,
+    value:(a,b)=>(CA(b.p)/Math.max(1,b.ask))-(CA(a.p)/Math.max(1,a.ask))
+  }[m.sort]||((a,b)=>CA(b.p)-CA(a.p));
+  return list.sort(cmp);
+}
 function scoutPool(){
   const c=me(),out=[],ceiling=c.bal*2.2;
   G.clubs.forEach(s=>{
@@ -1720,14 +1824,24 @@ function viewMarket(){
   let body='';
   const ext=extra.find(v=>v.key===G.marketView);
   if(G.marketView==='scout'){
-    let pool=scoutPool();
-    if(G.mFilter&&G.mFilter!=='ALL')pool=pool.filter(x=>x.p.pos===G.mFilter);
-    // best players first — a manager shops for quality, then checks the price
-    pool.sort((a,b)=>CA(b.p)-CA(a.p));
+    const m=mkt();
+    const all=scoutPool();
+    const pool=mktSort(mktFilter(all));
+    const n=mktActive();
     body=`<div class="chips">${['ALL','GK','CB','FB','DM','CM','AM','W','ST'].map(f=>
-      `<button aria-selected="${(G.mFilter||'ALL')===f}" onclick="G.mFilter='${f}';render()">${f}</button>`).join('')}</div>
+      `<button aria-selected="${m.pos===f}" onclick="mkt().pos='${f}';render()">${f}</button>`).join('')}</div>
+     <div class="row" style="gap:8px;margin:2px 0 10px">
+       <button class="btn ${n?'':'ghost'} xs" style="flex:0 0 auto" onclick="sheetFilters()">
+         Filters${n?' · '+n:''}</button>
+       <button class="btn ghost xs" style="flex:0 0 auto" onclick="sheetSort()">
+         ${({ability:'Best first',price:'Cheapest',age:'Youngest',value:'Best value'})[m.sort]}</button>
+       <span class="spacer"></span>
+       <span class="dim" style="font-size:12px">${pool.length} player${pool.length===1?'':'s'}</span>
+     </div>
      <div class="card" style="padding:6px 14px 12px">
-     ${pool.slice(0,26).map(({p,s,ask})=>mktRow(p,s,ask)).join('')||'<div class="dim" style="padding:14px 0">Nobody available in that position within budget.</div>'}</div>`;
+     ${pool.slice(0,30).map(({p,s,ask})=>mktRow(p,s,ask)).join('')
+       ||`<div class="dim" style="padding:18px 0;text-align:center">Nobody matches that.
+          <button class="btn ghost xs" style="margin:10px auto 0" onclick="mktReset()">Clear filters</button></div>`}</div>`;
   } else if(G.marketView==='shortlist'){
     const rows=G.shortlist.map(id=>{
       let p=null,s=null;G.clubs.forEach(cl=>{const f=cl.squad.find(x=>x.id===id);if(f){p=f;s=cl}});
@@ -2038,6 +2152,42 @@ function showClub(id){
      <div class="meta"><span class="flag">${p.nat}</span><span>${p.age}</span></div></div>
      <div class="ca" style="color:${ramp(CA(p))}">${Math.round(CA(p))}</div></div>`).join('')}</div>
    <button class="btn ghost" style="margin-top:12px" onclick="closeSheet()">Close</button>`);
+}
+function mktReset(){G.mkt=Object.assign({},MKT_DEF);render()}
+function mktSet(k,v){mkt()[k]=v;render();sheetFilters()}
+function mktSetSort(v){mkt().sort=v;closeSheet();render()}
+function fRow(label,key,opts){
+  const m=mkt();
+  return `<div style="margin-bottom:16px">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+      color:var(--t3);margin-bottom:7px">${label}</div>
+    <div class="row" style="gap:6px;flex-wrap:wrap">${opts.map(([v,l])=>
+      `<button onclick="mktSet('${key}',${typeof v==='number'?v:"'"+v+"'"})"
+        style="min-height:44px;padding:0 14px;border-radius:11px;cursor:pointer;font-family:var(--ui);
+        font-weight:700;font-size:13px;border:1px solid ${m[key]===v?'var(--acc)':'var(--hair)'};
+        background:${m[key]===v?'var(--acc)':'var(--s1)'};color:${m[key]===v?'var(--tinv)':'var(--t2)'}">${l}</button>`).join('')}</div></div>`;
+}
+function sheetFilters(){
+  const nats=['ALL',...Object.keys(NATIONS)];
+  sheet(`<h3>Filters</h3>
+   <div class="sh-sub">Narrow it down. Most managers start with age.</div>
+   ${fRow('Age','ageBand',[['ALL','Any'],['U21','Under 21'],['U24','Under 24'],['U27','Under 27'],['27+','27 and over']])}
+   ${fRow('Price','price',[['ALL','Any'],['Budget','Within budget'],['Half','Half budget'],['Quarter','Quarter budget'],['Free','Free agents']])}
+   ${fRow('Minimum ability','minCA',[[0,'Any'],[60,'60+'],[70,'70+'],[78,'78+'],[85,'85+']])}
+   ${fRow('Height','height',[['ALL','Any'],['Tall','Tall (186+)'],['Average','Average'],['Short','Short (175-)']])}
+   ${fRow('Preferred foot','foot',[['ALL','Any'],['R','Right'],['L','Left'],['B','Both']])}
+   ${fRow('Nationality','nat',nats.map(n=>[n,n==='ALL'?'Any':NATIONS[n].name]))}
+   <div class="row" style="gap:8px;margin-top:6px">
+     <button class="btn ghost" style="flex:1" onclick="mktReset();closeSheet()">Clear all</button>
+     <button class="btn" style="flex:1" onclick="closeSheet()">Show results</button></div>`);
+}
+function sheetSort(){
+  sheet(`<h3>Sort by</h3><div class="sh-sub">What matters most to you right now.</div>
+   ${[['ability','Best players first'],['age','Youngest first'],
+      ['price','Cheapest first'],['value','Best value for money']].map(([v,l])=>
+    `<div class="opt ${mkt().sort===v?'rec':''}" onclick="mktSetSort('${v}')">
+      <div style="font-weight:600">${l}</div>${mkt().sort===v?'<span class="st">Current</span>':''}</div>`).join('')}
+   <button class="btn ghost" onclick="closeSheet()">Close</button>`);
 }
 function showInbox(){
   sheet(`<h3>Inbox</h3><div class="sh-sub">${G.inbox.length} item${G.inbox.length===1?'':'s'}</div>
