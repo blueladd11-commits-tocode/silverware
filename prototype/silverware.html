@@ -24,6 +24,10 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
+input{-webkit-user-select:text;user-select:text;font-family:var(--ui);font-size:16px;
+  background:var(--s1);border:1px solid var(--strong);border-radius:11px;color:var(--t1);
+  padding:12px 13px;width:100%;min-height:48px}
+input:focus{outline:2px solid var(--acc);outline-offset:1px;border-color:var(--acc)}
 body{background:var(--bg);color:var(--t1);font-family:var(--ui);font-size:15px;line-height:20px;
   font-feature-settings:"tnum" 1,"zero" 1;overscroll-behavior:none;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -630,6 +634,183 @@ window.SW={
    Legal: real geography is safe; club names are generated and
    screened against a real-club blocklist (licensing rule 20, in miniature).
    ============================================================ */
+/* ============================================================
+   REAL EUROPE, LEGALLY
+   Every club sits in its real city, in its real colours, at its real
+   ground size, at its real competitive level. The NAME is a stand-in:
+   place plus the colour the club is actually known by.
+
+   Why not "Manchester U." — an abbreviation of a trade mark is still the
+   trade mark, and Manchester United sued Sports Interactive over exactly
+   this territory. Place + colour is the pattern PES shipped worldwide for
+   two decades without being sued. It is recognisable in under a second
+   and it is defensible. The in-game editor lets any player rename the lot.
+   [name, abbr, place, primary, secondary, capacity, rep]
+   ============================================================ */
+/* Striped clubs must be striped. Anything not listed plays plain, which is
+   what most clubs actually do. Keyed by code so the table above stays readable. */
+const REALPAT={
+ TYN:'stripes', SUS:'stripes', THW:'plain', NLR:'plain', MDC:'plain',
+ SHR:'stripes', SHO:'stripes', PRE:'plain', BSR:'plain', LNB:'halves',
+ CTG:'stripes', BSQ:'stripes', SVR:'plain', VLC:'plain', ALV:'stripes',
+ GIR:'stripes', OSA:'plain', CDZ:'plain',
+ CGN:'plain', BRM:'plain', FRB:'plain', BOC:'band', HAM:'plain',
+ TRB:'stripes', MLR:'stripes', MLB:'stripes', GNA:'quarters', UDN:'stripes',
+ BLG:'stripes', SAS:'stripes', VER:'plain', CAG:'stripes',
+ LNS:'stripes', NAN:'plain', STE:'plain', BDX:'plain', MTZ:'plain',
+ MNR:'plain', MNS:'plain', MYR:'plain', MYB:'plain', NLW:'plain',
+ WLB:'plain', BAV:'plain', MDW:'plain', WSY:'plain', PSB:'band'
+};
+const REAL={
+eng0:[
+["Manchester Red","MNR","Manchester","#DA020E","#FBE122",74310,90],
+["Manchester Sky","MNS","Manchester","#6CABDD","#1C2C5B",53400,92],
+["Merseyside Red","MYR","Liverpool","#C8102E","#00B2A9",61276,89],
+["Merseyside Blue","MYB","Liverpool","#003399","#FFFFFF",39572,70],
+["North London Red","NLR","London","#EF0107","#023474",60704,88],
+["North London White","NLW","London","#132257","#FFFFFF",62850,85],
+["West London Blue","WLB","London","#034694","#FFFFFF",40341,86],
+["Tyneside Black","TYN","Newcastle","#241F20","#FFFFFF",52305,82],
+["Midlands Claret","MDC","Birmingham","#670E36","#95BFE5",42640,79],
+["East London Iron","ELI","London","#7A263A","#1BB1E7",62500,76],
+["Sussex Blue","SUS","Brighton","#0057B8","#FFFFFF",31800,75],
+["Thameside White","THW","London","#FFFFFF","#000000",29600,72],
+["Trentside Red","TRR","Nottingham","#DD0000","#FFFFFF",30445,71],
+["Black Country Gold","BCG","Wolverhampton","#FDB913","#231F20",31750,73],
+["South London Blue","SLB","London","#1B458F","#C4122E",25486,72],
+["Yorkshire White","YKW","Leeds","#FFFFFF","#1D428A",37608,70],
+["Leicester Blue","LEI","Leicester","#003090","#FDBE11",32261,69],
+["Solent Red","SOL","Southampton","#D71920","#FFFFFF",32384,67],
+["West Middlesex Red","WMR","London","#E30613","#FFFFFF",17250,68],
+["Dorset Cherry","DOR","Bournemouth","#DA291C","#000000",11307,66]],
+eng1:[
+["Wearside Red","WER","Sunderland","#EB172B","#FFFFFF",49000,64],
+["Teesside Red","TEE","Middlesbrough","#DF1F26","#FFFFFF",34742,62],
+["Sheffield Red","SHR","Sheffield","#EE2737","#FFFFFF",32050,63],
+["Sheffield Owl","SHO","Sheffield","#0066B3","#FFFFFF",39732,61],
+["Norfolk Yellow","NFK","Norwich","#FFF200","#00A650",27359,60],
+["Suffolk Blue","SFK","Ipswich","#3A64A3","#FFFFFF",29813,59],
+["Derbyshire Ram","DBY","Derby","#FFFFFF","#000000",33597,58],
+["Potteries Red","POT","Stoke","#E03A3E","#FFFFFF",30089,57],
+["Coventry Sky","CVY","Coventry","#7BAFD4","#FFFFFF",32609,58],
+["Humberside Amber","HUM","Hull","#F5A12D","#000000",25400,56],
+["Lancashire Blue","LNB","Blackburn","#009EE0","#FFFFFF",31367,57],
+["Preston White","PRE","Preston","#FFFFFF","#0B3B7A",23404,55],
+["Bristol Red","BSR","Bristol","#E31B23","#FFFFFF",27000,56],
+["Cardiff Blue","CAR","Cardiff","#0070B5","#FFFFFF",33280,55],
+["Swansea White","SWA","Swansea","#FFFFFF","#000000",21088,54],
+["Millwall Blue","MLW","London","#001D5C","#FFFFFF",20146,53],
+["Watford Yellow","WAT","Watford","#FBEE23","#ED2127",22200,55],
+["Luton Orange","LUT","Luton","#F78F1E","#002D62",12000,52],
+["Plymouth Green","PLY","Plymouth","#1B5E20","#FFFFFF",17900,51],
+["Blackpool Tangerine","BLK","Blackpool","#F68712","#FFFFFF",16616,50]],
+eng2:[
+["Bolton White","BOL","Bolton","#FFFFFF","#153A6E",28723,49],
+["Portsmouth Blue","POR","Portsmouth","#001489","#FFFFFF",20899,50],
+["Doncaster Red","DON","Doncaster","#C8102E","#FFFFFF",15231,44],
+["Wigan Blue","WIG","Wigan","#0055A5","#FFFFFF",25133,46],
+["Barnsley Red","BAR","Barnsley","#D50032","#FFFFFF",23287,45],
+["Charlton Red","CHA","London","#D4021D","#FFFFFF",27111,47],
+["Oxford Yellow","OXF","Oxford","#FFF200","#003DA5",12500,43],
+["Reading Blue","RDG","Reading","#004494","#FFFFFF",24161,46],
+["Northampton Claret","NTH","Northampton","#7A1B2E","#FFFFFF",7798,41],
+["Exeter Red","EXE","Exeter","#C8102E","#FFFFFF",8696,40],
+["Shrewsbury Blue","SHY","Shrewsbury","#1B4F9C","#F7C531",9875,40],
+["Peterborough Blue","PET","Peterborough","#0055A5","#FFFFFF",15314,44],
+["Lincoln Red","LIN","Lincoln","#DA291C","#FFFFFF",10120,42],
+["Burton Yellow","BUR","Burton","#FFDD00","#000000",6912,39],
+["Cambridge Amber","CMB","Cambridge","#F5A12D","#000000",8127,38],
+["Stevenage Red","STV","Stevenage","#E31B23","#FFFFFF",7800,39],
+["Wycombe Blue","WYC","High Wycombe","#0F4C81","#B4975A",10137,41],
+["Rotherham Red","ROT","Rotherham","#D50032","#FFFFFF",12021,43],
+["Crawley Red","CRW","Crawley","#D4021D","#FFFFFF",5800,37],
+["Bristol Blue","BSB","Bristol","#003DA5","#FFFFFF",12300,42]],
+esp:[
+["Madrid White","MDW","Madrid","#FFFFFF","#FEBE10",81044,93],
+["Catalonia Garnet","CTG","Barcelona","#A50044","#004D98",99354,92],
+["Madrid Red","MDR","Madrid","#CB3524","#FFFFFF",70460,86],
+["Sevilla Red","SVR","Seville","#FFFFFF","#D81E05",43883,78],
+["Basque Red","BSQ","Bilbao","#EE2523","#FFFFFF",53289,76],
+["San Sebastián Blue","SSB","San Sebastián","#0072BC","#FFFFFF",39500,75],
+["Valencia White","VLC","Valencia","#FFFFFF","#F5A12D",49430,74],
+["Vigo Sky","VIG","Vigo","#8AC3EE","#FFFFFF",29000,70],
+["Villarreal Yellow","VLL","Villarreal","#FFE667","#005187",23008,73],
+["Betis Green","BTS","Seville","#0BB363","#FFFFFF",60721,72],
+["Osasuna Red","OSA","Pamplona","#D91A21","#0A346F",23576,66],
+["Girona Red","GIR","Girona","#CD2534","#FFFFFF",13500,68],
+["Vallecas Red","VAL","Madrid","#FFFFFF","#E53027",14708,62],
+["Mallorca Red","MLL","Palma","#E20613","#000000",23142,64],
+["Getafe Blue","GET","Madrid","#005999","#FFFFFF",17393,63],
+["Celta Blue","CLT","A Coruña","#0A2D6E","#FFFFFF",32660,62],
+["Alavés Blue","ALV","Vitoria","#0761AF","#FFFFFF",19840,60],
+["Cádiz Yellow","CDZ","Cádiz","#FFE500","#0B3B7A",20724,59],
+["Almería Red","ALM","Almería","#E4002B","#FFFFFF",15274,58],
+["Granada Red","GRN","Granada","#C8102E","#FFFFFF",19336,60]],
+ger:[
+["Bavaria Red","BAV","Munich","#DC052D","#0066B2",75024,93],
+["Westphalia Yellow","WSY","Dortmund","#FDE100","#000000",81365,86],
+["Leipzig White","LPZ","Leipzig","#FFFFFF","#DD0741",47069,82],
+["Leverkusen Red","LEV","Leverkusen","#E32221","#000000",30210,83],
+["Frankfurt Black","FRK","Frankfurt","#E1000F","#000000",58000,78],
+["Stuttgart White","STU","Stuttgart","#FFFFFF","#E32219",60449,76],
+["Rhineland Billy","RHB","Mönchengladbach","#FFFFFF","#000000",54042,72],
+["Wolfsburg Green","WOB","Wolfsburg","#65B32E","#FFFFFF",30000,71],
+["Bremen Green","BRM","Bremen","#1D9053","#FFFFFF",42100,70],
+["Freiburg Red","FRB","Freiburg","#000000","#E2001A",34700,72],
+["Hoffenheim Blue","HOF","Sinsheim","#1C63B7","#FFFFFF",30150,68],
+["Mainz Red","MNZ","Mainz","#C3141E","#FFFFFF",33305,67],
+["Augsburg Green","AUG","Augsburg","#BA3733","#46714D",30660,65],
+["Union Red","UNR","Berlin","#EB1923","#FFE500",22012,69],
+["Cologne Red","CGN","Cologne","#FFFFFF","#ED1C24",50000,66],
+["Hamburg Blue","HAM","Hamburg","#0069B4","#FFFFFF",57000,68],
+["Bochum Blue","BOC","Bochum","#005CA9","#FFFFFF",26000,60],
+["Heidenheim Red","HDH","Heidenheim","#E30613","#003C7D",15000,58],
+["Darmstadt Blue","DAR","Darmstadt","#004E9E","#FFFFFF",17810,56],
+["Kiel Blue","KIE","Kiel","#003D7C","#FFFFFF",15034,57]],
+ita:[
+["Turin Black","TRB","Turin","#000000","#FFFFFF",41507,88],
+["Milan Red","MLR","Milan","#FB090B","#000000",75923,87],
+["Milan Blue","MLB","Milan","#0068A8","#000000",75923,89],
+["Naples Sky","NAP","Naples","#12A0D7","#FFFFFF",54726,86],
+["Rome Yellow","RMY","Rome","#8E1F2F","#F0BC42",70634,81],
+["Rome Sky","RMS","Rome","#87D8F7","#FFFFFF",70634,79],
+["Bergamo Blue","BRG","Bergamo","#1D63AC","#000000",21300,82],
+["Florence Purple","FLR","Florence","#682A8D","#FFFFFF",43147,76],
+["Bologna Red","BLG","Bologna","#1A2F48","#9F1F35",38279,74],
+["Turin Granata","TRG","Turin","#881C1C","#FFFFFF",28177,70],
+["Udine White","UDN","Udine","#000000","#FFFFFF",25144,68],
+["Genoa Red","GNA","Genoa","#00256B","#B4141C",36599,66],
+["Sassuolo Green","SAS","Sassuolo","#00A752","#000000",21584,64],
+["Lecce Yellow","LEC","Lecce","#FFE500","#D2232A",31533,61],
+["Verona Yellow","VER","Verona","#F9E300","#0A2240",39211,62],
+["Empoli Blue","EMP","Empoli","#005CA9","#FFFFFF",16284,60],
+["Monza Red","MZA","Monza","#E30613","#FFFFFF",15000,63],
+["Cagliari Red","CAG","Cagliari","#B31B33","#0A2240",16416,59],
+["Salerno Granata","SAL","Salerno","#7A1B2E","#FFFFFF",37245,57],
+["Frosinone Blue","FRO","Frosinone","#0B3B7A","#FFE500",16227,56]],
+fra:[
+["Paris Blue","PSB","Paris","#004170","#DA291C",47929,91],
+["Marseille White","MRS","Marseille","#FFFFFF","#2FAEE0",67394,80],
+["Lyon Red","LYN","Lyon","#FFFFFF","#D8232A",59186,78],
+["Monaco Red","MON","Monaco","#E63329","#FFFFFF",18523,79],
+["Lille Red","LIL","Lille","#E01E13","#FFFFFF",50186,77],
+["Rennes Red","REN","Rennes","#E23D2E","#000000",29778,75],
+["Nice Red","NCE","Nice","#E4002B","#000000",36178,74],
+["Lens Gold","LNS","Lens","#FFE500","#E4002B",38223,73],
+["Strasbourg Blue","STR","Strasbourg","#009BDF","#FFFFFF",26109,68],
+["Nantes Yellow","NAN","Nantes","#FADA00","#009B48",37473,69],
+["Montpellier Blue","MTP","Montpellier","#00337F","#F47B20",32900,67],
+["Toulouse Violet","TLS","Toulouse","#5C2D91","#FFFFFF",33150,66],
+["Brest Red","BRS","Brest","#E30613","#FFFFFF",15931,65],
+["Reims Red","REI","Reims","#E4002B","#FFFFFF",21684,64],
+["Saint-Étienne Green","STE","Saint-Étienne","#009F4D","#FFFFFF",41965,66],
+["Bordeaux Navy","BDX","Bordeaux","#000C3F","#8E1F2F",42115,63],
+["Auxerre White","AUX","Auxerre","#FFFFFF","#0055A5",21379,60],
+["Angers Black","ANG","Angers","#000000","#FFFFFF",18752,59],
+["Le Havre Blue","LHV","Le Havre","#0B3B7A","#87CEEB",25178,58],
+["Metz Claret","MTZ","Metz","#7A1B2E","#FFFFFF",25636,57]]
+};
+
 const NATIONS={
  eng:{name:'England',adj:'English',tiers:['Premier Division','First Division','Second Division'],code:'ENG'},
  esp:{name:'Spain',adj:'Spanish',tiers:['La Liga Nacional'],code:'ESP'},
@@ -707,8 +888,9 @@ function kitFor(club){
   if(club.kit)return club.kit;
   const r=mulberry32((club.seed^0x5f37)>>>0);
   const pool=KITPAT[club.nat]||KITPAT.eng;
+  const real=(typeof REALPAT!=='undefined')?REALPAT[club.abbr]:null;
   club.kit={p:club.primary,s:club.secondary,trim:club.secondary,
-    pat:pool[Math.floor(r()*pool.length)],
+    pat:real||(club.place?'plain':pool[Math.floor(r()*pool.length)]),
     collar:['crew','v','polo'][Math.floor(r()*3)],
     sleeve:r()<0.32?'contrast':'matching'};
   return club.kit;
@@ -940,7 +1122,7 @@ const SHAPE={
 let CID=0;
 function makeClub(nm,nat,tier,rep,seedBase){
   const kit=KITS[CID%KITS.length];
-  const c={id:CID++,name:nm.name,abbr:nm.abbr,nat,tier,rep,
+  const c={id:CID++,name:nm.name,abbr:nm.abbr,place:nm.place||nm.name,nat,tier,rep,
     primary:kit[0],secondary:kit[1],seed:(seedBase*2654435761)>>>0,
     stadium:nm.name.split(' ')[0]+' '+pick(STADPRE),
     capacity:Math.round((8000+rep*rep*7)/500)*500,
@@ -1152,7 +1334,7 @@ function matchSub(S,side,outId,inP){
    ============================================================ */
 const G={clubs:[],leagues:[],euro:{},me:0,week:0,season:2026,inbox:[],objective:null,
   tab:'home',squadView:'lineup',marketView:'scout',speed:'key',lastResult:null,
-  window:'summer',shortlist:[],offers:[],chronicle:[],unbeaten:0,seasonEnded:false,mod:{}};
+  window:'summer',shortlist:[],offers:[],chronicle:[],unbeaten:0,seasonEnded:false,mod:{},renames:{}};
 
 const EUROS=[
  {key:'ucl',name:'Champions Cup',short:'CHAMPIONS',col:'var(--ucl)',from:[0,3]},
@@ -1176,25 +1358,98 @@ function roundRobin(n){
 function buildWorld(){
   CID=0;PID=1;
   G.clubs=[];G.leagues=[];
-  const usedNames=new Set(),usedAbbr=new Set();
-  const specs=[];
-  NATIONS.eng.tiers.forEach((tn,t)=>specs.push({nat:'eng',tier:t,name:tn,base:t===0?86:t===1?62:44}));
-  ['esp','ger','ita','fra'].forEach(n=>specs.push({nat:n,tier:0,name:NATIONS[n].tiers[0],base:84}));
+  const specs=[
+    {nat:'eng',tier:0,name:NATIONS.eng.tiers[0],key:'eng0'},
+    {nat:'eng',tier:1,name:NATIONS.eng.tiers[1],key:'eng1'},
+    {nat:'eng',tier:2,name:NATIONS.eng.tiers[2],key:'eng2'},
+    {nat:'esp',tier:0,name:NATIONS.esp.tiers[0],key:'esp'},
+    {nat:'ger',tier:0,name:NATIONS.ger.tiers[0],key:'ger'},
+    {nat:'ita',tier:0,name:NATIONS.ita.tiers[0],key:'ita'},
+    {nat:'fra',tier:0,name:NATIONS.fra.tiers[0],key:'fra'}
+  ];
   specs.forEach((sp,si)=>{
-    const names=genClubNames(sp.nat,20,usedNames,usedAbbr);
+    const rows=REAL[sp.key]||[];
     const ids=[];
-    names.forEach((nm,i)=>{
-      const rep=clamp(Math.round(repTarget(sp.base,i)+gauss(0,3)),22,94);
-      const c=makeClub(nm,sp.nat,sp.tier,rep,si*100+i+13);
-      G.clubs.push(c);ids.push(c.id);
+    rows.forEach((r,i)=>{
+      const [name,abbr,place,primary,secondary,capacity,rep]=r;
+      const c=makeClub({name,abbr,place},sp.nat,sp.tier,rep,si*100+i+13);
+      c.primary=primary; c.secondary=secondary; c.capacity=capacity;
+      c.stadium=place+' '+['Park','Road','Stadium','Ground','Arena'][(si*7+i)%5];
+      c.kit=null;                              // re-derived from the real colours
+      G.clubs.push(c); ids.push(c.id);
     });
-    G.leagues.push({id:G.leagues.length,nat:sp.nat,tier:sp.tier,name:sp.name,clubs:ids,fixtures:roundRobin(20)});
+    G.leagues.push({id:G.leagues.length,nat:sp.nat,tier:sp.tier,name:sp.name,
+      clubs:ids,fixtures:roundRobin(20)});
   });
   buildEurope();
 }
 /* A real division is top-heavy: a handful of clubs well clear, a long flat tail.
    A linear ladder produced champions on 70 points; football produces 85. */
 function repTarget(base,i){ return base+1 - i*1.15 - i*i*0.075 }
+/* The names shipped are deliberate stand-ins. Anyone who wants the real ones
+   types them in here; it is their save. Overrides ride along with it. */
+function applyRenames(){
+  if(!G.renames)return;
+  Object.keys(G.renames).forEach(id=>{
+    const c=G.clubs[+id]; if(!c)return;
+    const r=G.renames[id];
+    if(r.name)c.name=r.name;
+    if(r.abbr)c.abbr=r.abbr;
+  });
+}
+window.renameClub=function(id){
+  const c=G.clubs[id]; if(!c)return;
+  sheet(`<h3>Rename ${esc(c.name)}</h3>
+   <div class="sh-sub">Call it whatever you want. It is your save, and this rides along with it.</div>
+   <div style="margin-bottom:12px">
+     <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+       color:var(--t3);margin-bottom:6px">Club name</div>
+     <input id="rnN" value="${esc(c.name)}" maxlength="28" autocomplete="off"></div>
+   <div style="margin-bottom:16px">
+     <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+       color:var(--t3);margin-bottom:6px">Three-letter code</div>
+     <input id="rnA" value="${esc(c.abbr)}" maxlength="4" autocomplete="off"
+       style="width:110px;text-transform:uppercase"></div>
+   <div class="row" style="gap:8px">
+     <button class="btn ghost" style="flex:1" onclick="resetClubName(${id})">Reset</button>
+     <button class="btn" style="flex:1" onclick="saveClubName(${id})">Save</button></div>`);
+  setTimeout(()=>{const n=document.getElementById('rnN');if(n)n.focus()},60);
+};
+window.saveClubName=function(id){
+  const n=document.getElementById('rnN'),a=document.getElementById('rnA');
+  const nm=(n&&n.value||'').trim().slice(0,28);
+  const ab=(a&&a.value||'').trim().toUpperCase().slice(0,4);
+  if(!nm||!ab)return;
+  G.renames=G.renames||{};
+  G.renames[id]={name:nm,abbr:ab};
+  applyRenames(); save(); closeSheet(); render();
+};
+window.resetClubName=function(id){
+  if(G.renames)delete G.renames[id];
+  const l=G.leagues.find(x=>x.clubs.includes(id));
+  const key=l?(l.nat==='eng'?'eng'+l.tier:l.nat):null;
+  const rows=key&&REAL[key];
+  if(rows){const r=rows.find(x=>x[1]===G.clubs[id].abbr)||rows[l.clubs.indexOf(id)];
+    if(r){G.clubs[id].name=r[0];G.clubs[id].abbr=r[1]}}
+  save(); closeSheet(); render();
+};
+window.sheetRenames=function(){
+  const l=myLeague();
+  sheet(`<h3>Club names</h3>
+   <div class="sh-sub">Every club sits in its real city, in its real colours, at its real ground
+     size. The names are stand-ins. Change any of them and it sticks.</div>
+   <div class="chips" style="margin-bottom:4px">${G.leagues.map((lg,i)=>
+     `<button aria-selected="${(G.renLg||0)===i}" onclick="G.renLg=${i};sheetRenames()">
+       ${lg.nat.toUpperCase()}${lg.nat==='eng'?' T'+(lg.tier+1):''}</button>`).join('')}</div>
+   <div class="card" style="background:var(--s1);padding:6px 14px 12px">
+   ${G.leagues[G.renLg||0].clubs.map(i=>{const c=G.clubs[i];
+     return `<div class="plr" onclick="renameClub(${i})">${crestSVG(c,30)}
+       <div class="nmw"><div class="nm2">${esc(c.name)}</div>
+         <div class="meta"><span>${esc(c.place||'')}</span><span>${c.capacity.toLocaleString()}</span></div></div>
+       <span class="mono" style="color:var(--t3)">${esc(c.abbr)}</span>
+       <span class="ch dim" style="margin-left:8px">›</span></div>`}).join('')}</div>
+   <button class="btn ghost" style="margin-top:10px" onclick="closeSheet()">Done</button>`);
+};
 function leagueOf(cid){return G.leagues.find(l=>l.clubs.includes(cid))}
 function leagueTable(l){
   return l.clubs.map(i=>G.clubs[i]).sort((a,b)=>pts(b)-pts(a)||gd(b)-gd(a)||b.GF-a.GF||a.name.localeCompare(b.name));
@@ -1778,7 +2033,7 @@ function save(){try{
     fixtures:G.leagues.map(l=>l.fixtures),
     euro:Object.keys(G.euro).map(k=>({k,groups:G.euro[k].groups,md:G.euro[k].md,
       stage:G.euro[k].stage,ko:G.euro[k].ko,winner:G.euro[k].winner})),
-    chronicle:G.chronicle,inbox:G.inbox,shortlist:G.shortlist,mod:G.mod
+    chronicle:G.chronicle,inbox:G.inbox,shortlist:G.shortlist,mod:G.mod,renames:G.renames
   }));
   return true}catch(e){console.warn('save failed',e);return false}}
 function load(){try{
@@ -1787,7 +2042,7 @@ function load(){try{
   buildWorld();                                  // structure only; every value below is overwritten
   G.me=d.me;G.week=d.week;G.season=d.season;G.objective=d.objective;G.window=d.window;
   G.fxIndex=d.fx||0;G.chronicle=d.chronicle||[];G.inbox=d.inbox||[];
-  G.shortlist=d.shortlist||[];G.mod=d.mod||{};
+  G.shortlist=d.shortlist||[];G.mod=d.mod||{};G.renames=d.renames||{};applyRenames();
   PID=d.pid||PID;
   d.clubs.forEach((s2,i)=>{
     const c=G.clubs[i];
@@ -2651,6 +2906,12 @@ function viewClub(){
     <div class="kv"><span class="k2">Stadium</span><span class="v2">${esc(c.stadium)}</span></div>
     <div class="kv"><span class="k2">Capacity</span><span class="v2">${c.capacity.toLocaleString()}</span></div>
     <div class="kv"><span class="k2">Reputation</span><span class="v2">${c.rep}</span></div></div>
+   <div class="sechead">Names</div>
+   <div class="act" onclick="sheetRenames()">
+     <div class="ic" style="background:var(--accw);color:var(--acc)">✎</div>
+     <div class="tx"><div class="a">Rename any club</div>
+       <div class="b">Real cities, real colours, your names</div></div>
+     <div class="ch">›</div></div>
    ${scorers.length?`<div class="sechead">Top scorers</div><div class="card" style="padding:6px 14px 12px">
     ${scorers.map(p=>`<div class="plr" onclick="showPlayer(${p.id})">${pface(p,44)}
       <div class="nmw"><div class="nm2">${esc(p.name)}</div>
