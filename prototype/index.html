@@ -901,6 +901,11 @@ function matchRun(S,untilMinute){
     if(sd===0)edge+=hAdv;
     const rc=S.red[sd]?0.60:1,rco=S.red[o]?1.35:1;
     let rate=ENG.SHOT*Math.exp(0.55*edge)*S.tac[sd].vol*Math.exp(0.105*S.mom[sd])*urg*rc*rco;
+    /* A high-trust squad does not play better — it does not fold. Modules may
+       modify only the moments coaches actually talk about: chasing a game,
+       protecting a lead, coping without your best players, the big occasion. */
+    const mm=SW.first('matchMoment',S,sd,minute,def,lead);
+    if(mm)rate*=mm;
     if(sd===0)rate*=hVol;
     S.club[sd].xi.forEach(({p})=>{S.cond[sd][p.id]=Math.max(28,
       (S.cond[sd][p.id]||90)-0.36*S.tac[sd].drain*(1.55-0.0075*p.a[5])*94/S.P)});
