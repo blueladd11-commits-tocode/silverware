@@ -219,6 +219,7 @@ h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
   font-size:10px;font-weight:700;line-height:12px;color:#fff;text-align:center;
   text-shadow:0 1px 3px rgba(0,0,0,.95)}
 .tok .ring{position:absolute;inset:-3px}
+
 .tok:active .kit{box-shadow:0 0 0 3px var(--acc),0 2px 6px rgba(0,0,0,.55)}
 .tok.sel .kit{box-shadow:0 0 0 3px var(--acc),0 6px 16px rgba(0,0,0,.7)}
 .kitchip{width:26px;height:26px;border-radius:7px;flex:0 0 auto;position:relative;
@@ -283,10 +284,6 @@ h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
 .pc-pips i.on{background:var(--tier);box-shadow:0 0 5px var(--tier)}
 /* not our player: hollow pips. Uncertainty has to look uncertain. */
 .pc-pips.u i{background:none;box-shadow:inset 0 0 0 1px #48505C}
-/* tier rank, as marks rather than hue — the greyscale channel for the frame */
-.pc-tk{height:11px;margin-top:1px;width:calc(var(--tkn,0) * 6px - 3px);
-  background:repeating-linear-gradient(90deg,var(--tier) 0 3px,transparent 3px 6px);
-  filter:drop-shadow(0 1px 1px rgba(0,0,0,.8))}
 .pc-cond{position:absolute;left:0;right:0;bottom:0;height:3px;z-index:3;background:rgba(0,0,0,.55)}
 .pc-cond i{display:block;height:100%}
 /* over budget: the foot is hatched. Colour says it too, but the texture is what
@@ -357,6 +354,25 @@ h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
 .ring::after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--s2)}
 .ring b{position:relative;z-index:1;font-family:var(--disp);font-weight:800;font-size:13px;color:var(--t1)}
 .rlbl{font-size:11px;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;font-weight:700}
+/* the score bug: the result as broadcast puts it — two crests, three-letter
+   codes, the scoreline at a size you can read across a room, on a slab cut at
+   the same angle as everything else in the app. */
+.bug{position:relative;overflow:hidden;border-radius:18px;padding:15px 16px 16px;margin-bottom:13px;
+  background:var(--noise),linear-gradient(150deg,color-mix(in srgb,var(--bug) 26%,#101318),#0B0E12 72%),var(--s1);
+  background-blend-mode:overlay,normal,normal;box-shadow:var(--sh-3),var(--rim)}
+.bug::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--bug)}
+.bug::after{content:"";position:absolute;right:-34px;top:-14px;bottom:-14px;width:78px;
+  transform:skewX(-14deg);background:var(--bug);opacity:.16;pointer-events:none}
+.bugk{font-size:10px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--bug);
+  margin-left:8px}
+.bugs{display:flex;align-items:center;gap:10px;margin:9px 0 0 8px}
+.bugt{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
+.bugt.r{justify-content:flex-end}
+.bugt b{font-family:var(--disp);font-weight:800;font-size:17px;letter-spacing:.04em}
+.bugn{flex:0 0 auto;font-family:var(--disp);font-weight:800;font-size:44px;line-height:1;
+  letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--t1)}
+.bugn i{font-style:normal;color:var(--t3);margin:0 3px;font-size:30px;vertical-align:5px}
+.bugd{font-size:13px;color:var(--t2);margin:10px 0 0 8px;position:relative;z-index:1}
 /* goals, as tiles with the scorer's face rather than lines of text */
 .evtiles{display:flex;flex-direction:column;gap:7px;margin-bottom:11px}
 .evt{display:flex;align-items:center;gap:10px;padding:8px 11px;border-radius:13px;cursor:pointer;
@@ -369,6 +385,31 @@ h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
 .evt .evn b{font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .evt .evn span{font-size:11px;color:var(--t3)}
 .evt .evg{flex:0 0 auto;opacity:.9}
+/* the live feed: same tile as the report, plus the marks and the goal slab */
+.mev{margin-bottom:7px;animation:evin .3s var(--ease) both}
+.mev .evmin{flex:0 0 auto;min-width:30px;height:24px;padding:0 6px;border-radius:8px;
+  display:grid;place-items:center;background:var(--s3);color:var(--t2);
+  font-family:var(--disp);font-weight:800;font-size:12px;font-variant-numeric:tabular-nums}
+.mev.us .evmin{background:var(--accw);color:var(--acc)}
+.mev.goal{border-left-color:var(--acc);padding:11px;
+  background:var(--noise),linear-gradient(120deg,#3A2E10,#12161B 68%),var(--s1);
+  background-blend-mode:overlay,normal,normal;box-shadow:var(--sh-2),var(--rim);
+  animation:goalpop .9s cubic-bezier(.24,1.5,.4,1) both}
+.mev.goal .evn b{font-family:var(--disp);font-weight:800;font-size:17px;letter-spacing:-.01em}
+.mev.goal .evmin{background:var(--acc);color:#0A0C0F}
+@keyframes goalpop{
+  0%{opacity:0;transform:translateY(-10px) scale(.94)}
+  46%{opacity:1;transform:translateY(0) scale(1.035)}
+  62%{transform:translateX(-4px) scale(1.01)} 76%{transform:translateX(4px)}
+  88%{transform:translateX(-2px)} 100%{transform:none}}
+/* the marks. Geometry, not emoji — an emoji font is not ours to art-direct. */
+.evb{flex:0 0 auto;width:19px;height:19px;border-radius:50%;background:#F4F6F8;
+  box-shadow:inset 0 0 0 2px #0A0C0F,0 1px 3px rgba(0,0,0,.7);position:relative}
+.evb::after{content:"";position:absolute;inset:5px;background:#0A0C0F;
+  clip-path:polygon(50% 0,100% 38%,81% 100%,19% 100%,0 38%)}
+.evcard{flex:0 0 auto;width:13px;height:18px;border-radius:2px;transform:rotate(8deg);
+  box-shadow:0 1px 3px rgba(0,0,0,.7)}
+.evsym{flex:0 0 auto;font-size:15px;line-height:1;width:19px;text-align:center}
 /* a signing reveals itself: the card flips in. 1.2s, once, no pack ceremony. */
 .reveal .pc{animation:pcin .62s cubic-bezier(.2,.8,.25,1) both}
 @keyframes pcin{
@@ -459,6 +500,36 @@ td:nth-child(2){text-align:left}
 tr.me td{background:var(--accw)}
 tr.me td:nth-child(2){font-weight:700}
 .zone{width:3px;border-radius:2px;display:inline-block;height:14px;vertical-align:-3px;margin-right:5px}
+/* ---- the ladder (research 09 §6.3) ---- */
+.lad{display:flex;flex-direction:column;gap:4px}
+.ldr{position:relative;display:flex;align-items:center;gap:8px;min-height:48px;padding:6px 11px 6px 0;
+  border-radius:12px;cursor:pointer;overflow:hidden;
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,0) 55%),var(--s1);
+  box-shadow:var(--sh-1),var(--rim);
+  border-left:4px solid var(--z)}
+/* points as distance: the fill is how far along the leader's total you are, so
+   a runaway win and a tight title race look different before you read a number */
+.ldr::before{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--fill);
+  background:var(--zf);opacity:.075;pointer-events:none}
+.ldr.me{min-height:62px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,0) 55%),var(--s2);
+  box-shadow:var(--sh-2),inset 0 1px 0 rgba(255,255,255,.14),inset 0 0 0 1px rgba(255,197,61,.30)}
+.ldr>.crest{flex:0 0 auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+.lpos{position:relative;z-index:1;width:22px;text-align:center;flex:0 0 auto;margin-left:7px;
+  font-family:var(--disp);font-weight:700;font-size:14px;color:var(--t2);font-variant-numeric:tabular-nums}
+.ldr.me .lpos{color:var(--acc);font-size:17px;font-weight:800}
+.lnm{position:relative;z-index:1;flex:1;min-width:0;display:flex;flex-direction:column;line-height:15px}
+.lnm b{font-family:var(--disp);font-weight:700;font-size:14px;letter-spacing:.03em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ldr.me .lnm b{font-size:16px;color:var(--acc)}
+.lnm i{font-style:normal;font-size:10px;color:var(--t3);font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ldr .form{position:relative;z-index:1;flex:0 0 auto}
+.ldr .form i{width:7px;height:7px}
+.lgd{position:relative;z-index:1;flex:0 0 auto;width:28px;text-align:right;font-size:12px;font-weight:700;
+  font-variant-numeric:tabular-nums}
+.lpts{position:relative;z-index:1;flex:0 0 auto;width:28px;text-align:right;font-family:var(--disp);
+  font-weight:800;font-size:19px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.ldr.me .lpts{font-size:23px;color:var(--acc)}
 .tname{display:inline-flex;align-items:center;gap:7px;max-width:140px}
 .tname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
@@ -812,6 +883,57 @@ const REALPAT={
 };
 /* seven more of Europe's top divisions, same rules: real city, real colours,
    real ground, real level, stand-in name */
+
+/* Second divisions. Real cities of each country; the colour naming and ground
+   sizes are generated, because below the top flight the specific club matters
+   far less than the fact that there is somewhere to fall to. */
+const T2CITY={
+ esp:['Zaragoza','Gijón','Santander','Oviedo','A Coruña','Eibar','Elche','Huesca','Albacete','Burgos',
+   'Cartagena','Castellón','Córdoba','Málaga','Miranda','Ferrol','Tenerife','Las Palmas','Valladolid','Leganés'],
+ ger:['Düsseldorf','Nuremberg','Hannover','Kaiserslautern','Karlsruhe','Paderborn','Magdeburg','Rostock',
+   'Braunschweig','Fürth','Elversberg','Ulm','Regensburg','Münster','Osnabrück','Aachen','Bielefeld',
+   'Dresden','Saarbrücken','Essen'],
+ ita:['Palermo','Bari','Brescia','Parma','Modena','Reggio Emilia','Catanzaro','Cosenza','Cremona','Pisa',
+   'La Spezia','Venice','Cittadella','Ascoli','Bolzano','Terni','Salò','Lecco','Como','Perugia'],
+ fra:['Caen','Bastia','Amiens','Annecy','Grenoble','Guingamp','Laval','Lorient','Pau','Rouen',
+   'Rodez','Troyes','Valenciennes','Dunkirk','Clermont','Nancy','Sochaux','Niort','Châteauroux','Le Mans'],
+ por:['Leiria','Tondela','Feira','Torres Vedras','Viseu','Oliveira','Alverca','Penafiel','Mafra','Covilhã',
+   'Trofa','Paços','Felgueiras','Espinho','Aveiro','Setúbal','Portalegre','Évora','Beja','Vila Real'],
+ bel:['Deinze','Lier','Seraing','Virton','Beveren','Ostend','Roeselare','Tienen','Hasselt','Turnhout',
+   'Aalst','Ninove','Namur','Mons','Tournai','Verviers','Ypres','Waregem','Genk Noord','Diest'],
+ ned:['The Hague','Dordrecht','Emmen','Maastricht','Venlo','Helmond','Oss','Leeuwarden','Volendam','Velsen',
+   'Kerkrade','Den Bosch','Eindhoven Noord','Amsterdam Oost','Rotterdam Zuid','Groningen Zuid','Zwolle Noord',
+   'Nijmegen Oost','Tilburg Zuid','Breda Noord'],
+ tur:['Bursa','Eskişehir','Denizli','Manisa','Bolu','Erzurum','Giresun','Ordu','Şanlıurfa','Diyarbakır',
+   'Van','Malatya','Elazığ','Kocaeli','Sakarya','Balıkesir','Çorum','Tokat','Amasya','Zonguldak'],
+ pol:['Bydgoszcz','Katowice','Gdynia','Gdańsk','Toruń','Rzeszów','Opole','Olsztyn','Bielsko','Tychy',
+   'Sosnowiec','Legnica','Wałbrzych','Elbląg','Płock','Włocławek','Koszalin','Zielona Góra','Siedlce','Kalisz'],
+ cze:['Ústí','Most','Chomutov','Kladno','Tábor','Písek','Jihlava','Třinec','Vsetín','Prostějov',
+   'Znojmo','Břeclav','Uherský Brod','Vlašim','Varnsdorf','Sokolov','Cheb','Domažlice','Kolín','Beroun'],
+ gre:['Kavala','Xanthi','Drama','Katerini','Trikala','Karditsa','Chania','Rhodes','Kos','Corfu',
+   'Patras','Pyrgos','Kalamata','Sparta','Corinth','Chalkida','Mytilene','Alexandroupoli','Florina','Kozani']
+};
+const T2COL=[['Blue','#1B4F9C','#FFFFFF'],['Red','#C8102E','#FFFFFF'],['Green','#0A6E3C','#FFFFFF'],
+ ['White','#FFFFFF','#1B4F9C'],['Black','#1A1A1A','#FFFFFF'],['Yellow','#FFD100','#1A1A1A'],
+ ['Navy','#0B2545','#F0F0F0'],['Claret','#7A1B2E','#F0D9A0'],['Sky','#6CABDD','#0B2545'],
+ ['Orange','#F47B20','#0B2545']];
+function buildTier2(nat){
+  const cities=T2CITY[nat]||[];
+  const r=mulberry32(nat.charCodeAt(0)*7919+nat.charCodeAt(1)*104729);
+  const used=new Set();
+  return cities.map((city,i)=>{
+    const col=T2COL[Math.floor(r()*T2COL.length)];
+    const name=city+' '+col[0];
+    let abbr=deaccent(city).replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase();
+    let n=1; while(used.has(abbr)){abbr=deaccent(city).replace(/[^A-Za-z]/g,'').slice(0,2).toUpperCase()+
+      'ABCDEFGH'[n++%8]}
+    used.add(abbr);
+    const rep=Math.round(52-i*1.15-i*i*0.035+(r()*4-2));
+    const cap=Math.round((6000+rep*rep*4)/250)*250;
+    return [name,abbr,city,col[1],col[2],cap,clamp(rep,20,56)];
+  });
+}
+
 const REAL2={
 por:[
 ["Lisbon Red","LSR","Lisbon","#E30613","#FFFFFF",64642,84],
@@ -1114,17 +1236,17 @@ fra:[
 
 const NATIONS={
  eng:{name:'England',adj:'English',tiers:['Premier Division','First Division','Second Division'],code:'ENG'},
- esp:{name:'Spain',adj:'Spanish',tiers:['La Liga Nacional'],code:'ESP'},
- ger:{name:'Germany',adj:'German',tiers:['Bundesliga Nord'],code:'GER'},
- ita:{name:'Italy',adj:'Italian',tiers:['Serie Nazionale'],code:'ITA'},
- fra:{name:'France',adj:'French',tiers:['Ligue Nationale'],code:'FRA'},
- por:{name:'Portugal',adj:'Portuguese',tiers:['Primeira Nacional'],code:'POR'},
- bel:{name:'Belgium',adj:'Belgian',tiers:['Pro Division'],code:'BEL'},
- ned:{name:'Netherlands',adj:'Dutch',tiers:['Eredivisie Nacional'],code:'NED'},
- tur:{name:'Türkiye',adj:'Turkish',tiers:['Süper Division'],code:'TUR'},
- pol:{name:'Poland',adj:'Polish',tiers:['Ekstra Division'],code:'POL'},
- cze:{name:'Czechia',adj:'Czech',tiers:['Fortuna Division'],code:'CZE'},
- gre:{name:'Greece',adj:'Greek',tiers:['Super Division'],code:'GRE'}
+ esp:{name:'Spain',adj:'Spanish',tiers:['La Liga Nacional','Segunda Nacional'],code:'ESP'},
+ ger:{name:'Germany',adj:'German',tiers:['Bundesliga Nord','Zweite Nord'],code:'GER'},
+ ita:{name:'Italy',adj:'Italian',tiers:['Serie Nazionale','Serie Cadetti'],code:'ITA'},
+ fra:{name:'France',adj:'French',tiers:['Ligue Nationale','Ligue Deux'],code:'FRA'},
+ por:{name:'Portugal',adj:'Portuguese',tiers:['Primeira Nacional','Segunda Nacional'],code:'POR'},
+ bel:{name:'Belgium',adj:'Belgian',tiers:['Pro Division','Challenger Division'],code:'BEL'},
+ ned:{name:'Netherlands',adj:'Dutch',tiers:['Eredivisie Nacional','Eerste Divisie'],code:'NED'},
+ tur:{name:'Türkiye',adj:'Turkish',tiers:['Süper Division','Birinci Division'],code:'TUR'},
+ pol:{name:'Poland',adj:'Polish',tiers:['Ekstra Division','Pierwsza Division'],code:'POL'},
+ cze:{name:'Czechia',adj:'Czech',tiers:['Fortuna Division','Druhá Division'],code:'CZE'},
+ gre:{name:'Greece',adj:'Greek',tiers:['Super Division','Second Division'],code:'GRE'}
 };
 const PLACES={
  eng:['Gorton','Ancoats','Chorlton','Openshaw','Didsbury','Salford','Eccles','Stretford','Bermondsey','Deptford',
@@ -1610,13 +1732,14 @@ function matchRun(S,untilMinute){
         astId:ast?ast.id:null,setp,xg,imp:3});
     } else {
       const r=rnd(),t=r<0.34?'saved':r<0.62?'off':'blocked';
-      S.ev.push({m:minute,s:sd,t,who:sh.name,setp,xg,imp:xg>0.28?2:1});
+      /* wid so the feed can put his face on the tile — no other use */
+      S.ev.push({m:minute,s:sd,t,who:sh.name,wid:sh.id,setp,xg,imp:xg>0.28?2:1});
     }
     if(rnd()<0.021){
       const vict=pick(S.club[sd].xi.slice(1)).p;
       if(rnd()<0.055&&!S.red[sd]){S.red[sd]=true;S.mom[sd]-=1.2;
-        S.ev.push({m:minute,s:sd,t:'red',who:vict.name,imp:3})}
-      else S.ev.push({m:minute,s:sd,t:'yellow',who:vict.name,imp:1});
+        S.ev.push({m:minute,s:sd,t:'red',who:vict.name,wid:vict.id,imp:3})}
+      else S.ev.push({m:minute,s:sd,t:'yellow',who:vict.name,wid:vict.id,imp:1});
     }
   }
   S.done=true;S.minute=94;
@@ -1628,6 +1751,62 @@ function matchFinalise(S){
     counter:S.ctr,home:S.neutral?0:ENG.HOME_EDGE,
     poss:[S.poss[0]/(S.poss[0]+S.poss[1]||1),S.poss[1]/(S.poss[0]+S.poss[1]||1)],red:S.red.slice()};
   S.ev.sort((a,b)=>a.m-b.m);
+}
+/* ---------- fast fidelity ----------
+   Two attempts at a cheap Poisson stand-in both drifted from the full engine —
+   up to 0.55 goals and 9 points of home-win rate, because the real engine
+   compounds its advantage through volume, chance quality, finishing and the
+   goalkeeper, and a single exponential cannot track that across the range.
+
+   So this is not a different model. It is the SAME loop with the commentary
+   turned off: no event objects, no phrase lookups, no assist picking, no
+   momentum bookkeeping. Identical maths, identical calibration, a fraction of
+   the allocation — which is where the time actually went. */
+function fastResult(home,away,neutral){
+  const tA=tactics(home),tB=tactics(away);
+  const pA=phases(home),pB=phases(away);
+  const cA=counter(tA,tB),cB=counter(tB,tA);
+  const g=[0,0],shots=[0,0],xgT=[0,0],mom=[0,0],red=[false,false];
+  const scorers=[];
+  const P=ENG.POSS+Math.round(gauss(0,9));
+  let share=Math.pow(pA.MID,1.5)/(Math.pow(pA.MID,1.5)+Math.pow(pB.MID,1.5));
+  share=clamp(share+tA.poss-tB.poss,0.25,0.75);
+  const club=[home,away],tac=[tA,tB],ph=[pA,pB],ctr=[cA,cB];
+  const hAdv=neutral?0:ENG.HOME_EDGE,hVol=neutral?1:ENG.HOME_VOL;
+  for(let k=0;k<P;k++){
+    const minute=Math.floor(k*94/P);
+    const sd=rnd()<share?0:1,o=1-sd;
+    for(let i=0;i<2;i++)mom[i]=clamp(0.945*mom[i]+gauss(0,0.33),-2.6,2.6);
+    const def=clamp(g[o]-g[sd],0,3);
+    const u=0.34*def*Math.pow(minute/94,2.2);
+    const lead=clamp(g[sd]-g[o],0,3);
+    const ul=0.34*lead*Math.pow(minute/94,2.2);
+    const urg=1+u-0.22*ul;
+    let edge=(ph[sd].ATT-ph[o].DEF*tac[o].defmul)/100+ctr[sd];
+    if(sd===0)edge+=hAdv;
+    const rc=red[sd]?0.60:1,rco=red[o]?1.35:1;
+    let rate=ENG.SHOT*Math.exp(0.55*edge)*tac[sd].vol*Math.exp(0.105*mom[sd])*urg*rc*rco;
+    if(sd===0)rate*=hVol;
+    if(rnd()>rate)continue;
+    const setp=rnd()<ENG.SP_RATE;
+    let Q=Math.exp(0.42*edge)*tac[sd].qual;
+    if(red[o])Q*=1.12;
+    const xg=setp?clamp(betaSample(ENG.SP_A,ENG.SP_B),0.02,0.93)
+                 :clamp(betaSample(ENG.XG_A*Q,ENG.XG_B),0.02,0.93);
+    shots[sd]++;xgT[sd]+=xg;
+    const sh=pickShooter(club[sd],setp);
+    const gk=club[o].xi[0].p;
+    const fz=(sh.a[3]*(1+0.045*sh.form)-55)/20,gz=(CA(gk,'GK')-55)/20;
+    const pg=clamp(xg*(1+0.22*fz)*(1-0.19*gz),0.01,0.96);
+    if(rnd()<pg){g[sd]++;mom[sd]+=0.55;mom[o]+=0.20;
+      scorers.push({m:minute,s:sd,t:'goal',who:sh.name,wid:sh.id,ast:null,astId:null,
+        setp,xg,imp:3});}
+    if(rnd()<0.021&&rnd()<0.055&&!red[sd]){red[sd]=true;mom[sd]-=1.2}
+  }
+  return {g,shots,xg:xgT,mom,red,ev:scorers,poss:[100,100],cond:[{},{}],
+    club,done:true,fast:true,subs:[[],[]],
+    drv:{quality:[pA.ATT-pB.DEF,pB.ATT-pA.DEF],counter:[cA,cB],
+      home:hAdv,poss:[0.5,0.5],red:red.slice()}};
 }
 /* single-pass wrapper — every AI match in the world uses this */
 function simulate(home,away,neutral){
@@ -1668,7 +1847,7 @@ function matchSub(S,side,outId,inP){
   S.club[side].xi[slotIdx]={slot,p:inP};
   S.cond[side][inP.id]=inP.cond;
   S.subs[side].push({out:outP,in:inP,m:S.minute});
-  S.ev.push({m:S.minute,s:side,t:'sub',who:inP.name,off:outP.name,imp:2});
+  S.ev.push({m:S.minute,s:side,t:'sub',who:inP.name,wid:inP.id,off:outP.name,imp:2});
   matchRefresh(S);
   return true;
 }
@@ -1718,10 +1897,12 @@ function buildWorld(){
     {nat:'tur',tier:0,name:NATIONS.tur.tiers[0],key:'tur'},
     {nat:'pol',tier:0,name:NATIONS.pol.tiers[0],key:'pol'},
     {nat:'cze',tier:0,name:NATIONS.cze.tiers[0],key:'cze'},
-    {nat:'gre',tier:0,name:NATIONS.gre.tiers[0],key:'gre'}
+    {nat:'gre',tier:0,name:NATIONS.gre.tiers[0],key:'gre'},
+    ...['esp','ger','ita','fra','por','bel','ned','tur','pol','cze','gre']
+       .map(n=>({nat:n,tier:1,name:NATIONS[n].tiers[1],gen:n}))
   ];
   specs.forEach((sp,si)=>{
-    const rows=REAL[sp.key]||REAL2[sp.key]||[];
+    const rows=sp.gen?buildTier2(sp.gen):(REAL[sp.key]||REAL2[sp.key]||[]);
     const ids=[];
     rows.forEach((r,i)=>{
       const [name,abbr,place,primary,secondary,capacity,rep]=r;
@@ -2038,11 +2219,14 @@ function simOthers(week){
   // leagues
   G.leagues.forEach(l=>{
     if(week>=38)return;
+    /* the player's own division is simulated in full, because they read that
+       table every week; everywhere else gets the fast draw */
+    const near=l.clubs.includes(G.me);
     l.fixtures[week].forEach(([x,y])=>{
       const hi=l.clubs[x],ai=l.clubs[y];
       if(hi===G.me||ai===G.me)return;
       autoXI(G.clubs[hi]);autoXI(G.clubs[ai]);
-      const r=simulate(G.clubs[hi],G.clubs[ai]);
+      const r=near?simulate(G.clubs[hi],G.clubs[ai]):fastResult(G.clubs[hi],G.clubs[ai]);
       applyLeague(hi,ai,r);creditStats(r,hi,ai);
       rollInjuries(G.clubs[hi]);rollInjuries(G.clubs[ai]);
     });
@@ -2274,7 +2458,9 @@ function endSeasonProcess(){
   const myL=myLeague(),myT=tables[myL.id],pos=myT.findIndex(c=>c.id===G.me)+1;
   const hit=pos<=G.objective.pos;
   // English promotion / relegation
-  const eng=G.leagues.filter(l=>l.nat==='eng').sort((a,b)=>a.tier-b.tier);
+  const nations=[...new Set(G.leagues.map(l=>l.nat))];
+  nations.forEach(nat=>{
+  const eng=G.leagues.filter(l=>l.nat===nat).sort((a,b)=>a.tier-b.tier);
   for(let t=0;t<eng.length-1;t++){
     const up=eng[t],dn=eng[t+1];
     const down=tables[up.id].slice(17).map(c=>c.id);
@@ -2288,6 +2474,7 @@ function endSeasonProcess(){
     if(down.includes(G.me))chron('Relegated from '+up.name);
     if(promoted.includes(G.me))chron('Promoted to '+up.name);
   }
+  });
   // reputation drift
   G.leagues.forEach(l=>{const t=tables[l.id];t.forEach((c,i)=>{
     const target=repTarget(l.tier===0?86:l.tier===1?62:44,i);
@@ -2843,7 +3030,9 @@ const SPREAD={1:0,2:.42,3:.64,4:.84,5:.88,6:.90};
 function layout(formation){
   const bands=formation.split('-').map(Number);
   const ys=BAND_Y[bands.length]||BAND_Y[3];
-  const out=[{x:50,y:90}];
+  /* 90 put the keeper on the goal line and his name label off the bottom of the
+     plate entirely; 85 keeps him in his six-yard box with his name on the grass. */
+  const out=[{x:50,y:85}];
   bands.forEach((n,b)=>{
     const last=b===bands.length-1;
     const sp=(SPREAD[n]||.88)*(last&&n>=3?1.12:1);
@@ -3065,10 +3254,11 @@ function viewSquad(){
    <div class="segmented ${views.length>4?'many':''}">${views.map(([k,l])=>`<button aria-selected="${G.squadView===k}"
      onclick="G.squadView='${k}';render()">${l}</button>`).join('')}</div>${body}</div>${tabbar()}`;
 }
-function kitChip(c,p){
+function kitChip(c,p,size){
   const k=kitFor(c),{ink,halo}=numInk(k);
-  return `<span class="kitchip" style="background:${kitCSS(k)}">
-    <i style="color:${ink};text-shadow:${halo}">${shirtNo(c,p)}</i></span>`;
+  const st=size?`width:${size}px;height:${size}px;border-radius:${Math.max(4,Math.round(size*0.27))}px;`:'';
+  return `<span class="kitchip" style="${st}background:${kitCSS(k)}">
+    <i style="color:${ink};text-shadow:${halo}${size?';font-size:'+Math.round(size*0.48)+'px':''}">${shirtNo(c,p)}</i></span>`;
 }
 function plrRow(p,slot){
   const v=slot?CA(p,slot):CA(p);
@@ -3162,7 +3352,7 @@ function pcard(p,o){
       [0,1,2,3,4].map(i=>`<i class="${i<on?'on':''}"></i>`).join('')}</span>`;
   }
   const bd=p.out>0?['✚','var(--inj)']:p.listed?['⇄','var(--trf)']:p.youth?['★','var(--loan)']:null;
-  const cnd=mine&&!small?`<span class="pc-cond"><i style="width:${clamp(p.cond,0,100)}%;background:${
+  const cnd=mine?`<span class="pc-cond"><i style="width:${clamp(p.cond,0,100)}%;background:${
     p.cond<60?'var(--inj)':ramp(p.cond*0.9)}"></i></span>`:'';
   const last=(p.ratings||[]).slice(-5).map(r=>r>=7.1?'W':r>=6.3?'D':'L');
   let foot;
@@ -3171,6 +3361,10 @@ function pcard(p,o){
   else if(o.fee!==undefined)
     foot=`${club?crestSVG(club,cz):''}<span class="pc-v" style="font-size:${Math.round(w*0.085)}px;color:${
       o.feeCol||'var(--trf)'}">${money(o.fee)}</span>`;
+  else if(mine)
+    /* our own men wear the shirt: same kit token as the pitch view, same number,
+       so a card and a pitch position are visibly the same object. */
+    foot=`${kitChip(club,p,Math.round(w*0.155))}${fstrip(last)}`;
   else
     foot=`${club?crestSVG(club,cz):''}<span class="pc-ab" style="font-size:${af}px">${
       club?esc(club.abbr):'—'}</span>${small?'':fstrip(last)}`;
@@ -3186,7 +3380,7 @@ function pcard(p,o){
      <span class="pc-rail">
        <span class="pc-rt${R.u===2?' band':R.u===3?' unk':''}">${esc(R.t)}</span>
        <span class="pc-pos${off?' off':''}" style="font-size:${pf}px">${esc(slot)}</span>
-       ${pips}${T.n&&!small?`<span class="pc-tk" style="--tkn:${T.n}"></span>`:''}
+       ${pips}
      </span>
      ${bd?`<i class="pc-bd" style="background:${bd[1]}">${bd[0]}</i>`:''}${cnd}
    </div>
@@ -3436,6 +3630,32 @@ function viewClub(){
 /* ============================================================
    WORLD
    ============================================================ */
+/* ============================================================
+   THE LADDER — research 09 §6.3
+   A table is unavoidable here; looking like one is not. The zone bar on the
+   left edge makes the shape of the season visible before a single position
+   number is read, the points fill turns the gaps into physical distance, and
+   your own row is taller than everyone else's because it is the only one you
+   are actually looking for.
+   ============================================================ */
+function ladder(tab,o){
+  o=o||{};
+  const P=x=>o.pts?o.pts(x):pts(x);
+  const lead=Math.max(1,...tab.map(P));
+  return `<div class="lad">${tab.map((c,i)=>{
+    const mine=c.id===G.me, z=o.zone?o.zone(i,c):'', p=P(c);
+    const d=o.gd?o.gd(c):gd(c);
+    const fill=Math.round(100*p/lead);
+    return `<div class="ldr${mine?' me':''}" onclick="showClub(${c.id})"
+      style="--z:${z||'transparent'};--fill:${fill}%;--zf:${z||'rgba(255,255,255,.9)'}">
+     <span class="lpos">${i+1}</span>
+     ${crestSVG(c,mine?30:22)}
+     <span class="lnm"><b>${esc(c.abbr)}</b><i>${o.meta?o.meta(c):
+       'P'+c.P+' &nbsp;W'+c.W+' &nbsp;D'+c.D+' &nbsp;L'+c.L}</i></span>
+     ${o.noform?'':fstrip(c.form)}
+     <span class="lgd" style="color:${d>0?'var(--win)':d<0?'var(--loss)':'var(--t3)'}">${d>0?'+':''}${d}</span>
+     <span class="lpts">${p}</span></div>`}).join('')}</div>`;
+}
 function viewWorld(){
   const modTabs=SW.collect('worldTabs');
   const tabs=[...G.leagues.map(l=>({k:'L'+l.id,n:l.nat.toUpperCase()+(l.nat==='eng'?' T'+(l.tier+1):''),l})),
@@ -3447,20 +3667,9 @@ function viewWorld(){
   if(t.mod){ body=t.mod.render(); }
   else if(t.l){
     const tab=leagueTable(t.l),l=t.l;
-    body=`<div class="card" style="padding:14px 14px 6px"><table>
-     <tr><th>#</th><th>Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th><th style="padding-left:6px">Form</th></tr>
-     ${tab.map((c,i)=>{
-       let z='transparent';
-       if(l.tier===0){z=i<3?'var(--ucl)':i<6?'var(--uel)':i<9?'var(--uecl)':i>=17?'var(--loss)':'transparent'}
-       else{z=i<3?'var(--win)':i>=17?'var(--loss)':'transparent'}
-       return `<tr class="${c.id===G.me?'me':''}" onclick="showClub(${c.id})" style="cursor:pointer">
-       <td><span class="zone" style="background:${z}"></span>${i+1}</td>
-       <td><span class="tname">${crestSVG(c,16)}<span>${c.abbr}</span></span></td>
-       <td>${c.P}</td><td>${c.W}</td><td>${c.D}</td><td>${c.L}</td>
-       <td style="color:${gd(c)>0?'var(--win)':gd(c)<0?'var(--loss)':'var(--t2)'}">${gd(c)>0?'+':''}${gd(c)}</td>
-       <td style="font-weight:700">${pts(c)}</td>
-       <td style="padding-left:6px">${fstrip(c.form)}</td></tr>`}).join('')}
-     </table></div>
+    body=`${ladder(tab,{zone:i=>l.tier===0
+        ?(i<3?'var(--ucl)':i<6?'var(--uel)':i<9?'var(--uecl)':i>=17?'var(--loss)':'')
+        :(i<3?'var(--win)':i>=17?'var(--loss)':'')})}
      ${l.tier===0?`<div class="card" style="margin-top:10px;font-size:12px;color:var(--t3)">
        <span class="zone" style="background:var(--ucl)"></span> Champions Cup &nbsp;
        <span class="zone" style="background:var(--uel)"></span> Europa Cup &nbsp;
@@ -3471,14 +3680,8 @@ function viewWorld(){
   } else {
     const E=G.euro[t.E.key];
     const groupsHTML=()=>E.groups.map((g,gi)=>`<div class="sechead">Group ${String.fromCharCode(65+gi)}</div>
-       <div class="card" style="padding:14px 14px 6px"><table>
-        <tr><th>#</th><th>Club</th><th>P</th><th>GD</th><th>Pts</th></tr>
-        ${euroGroupTable(E,gi).map((c,i)=>`<tr class="${c.id===G.me?'me':''}">
-          <td><span class="zone" style="background:${i<2?t.E.col:'transparent'}"></span>${i+1}</td>
-          <td><span class="tname">${crestSVG(c,16)}<span>${c.abbr}</span></span></td>
-          <td>${c.euroP}</td><td>${c.euroGF-c.euroGA>0?'+':''}${c.euroGF-c.euroGA}</td>
-          <td style="font-weight:700">${c.euroPts}</td></tr>`).join('')}
-       </table></div>`).join('');
+       ${ladder(euroGroupTable(E,gi),{zone:i=>i<2?t.E.col:'',noform:1,
+         pts:c=>c.euroPts, gd:c=>c.euroGF-c.euroGA, meta:c=>'P'+c.euroP+' &nbsp;'+c.euroGF+'&nbsp;–&nbsp;'+c.euroGA})}`).join('');
     if(E.stage==='group'){
       body=groupsHTML();
     } else {
@@ -3827,23 +4030,48 @@ function stepMatch(){
 /* modules call this to hand control back after an interrupt or a substitution */
 function matchResume(){ if(!MT)return; MT.paused=false; renderMatch(); stepMatch(); }
 function setSpeed(s){G.speed=s;if(MT){if(MT.timer)clearTimeout(MT.timer);stepMatch()}}
+/* ---- the feed, as tiles (research 09 §6.4) --------------------------------
+   The peaks of this game happen here and it was the flattest screen we had:
+   forty lines of grey text at 14px. Every event now carries the man's face, a
+   mark for what happened, and the minute in a filled disc. A goal is a slab. */
+const EVMARK={
+  goal:'<span class="evb"></span>',
+  yellow:'<span class="evcard" style="background:var(--acc)"></span>',
+  red:'<span class="evcard" style="background:var(--loss)"></span>',
+  sub:'<span class="evsym" style="color:var(--loan)">⇄</span>',
+  saved:'<span class="evsym" style="color:var(--t3)">◯</span>',
+  off:'<span class="evsym" style="color:var(--t3)">↗</span>',
+  blocked:'<span class="evsym" style="color:var(--t3)">◼</span>'
+};
+function evTile(s,mine){
+  const e=s.e, goal=e.t==='goal', us=e.s===mine;
+  const hit=e.wid!==undefined?findPlayer(e.wid):null;
+  const mark=EVMARK[e.t]||'';
+  const sub=goal
+    ? `${s.club.abbr} · ${e.setp?'set piece':'open play'} · ${e.xg.toFixed(2)} xG${e.ast?' · '+esc(e.ast):''}`
+    : e.t==='sub' ? 'for '+esc(e.off) : s.club.abbr;
+  return `<div class="evt mev${goal?' goal':''}${us?' us':''}">
+   <span class="evmin">${e.m}'</span>
+   ${hit?pface(hit.p,goal?46:38,{bg:'#141920',club:hit.c}):crestSVG(s.club,goal?38:30)}
+   <span class="evn"><b>${esc(s.txt)}</b><span>${sub}</span></span>
+   ${mark}</div>`;
+}
 function renderMatch(){
   if(!MT)return;
   const pct=clamp(50+(MT.S.mom[0]-MT.S.mom[1])*11,6,94);
   const E=MT.f.comp.key!=='league'?EUROS.find(x=>x.key===MT.f.comp.key):null;
+  const mine=MT.hi===G.me?0:1;
   const html=`<div class="mhead">
     <div class="mcomp" ${E?`style="color:${E.col}"`:''}>${esc(MT.f.comp.name)} · ${esc(MT.f.stage)}</div>
-    <div class="mscore"><div class="sd">${crestSVG(MT.home,24)}<span class="ab">${MT.home.abbr}</span></div>
-      <div class="sc">${MT.g[0]}<span style="color:var(--t3);margin:0 5px">–</span>${MT.g[1]}</div>
-      <div class="sd r"><span class="ab">${MT.away.abbr}</span>${crestSVG(MT.away,24)}</div></div>
+    <div class="bugs" style="margin:9px 0 0">
+      <span class="bugt">${crestSVG(MT.home,38)}<b>${MT.home.abbr}</b></span>
+      <span class="bugn">${MT.g[0]}<i>–</i>${MT.g[1]}</span>
+      <span class="bugt r"><b>${MT.away.abbr}</b>${crestSVG(MT.away,38)}</span></div>
     <div class="mclock">${MT.done?'Full time':MT.min+"'"}</div></div>
    <div class="momlbl"><span>${MT.home.abbr}</span><span>Momentum</span><span>${MT.away.abbr}</span></div>
    <div class="mom"><i style="width:${pct}%"></i></div>
-   <div class="feed">${MT.shown.map(s=>`<div class="ev ${s.e.t==='goal'?'goal big':''}">
-     <div class="m">${s.e.m}'</div><div class="tx2">${s.e.t==='goal'?'⚽ ':''}${esc(s.txt)}
-     ${s.e.t==='goal'?`<div style="font-size:11px;color:var(--t3);margin-top:2px;letter-spacing:.04em;text-transform:uppercase">
-       ${s.club.abbr} · ${s.e.setp?'set piece':'open play'} · ${s.e.xg.toFixed(2)} xG${s.e.ast?' · assist '+esc(s.e.ast):''}</div>`:''}
-     </div></div>`).join('')||'<div class="dim" style="padding:20px 0;text-align:center">Kick off.</div>'}</div>
+   <div class="feed">${MT.shown.map(s=>evTile(s,mine)).join('')
+     ||'<div class="dim" style="padding:20px 0;text-align:center">Kick off.</div>'}</div>
    <div class="mctl">
     <div class="speed">${[['key','Key'],['high','Highlights'],['full','Full'],['instant','Instant']].map(([k,l])=>
       `<button aria-selected="${G.speed===k}" onclick="setSpeed('${k}')">${l}</button>`).join('')}</div>
@@ -3906,10 +4134,13 @@ function showReport(){
   const luckTxt=Math.abs(luck)<0.55?'The scoreline matched the chances.'
     :luck>0?'You took more than the chances deserved.':'You created enough to get more than that.';
   const scorers=R.ev.filter(e=>e.t==='goal');
-  sheet(`<div class="slab" style="background:${col};margin-bottom:14px">
-     <div class="k">Full time · ${esc(f.comp.name)}</div>
-     <div class="v">${G.clubs[hi].abbr} ${R.g[0]}–${R.g[1]} ${G.clubs[ai].abbr}</div>
-     <div class="d">${w?'You won':d?'Drew':'You lost'}. ${esc(luckTxt)}</div></div>
+  sheet(`<div class="bug" style="--bug:${col}">
+     <div class="bugk">Full time · ${esc(f.comp.name)}</div>
+     <div class="bugs">
+       <span class="bugt">${crestSVG(G.clubs[hi],40)}<b>${G.clubs[hi].abbr}</b></span>
+       <span class="bugn">${R.g[0]}<i>–</i>${R.g[1]}</span>
+       <span class="bugt r"><b>${G.clubs[ai].abbr}</b>${crestSVG(G.clubs[ai],40)}</span></div>
+     <div class="bugd">${w?'You won':d?'Drew':'You lost'}. ${esc(luckTxt)}</div></div>
    ${scorers.length?`<div class="evtiles">${scorers.map(e=>{
      const hit=e.wid!==undefined?findPlayer(e.wid):null;
      const ec=G.clubs[e.s===0?hi:ai];
@@ -3948,10 +4179,11 @@ function reportRatings(){
   return `<div class="sechead" style="margin-top:14px">How they played
     <span class="n">${men[0].r.toFixed(1)} best</span></div>
    <div class="pcgrid">${men.map(({p,slot,r})=>{
-     const g=gl.filter(e=>e.wid===p.id).length;
+     const g=gl.filter(e=>e.wid===p.id).length, a=gl.filter(e=>e.astId===p.id).length;
      return pcard(p,{w,club:c,slot,num:r.toFixed(1),tier:pcTierRating(r),
-       footHTML:g?`<span class="pc-ab" style="font-size:10px">GOAL${g>1?' x'+g:''}</span>`
-         :`<span class="pc-ab" style="font-size:10px">${esc(p.nat.toUpperCase())}</span>`})}).join('')}</div>`;
+       footHTML:g?`<span class="pc-ab" style="font-size:10px;color:var(--acc)">GOAL${g>1?' x'+g:''}</span>`
+         :a?`<span class="pc-ab" style="font-size:10px;color:var(--win)">ASSIST</span>`
+         :kitChip(c,p,Math.round(w*0.16))})}).join('')}</div>`;
 }
 function afterReport(){
   closeSheet();
