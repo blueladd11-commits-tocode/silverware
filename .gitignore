@@ -2,3 +2,8 @@
 node_modules/
 dist/
 *.log
+
+# Ad-hoc single-module test harnesses left by development.
+# Kept locally, not part of the project.
+prototype/_*.html
+prototype/mdonly.html
