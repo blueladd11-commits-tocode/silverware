@@ -15,6 +15,9 @@
   --inj:#FF7043;--trf:#4C8DFF;--loan:#A78BFA;
   --r1:#F0484F;--r2:#FF7A45;--r3:#FFC53D;--r4:#A9D94B;--r5:#35D07F;
   --ucl:#4C8DFF;--uel:#FF7A45;--uecl:#35D07F;
+  /* Turf is deliberately dark: a #2E7D32 pitch inside a #0A0C0F app is a glowing
+     rectangle that fights every number on screen. The white lines do the work. */
+  --turf-1:#12241B;--turf-2:#15291E;--turf-line:#7E9C8C;--turf-edge:#0D1B14;--turf-goal:#E8EDF0;
   --disp:'Archivo',system-ui,sans-serif;--ui:'Inter',system-ui,sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -64,6 +67,28 @@ h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
 .spacer{flex:1}.muted{color:var(--t2)}.dim{color:var(--t3)}
 .mono{font-family:var(--disp);font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:13px}
 .hide{display:none!important}
+
+/* ---------- pitch and kits ---------- */
+.pitchwrap{position:relative;width:100%;aspect-ratio:740/910;border-radius:16px;
+  overflow:hidden;background:var(--turf-edge);touch-action:none;
+  box-shadow:var(--sh-3),inset 0 0 0 1px rgba(255,255,255,.06)}
+.pitchwrap svg.pitch{position:absolute;inset:0;width:100%;height:100%;display:block}
+.tok{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border:0;padding:0;
+  background:none;cursor:pointer;transform:translateZ(0)}
+.tok .kit{position:absolute;inset:0;border-radius:50%;
+  box-shadow:0 2px 6px rgba(0,0,0,.55), inset 0 0 0 2px rgba(255,255,255,.16)}
+.tok .no{position:absolute;inset:0;display:grid;place-items:center;
+  font-family:var(--disp);font-weight:800;font-size:17px;line-height:1;letter-spacing:-.02em}
+.tok .lbl{position:absolute;top:45px;left:50%;transform:translateX(-50%);white-space:nowrap;
+  font-size:10px;font-weight:700;line-height:12px;color:#fff;text-align:center;
+  text-shadow:0 1px 3px rgba(0,0,0,.95)}
+.tok .ring{position:absolute;inset:-3px}
+.tok:active .kit{box-shadow:0 0 0 3px var(--acc),0 2px 6px rgba(0,0,0,.55)}
+.tok.sel .kit{box-shadow:0 0 0 3px var(--acc),0 6px 16px rgba(0,0,0,.7)}
+.kitchip{width:26px;height:26px;border-radius:7px;flex:0 0 auto;position:relative;
+  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.16),0 1px 3px rgba(0,0,0,.5)}
+.kitchip i{position:absolute;inset:0;display:grid;place-items:center;font-style:normal;
+  font-family:var(--disp);font-weight:800;font-size:12px}
 
 /* ============================================================
    DEPTH AND MOTION (research 09, §5)
@@ -526,6 +551,68 @@ const KITS=[['#8E1B2E','#F2E9D8'],['#123C6B','#FFFFFF'],['#F0C419','#16181C'],['
  ['#0E4F3C','#E4C766'],['#4A2B7A','#DCE3EA'],['#8A5B12','#F4EEE0'],['#334A5E','#E9B84A'],
  ['#6E1230','#EDE3D0'],['#0B3B5C','#EBB13A'],['#3D5A22','#F5F0DC'],['#5A1E1E','#D8CBB0']];
 const STADPRE=['Park','Road','Lane','Street','Ground','Stadium','Field','Terrace'];
+/* ---------- kits ----------
+   The token IS the kit in a circle. Eleven claret-and-blue circles in a 4-4-2 is
+   unmistakably a football team, and costs one background string per player. */
+const KITPAT={
+ eng:['plain','plain','stripes','hoops','halves','band','sash','shoulders','pinstripe','stripes-w'],
+ esp:['stripes','stripes','plain','stripes-w','halves','band','shoulders','pinstripe'],
+ ger:['plain','plain','band','hoops','shoulders','halves','stripes','halo'],
+ ita:['stripes','plain','stripes-w','band','halves','shoulders','pinstripe','quarters'],
+ fra:['plain','plain','band','shoulders','stripes','halves','sash','hoops']};
+function kitFor(club){
+  if(club.kit)return club.kit;
+  const r=mulberry32((club.seed^0x5f37)>>>0);
+  const pool=KITPAT[club.nat]||KITPAT.eng;
+  club.kit={p:club.primary,s:club.secondary,trim:club.secondary,
+    pat:pool[Math.floor(r()*pool.length)],
+    collar:['crew','v','polo'][Math.floor(r()*3)],
+    sleeve:r()<0.32?'contrast':'matching'};
+  return club.kit;
+}
+function kitCSS(k){
+  const p=k.p,s=k.s;
+  switch(k.pat){
+    case 'stripes':   return `repeating-linear-gradient(90deg,${p} 0 11.11%,${s} 11.11% 22.22%)`;
+    case 'stripes-w': return `repeating-linear-gradient(90deg,${p} 0 20%,${s} 20% 40%)`;
+    case 'pinstripe': return `repeating-linear-gradient(90deg,${p} 0 11%,${s} 11% 13%)`;
+    case 'hoops':     return `repeating-linear-gradient(180deg,${p} 0 11.11%,${s} 11.11% 22.22%)`;
+    case 'hoops-w':   return `repeating-linear-gradient(180deg,${p} 0 20%,${s} 20% 40%)`;
+    case 'halves':    return `linear-gradient(90deg,${p} 0 50%,${s} 50% 100%)`;
+    case 'quarters':  return `conic-gradient(from 0deg,${p} 0 25%,${s} 25% 50%,${p} 50% 75%,${s} 75% 100%)`;
+    case 'sash':      return `linear-gradient(115deg,${p} 0 33%,${s} 33% 55%,${p} 55% 100%)`;
+    case 'band':      return `linear-gradient(180deg,${p} 0 37%,${s} 37% 63%,${p} 63% 100%)`;
+    case 'shoulders': return `linear-gradient(180deg,${s} 0 24%,${p} 24% 100%)`;
+    case 'halo':      return `radial-gradient(circle at 50% 50%,${p} 0 33%,${s} 33% 55%,${p} 55% 100%)`;
+    default:          return p;
+  }
+}
+function lum(h){
+  const n=parseInt(String(h).slice(1),16);
+  const f=[n>>16&255,n>>8&255,n&255].map(v=>{v/=255;
+    return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});
+  return .2126*f[0]+.7152*f[1]+.0722*f[2];
+}
+const CENTRE_IS_SECONDARY={band:1,sash:1};
+function numInk(k){
+  const behind=CENTRE_IS_SECONDARY[k.pat]?k.s:k.p;
+  const dark=lum(behind)<.32;
+  const ink=dark?'#FFFFFF':'#0B0E12';
+  const edge=dark?'rgba(0,0,0,.85)':'rgba(255,255,255,.9)';
+  return {ink,halo:`-1px 0 0 ${edge},1px 0 0 ${edge},0 -1px 0 ${edge},0 1px 0 ${edge},0 0 3px ${edge}`};
+}
+const kitBright=k=>lum(k.p)>=lum(k.s)?k.p:k.s;
+/* squad numbers are stable per club, assigned once by position */
+function shirtNo(c,p){
+  if(p.no)return p.no;
+  const order=['GK','CB','FB','DM','CM','AM','W','ST'];
+  const used=new Set(c.squad.map(x=>x.no).filter(Boolean));
+  const pref={GK:[1,13,25],CB:[4,5,6,15],FB:[2,3,12,17],DM:[8,16,22],
+    CM:[6,8,14,18],AM:[10,20,21],W:[7,11,19,23],ST:[9,24,26,27]}[p.pos]||[];
+  for(const n of pref)if(!used.has(n)){p.no=n;return n}
+  for(let n=2;n<40;n++)if(!used.has(n)){p.no=n;return n}
+  p.no=99;return 99;
+}
 
 /* ---------- club-name generation ---------- */
 function genClubNames(nat,count,used,usedAbbr){
@@ -1642,6 +1729,108 @@ function applyPlan(){
 </script>
 <script>
 /* ============================================================
+   THE PITCH  (research 13)
+   Pitch in SVG, players as absolutely-positioned HTML buttons over it:
+   real 44px hit areas, cheap drag, wrapping text, and proper accessibility.
+   ============================================================ */
+function pitchSVG(){
+  const L='var(--turf-line)';
+  return `<svg class="pitch" viewBox="0 0 740 910" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <linearGradient id="pv" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".085"/>
+      <stop offset=".45" stop-color="#fff" stop-opacity=".02"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>
+    <pattern id="net" width="9" height="9" patternUnits="userSpaceOnUse">
+      <path d="M0 0 L9 9 M9 0 L0 9" stroke="var(--turf-goal)" stroke-opacity=".28" stroke-width="1"/></pattern>
+  </defs>
+  <rect width="740" height="910" fill="var(--turf-edge)"/>
+  <rect x="30" y="30" width="680" height="850" fill="var(--turf-1)"/>
+  <g fill="var(--turf-2)">
+    <rect x="30" y="30" width="680" height="85"/><rect x="30" y="200" width="680" height="85"/>
+    <rect x="30" y="370" width="680" height="85"/><rect x="30" y="540" width="680" height="85"/>
+    <rect x="30" y="710" width="680" height="85"/></g>
+  <rect x="30" y="30" width="680" height="850" fill="url(#pv)"/>
+  <g fill="none" stroke="${L}" stroke-width="3" stroke-opacity=".9">
+    <rect x="30" y="30" width="680" height="850"/>
+    <line x1="30" y1="455" x2="710" y2="455"/>
+    <ellipse cx="370" cy="455" rx="91.5" ry="74.1"/>
+    <rect x="168.4" y="30" width="403.2" height="133.6"/>
+    <rect x="168.4" y="746.4" width="403.2" height="133.6"/>
+    <rect x="278.4" y="30" width="183.2" height="44.5"/>
+    <rect x="278.4" y="835.5" width="183.2" height="44.5"/>
+    <path d="M296.8 163.6 A 91.5 74.1 0 0 0 443.2 163.6"/>
+    <path d="M296.8 746.4 A 91.5 74.1 0 0 1 443.2 746.4"/>
+    <path d="M30 38.1 A 10 8.1 0 0 0 40 30"/><path d="M700 30 A 10 8.1 0 0 0 710 38.1"/>
+    <path d="M30 871.9 A 10 8.1 0 0 1 40 880"/><path d="M700 880 A 10 8.1 0 0 1 710 871.9"/></g>
+  <g fill="${L}" fill-opacity=".9">
+    <circle cx="370" cy="455" r="4"/><circle cx="370" cy="119" r="4"/><circle cx="370" cy="791" r="4"/></g>
+  <g stroke="var(--turf-goal)" stroke-opacity=".5" stroke-width="3">
+    <rect x="333.4" y="12" width="73.2" height="18" fill="url(#net)"/>
+    <rect x="333.4" y="880" width="73.2" height="18" fill="url(#net)"/></g>
+ </svg>`;
+}
+const BAND_Y={2:[74,38],3:[76,52,24],4:[78,60,40,20],5:[79,66,51,35,18]};
+const SPREAD={1:0,2:.42,3:.64,4:.84,5:.88,6:.90};
+function layout(formation){
+  const bands=formation.split('-').map(Number);
+  const ys=BAND_Y[bands.length]||BAND_Y[3];
+  const out=[{x:50,y:90}];
+  bands.forEach((n,b)=>{
+    const last=b===bands.length-1;
+    const sp=(SPREAD[n]||.88)*(last&&n>=3?1.12:1);
+    for(let i=0;i<n;i++)
+      out.push({x:+(50+sp*100*((i+.5)/n-.5)).toFixed(1),y:ys[b]});
+  });
+  return out;
+}
+/* Show the exception, not the rule: eleven fitness rings is noise, so the ring
+   only appears when a player is actually tired — the ring IS the warning. */
+function token(c,slot,p,pos,i){
+  const k=kitFor(c),{ink,halo}=numInk(k);
+  const C=2*Math.PI*23, cond=Math.round(p.cond);
+  const ca=Math.round(CA(p,slot));
+  const showRing=cond<85||p.out>0;
+  const sn=p.name.split(' ').pop();
+  const off=slot!==p.pos;
+  return `<button class="tok${G.pickSlot===i?' sel':''}" style="left:${pos.x}%;top:${pos.y}%"
+     onclick="pitchTap(${i})" aria-label="${slot} ${esc(p.name)}, ability ${ca}, ${cond}% fit">
+   ${showRing?`<svg class="ring" viewBox="0 0 50 50" width="50" height="50" aria-hidden="true">
+     <circle cx="25" cy="25" r="23" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="3"/>
+     <circle cx="25" cy="25" r="23" fill="none" stroke="${p.out>0?'var(--inj)':cond<66?'var(--inj)':'var(--acc)'}"
+       stroke-width="3" stroke-linecap="round"
+       stroke-dasharray="${(C*cond/100).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 25 25)"/></svg>`:''}
+   <span class="kit" style="background:${kitCSS(k)}"></span>
+   <span class="no" style="color:${ink};text-shadow:${halo}">${shirtNo(c,p)}</span>
+   <span class="lbl">${esc(sn)}<br>
+     <i style="font-style:normal;color:${ramp(ca)}">${ca}</i>
+     <i style="font-style:normal;color:${off?'var(--inj)':'var(--t2)'};font-weight:600"> ${slot}</i></span>
+  </button>`;
+}
+function pitchView(c){
+  const pos=layout(c.formation);
+  return `<div class="pitchwrap">${pitchSVG()}
+    ${c.xi.map((x,i)=>token(c,x.slot,x.p,pos[i]||{x:50,y:50},i)).join('')}</div>`;
+}
+/* Tap one, tap another, they swap. Same affordance as drag, works with one thumb. */
+function pitchTap(i){
+  const c=me();
+  if(G.pickSlot===undefined||G.pickSlot===null){G.pickSlot=i;render();return}
+  if(G.pickSlot===i){G.pickSlot=null;showPlayer(c.xi[i].p.id);render();return}
+  const a=G.pickSlot,b=i;
+  const pa=c.xi[a].p, pb=c.xi[b].p;
+  c.xi[a].p=pb; c.xi[b].p=pa;
+  G.pickSlot=null; save(); render();
+}
+function benchSwap(id){
+  const c=me();
+  if(G.pickSlot===undefined||G.pickSlot===null){showPlayer(id);return}
+  const p=c.squad.find(x=>x.id===id);
+  if(p){c.xi[G.pickSlot].p=p}
+  G.pickSlot=null; save(); render();
+}
+
+/* ============================================================
    HUB
    ============================================================ */
 function viewHub(){
@@ -1749,15 +1938,17 @@ function viewSquad(){
       onclick="G.squadView='${k}';render()">${l}</button>`).join('')}</div>${ext.render()}</div>${tabbar()}`}
   if(G.squadView==='lineup'){
     const bench=squadOf(c).filter(p=>!c.xi.find(x=>x.p.id===p.id));
+    const picking=G.pickSlot!==undefined&&G.pickSlot!==null;
     body=`<div class="row" style="margin-bottom:10px">
-      <span class="pill">${c.formation}</span>
-      <span class="dim" style="font-size:12px">XI avg ${Math.round(c.xi.reduce((s,x)=>s+CA(x.p,x.slot),0)/11)}</span>
+      <span class="pill acc">${c.formation}</span>
+      <span class="dim" style="font-size:12px">XI avg ${Math.round(c.xi.reduce((s2,x)=>s2+CA(x.p,x.slot),0)/11)}</span>
       <span class="spacer"></span>
-      <button class="btn ghost xs" onclick="autoXI(me());save();render()">Auto-pick</button></div>
-      <div class="card" style="padding:6px 14px 12px">${c.xi.map(({slot,p})=>plrRow(p,slot)).join('')}</div>
-      <div class="sechead">Squad</div>
-      <div class="card" style="padding:6px 14px 12px">${bench.map(p=>plrRow(p,null)).join('')}</div>`;
-  } else if(G.squadView==='tactics'){
+      <button class="btn ghost xs" onclick="G.pickSlot=null;autoXI(me());save();render()">Auto-pick</button></div>
+      ${pitchView(c)}
+      <div class="sechead">${picking?'<span style="color:var(--acc)">Tap a player to swap him in</span>':'Bench'}
+        <span class="n">${bench.length}</span></div>
+      <div class="card" style="padding:6px 14px 12px">
+      ${bench.map(p=>benchRow(c,p)).join('')}</div>`;  } else if(G.squadView==='tactics'){
     const sl=(lbl,key,lo,hi)=>{const v=c[key];
       return `<div style="margin-bottom:18px"><div class="row" style="margin-bottom:7px">
         <span style="font-weight:600;font-size:14px">${lbl}</span><span class="spacer"></span>
@@ -1807,6 +1998,21 @@ function viewSquad(){
   return `${topbar()}<div class="scroll">
    <div class="segmented ${views.length>4?'many':''}">${views.map(([k,l])=>`<button aria-selected="${G.squadView===k}"
      onclick="G.squadView='${k}';render()">${l}</button>`).join('')}</div>${body}</div>${tabbar()}`;
+}
+function kitChip(c,p){
+  const k=kitFor(c),{ink,halo}=numInk(k);
+  return `<span class="kitchip" style="background:${kitCSS(k)}">
+    <i style="color:${ink};text-shadow:${halo}">${shirtNo(c,p)}</i></span>`;
+}
+function benchRow(c,p){
+  const last=p.ratings.slice(-5).map(r=>r>=7.1?'W':r>=6.3?'D':'L');
+  return `<div class="plr" onclick="benchSwap(${p.id})">
+   ${pface(p,46)}${kitChip(c,p)}
+   <div class="nmw"><div class="nm2">${esc(p.name)}${p.out>0?'<span style="color:var(--inj)">✚</span>':''}</div>
+    <div class="meta"><span class="pill" style="padding:1px 6px">${p.pos}</span>
+      <span class="flag">${p.nat}</span><span>${p.age}</span>${fstrip(last)}
+      <span style="color:${p.cond<66?'var(--inj)':'var(--t3)'}">${Math.round(p.cond)}%</span></div></div>
+   <div class="ca" style="color:${ramp(CA(p))}">${Math.round(CA(p))}</div></div>`;
 }
 function plrRow(p,slot){
   const v=slot?CA(p,slot):CA(p);
