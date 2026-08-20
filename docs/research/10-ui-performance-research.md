@@ -412,3 +412,353 @@ Two of these deserve emphasis because they are backed rather than merely sensibl
 Those are compatible goals only through encoding, not through hiding. A radar shape is instantly gestalt-readable by a novice *and* carries more comparative information per glance than a row of digits does for an expert. Get the encoding right and the novice/expert trade-off largely dissolves.
 
 ---
+
+## 9. UI factors ranked by evidence strength × impact
+
+Impact is scored against *our* funnel (install conversion → first-session completion → D1 → D7/D30), given that our genre's weakness is specifically the front door.
+
+| # | UI factor | What the evidence actually shows | Evidence | Expected impact | Build cost |
+|---|---|---|---|---|---|
+| 1 | **Store icon + first two screenshots** | 3–6s decision window, 100% of visitors exposed; measured lifts +15% to +64% in published tests; category CVR 10–12% | B (behaviour) / C (lifts) | **Very high** — multiplies every downstream number | Low |
+| 2 | **Custom Product Pages** | Apple: 1.6%→4.1% CVR on referred traffic (+156%); +8.6% for games; only 26% of games use them | B | **Very high** | Low |
+| 3 | **Time-to-first-fun < 120s** | 20% of installs lost within 2 min of first launch; games with >9-min first sessions average 31% D1 vs 20% | B | **Very high** | Medium |
+| 4 | **No login/permission wall before first value** | Login walls stop users cold; ~24% of e-commerce abandoners cite forced account creation | A (principle) / B | **High** | Low |
+| 5 | **Endowed progress — never show 0%** | Car-wash field experiment: 34% vs 19% completion from presentation alone | **A** | **High** | Low |
+| 6 | **Response time: 100ms tap, <1s transition, <10s any wait** | Nielsen's three limits; 0.1s Deloitte lift of +8–10% conversion in adjacent verticals | **A** / B | **High** | Medium–High |
+| 7 | **Non-textual encoding of every number that matters** | Users read ≤20–28% of words; phone comprehension is 48% of desktop | **A** | **High** (our specific failure mode) | Medium |
+| 8 | **Success-dependent, proportional feedback ("real juice")** | CHI 2024, N=1,699 pre-registered: success-dependence raised all motives; **amplification lowered them**; curiosity was the only playtime predictor | **A** | **High** | Medium |
+| 9 | **One primary action per screen, always visible** | Inferred from Hick's law + early-churn timing; no direct game experiment | B (inferred) | **High** | Low |
+| 10 | **Progressive disclosure with persistent state** | Nielsen 1995, decades of usability evidence; expert-slowdown cost is documented (FM26 reception) | A (principle) / C (cost) | **Medium–High** | Medium |
+| 11 | **Skeleton screens instead of spinners** | Higher perceived speed *and* ease of navigation vs spinners; NN/g: ≈ progress bars for standard loads | B | **Medium** | Low |
+| 12 | **Push: soft-prompt after first win, ≤4/week, game-state only** | Opt-in 54% iOS / 97% Android; >6/week → 3.4× uninstall risk; the "3× retention" figure is correlational | B | **Medium** | Low |
+| 13 | **Animation 200–300ms, everything skippable** | 100ms = instant; >500ms sluggish; <80ms imperceptible | A/B | **Medium** | Low |
+| 14 | **Distance-to-goal framing over absolute standings** | Goal-gradient effect (Kivetz 2006) + endowed progress | **A** | **Medium** | Low |
+| 15 | **Evaluability aids (recommended option, visible consequence) over cutting options** | Choice overload meta-analysis: overall d ≈ 0.02; effect appears only under moderators — hard evaluability being the main one | C (nuanced) | **Medium** | Medium |
+| 16 | **Session-end open loop ("one more match")** | Zeigarnik is weakly replicated; but curiosity was the only predictor of free-choice playtime (CHI 2024) | C/D | **Medium, speculative** | Low |
+| 17 | **App preview video** | Explicitly inconsistent — loses for some apps in vendor tests | C | **Unknown — must be tested** | High |
+| 18 | **Long store description** | No credible isolating experiment; below the fold on iOS, not indexed by Apple | — | **Low** | Low |
+| 19 | **Screen shake / particle amplification** | Raises aesthetic appeal; **no effect on usability or performance; reduced motivation when amplified** | **A** | **Low / possibly negative** | Medium |
+| 20 | **Theme/dark-mode, icon polish beyond legibility, custom fonts** | No retention evidence in any source reviewed | D | **Decoration** | Varies |
+
+**The one-line summary of the table:** everything above line 9 is worth doing before anything below it, and items 19–20 are where studios habitually spend their UI budget.
+
+---
+
+## 10. The first 60 seconds — specification
+
+Derived from: the 3–6s store decision window (StoreMaven, B); the 2-minute/20% churn cliff (deltaDNA, B); Nielsen's 0.1/1/10s limits (A); ≤20–28% reading and 48% mobile comprehension (A); endowed progress (A); success-dependent feedback (A).
+
+**The governing constraint: the player must have made a decision that visibly changed a football match, and seen a result, before the 60-second mark — without having created an account, granted a permission, or read more than 60 words in total.**
+
+### T+0.0s to T+2.0s — Cold start
+- App is **interactive within 2 seconds** on our minimum-spec device. This is a hard gate, treated like a crash bug.
+- No splash video. Logo appears for a maximum of **1.5s** and is skippable by tap from frame one.
+- If anything must load, **skeleton, never spinner** — the player sees the shape of the club screen assembling.
+- **No permission prompts. No login. No age gate beyond what is legally required. No "rate us." No consent interstitial.**
+
+### T+2s to T+12s — Identity, in one screen
+- One screen: **"Which club?"**
+- **Between 4 and 6 options**, presented as crests/kits, not a list of names. Visual, tappable, thumb-zone.
+- Each option carries **one line of ≤6 words** stating the challenge ("Relegation favourites. Prove them wrong.") — this is the only text on the screen.
+- A **recommended** option is flagged. (Evaluability, §5.2 — a new player has no basis for preferring one club over another, which is precisely the condition under which choice overload is real.)
+- Tapping a crest commits immediately. **No confirm dialog.**
+- Budget: **1 tap.**
+
+### T+12s to T+25s — The world, already in motion
+- The player lands on their club. **Nothing is at zero.**
+  - The season is **already 3 matches old.** They have inherited a position, a form line, a squad.
+  - The trophy cabinet has a shape with empty slots.
+  - The progression bar toward the first milestone is **visibly non-zero.**
+- This is the endowed-progress finding (Grade A, 34% vs 19%) applied literally. A player handed a live situation is a player already invested; a player handed an empty save file is a player being asked to start work.
+- The squad is shown as **a pitch with players on it**, not a table. Form and fitness are colour, not digits.
+- **One primary CTA, thumb-zone, verb + object: "Pick your team for Saturday."**
+- Budget: **0 mandatory taps** (the player may look around; nothing punishes them for not doing so).
+
+### T+25s to T+45s — The first real decision
+- **Exactly one decision, exactly three options.** Example: your star striker is carrying a knock — *start him / bench him / start him and play safe*.
+- Each option shows its **consequence before commitment** — a visible shift in an attack/defence/risk bar, animated in 200–300ms as the player's finger hovers or on tap-preview.
+- Total instructional text on this screen: **≤20 words.**
+- **No tutorial modal. No hand pointer. No "tap here."** The screen has one interactive region and one CTA; there is nothing to explain.
+- Budget: **1–2 taps.**
+
+### T+45s to T+60s — The match, and the payoff
+- Match begins **within 1 second** of confirming. No loading screen.
+- The first match presentation is **short (a highlights-only key-moments format), visual, and unskippable-but-brief** — under 45 seconds of real time for the first one.
+- **The decision the player just made visibly matters.** If they started the striker, he is in the highlight. This is the success-dependent feedback that Kao et al. (N=1,699, Grade A) found raises all three motivational pathways — as opposed to amplification, which lowered them. Legibility of cause and effect, not spectacle.
+- The result screen shows: the score, **one line** on why it happened, and progress on the season bar visibly advancing.
+- **One CTA: the next fixture.** The open loop for session 2 is set here.
+- Budget: **1 tap.**
+
+### Cumulative budget for the first 60 seconds
+
+| Constraint | Limit | Source |
+|---|---|---|
+| Taps to first match result | **≤ 5** (hard cap 12 including optional exploration) | Design constraint from the 120s cliff |
+| Total read-required words | **≤ 60** | ≤20–28% reading rate; 48% mobile comprehension (A) |
+| Words on any single screen | **≤ 20** | as above |
+| Modal dialogs | **0** | — |
+| Permission prompts | **0** | Login-wall evidence (A/B) |
+| Screens before a football decision | **≤ 2** | — |
+| Any unexplained wait | **0 over 10s; target <1s** | Nielsen (A) |
+| Tap→visual feedback | **<100ms** | Nielsen (A) |
+| Progress bars starting at zero | **0** | Endowed progress (A) |
+
+### What happens after 60 seconds
+- Minutes 1–10 continue the same loop, **widening by one system per cycle** and only when the player has a problem that system solves.
+- Target: a player *can* comfortably stay engaged for **9–12 minutes** in session 1 without ever being required to. The deltaDNA finding is about there being enough there, not about detaining anyone.
+- Account creation offered **once**, after the first win, framed as "save your career."
+- Push permission requested **once**, after the account offer, pre-framed in-game ("we'll tell you when you're playing").
+
+---
+
+## 11. Measurement plan
+
+You cannot tell whether a UI change worked from D1 alone — it is slow, noisy, and confounded by every UA change. Instrument the funnel so that each step is independently readable, then use D1 as the confirming metric rather than the steering metric.
+
+### 11.1 The funnel
+
+```
+STORE                    impression → page_view → install
+  ↓
+COLD START               install → app_open_first → app_interactive
+  ↓
+FTUE                     ftue_start → club_selected → squad_viewed
+                         → first_decision_shown → first_decision_made
+                         → first_match_started → first_match_completed
+                         → first_result_seen
+  ↓
+SESSION 1 DEPTH          second_match_started → system_unlocked(n)
+                         → session_1_end
+  ↓
+RETURN                   d1_return → d7_return → d30_return
+```
+
+### 11.2 Events to instrument
+
+Every event carries: `session_id`, `install_id`, `platform`, `device_tier`, `app_version`, `experiment_arm`, `seconds_since_install`, `seconds_since_session_start`, `tap_index_in_session`.
+
+**Store / acquisition (from App Store Connect + Google Play Console + MMP)**
+| Event | Key properties |
+|---|---|
+| `store_page_view` | source (search / browse / ad / referral), CPP variant |
+| `install` | source, CPP variant |
+
+**Cold start**
+| Event | Key properties |
+|---|---|
+| `app_open` | is_first_open, cold_or_warm |
+| `app_interactive` | **`ms_to_interactive`** ← the gate metric for the 2s spec |
+| `first_frame_rendered` | ms |
+
+**FTUE — the critical section**
+| Event | Key properties |
+|---|---|
+| `ftue_start` | |
+| `club_select_shown` | option_count |
+| `club_selected` | club_id, was_recommended, **`ms_on_screen`**, taps_before_selection |
+| `squad_first_viewed` | ms_on_screen, scroll_depth |
+| `first_decision_shown` | decision_id, option_count |
+| `first_decision_made` | option_chosen, **`ms_to_decide`**, previews_opened |
+| `first_match_started` | |
+| `first_match_completed` | result, ms_watched, was_skipped |
+| `first_result_seen` | |
+| `ftue_complete` | **`total_seconds`**, **`total_taps`**, **`words_displayed`** |
+| `ftue_abandon` | **`last_step`**, `seconds_since_install` ← *the single most valuable event in the game* |
+
+**Ongoing UI-quality events**
+| Event | Key properties |
+|---|---|
+| `screen_view` | screen_id, ms_on_screen, exit_action |
+| `dead_tap` | screen_id, coordinates — taps on non-interactive elements = comprehension failures |
+| `rage_tap` | 3+ taps in <1s on the same element = responsiveness failure |
+| `back_navigation` | from_screen, to_screen — high rates = wrong information architecture |
+| `slow_frame` | screen_id, ms — anything over 33ms (sub-30fps) |
+| `slow_transition` | from, to, ms — flag anything >1s (Nielsen limit) |
+| `wait_shown` | context, ms, had_progress_indicator — flag anything >10s |
+| `system_unlocked` | system_id, seconds_since_install, session_number |
+| `tooltip_shown` / `tooltip_dismissed` | id, ms_visible — <1s visible = not read |
+| `session_end` | duration, matches_played, ended_on_open_loop (bool) |
+| `permission_prompt_shown` / `_result` | type, trigger_context |
+
+**Retention**
+`d1_return`, `d3_return`, `d7_return`, `d14_return`, `d30_return`, `sessions_per_day`, `days_since_last_session`.
+
+### 11.3 The five headline metrics
+
+Everything above rolls up to five numbers on one dashboard, split by platform and device tier:
+
+1. **Store CVR** (page view → install)
+2. **Time-to-first-result** — median seconds from `app_open` to `first_result_seen`. **Target: ≤60s at p50, ≤120s at p90.**
+3. **FTUE completion rate** — `ftue_complete` / `ftue_start`. **Target ≥70%, stretch 85%.**
+4. **D1 retention**, segmented by whether FTUE was completed.
+5. **Session-1 depth** — median matches played in session 1.
+
+### 11.4 The drop-off report
+
+The report to run every week is a single one: **`ftue_abandon` grouped by `last_step`, with median `seconds_since_install` per step.** deltaDNA's Song of Pan case — losing 20% during the tutorial, fixed by changing tutorial visual direction and reducing menu choices — was found and fixed with exactly this report. It will tell you which screen is killing the game within a week of launch.
+
+### 11.5 Experiment design and sample sizes
+
+Two-sided α = 0.05, 80% power, per arm:
+
+| Test | Baseline | Detectable lift | **N per arm** |
+|---|---|---|---|
+| D1 retention | 20% | +5pp (→25%) | ~1,100 installs |
+| D1 retention | 20% | +3pp (→23%) | ~2,900 installs |
+| D1 retention | 20% | +1pp (→21%) | ~25,600 installs |
+| FTUE completion | 60% | +5pp (→65%) | ~1,500 installs |
+| Store CVR | 10% | +1pp (→11%) | ~14,700 page views |
+
+**Practical implications:**
+- **Do not attempt to A/B test D1 for changes worth less than ~3pp** until you have real volume. You will burn weeks proving nothing.
+- **Steer on the FTUE funnel instead.** FTUE completion has a higher baseline and shorter feedback loop, so it needs roughly half the sample for the same relative sensitivity and reads in hours rather than days.
+- **Ship the Grade-A changes without testing them.** Endowed progress, sub-100ms tap feedback, no login wall, skeleton screens, non-textual encoding — the prior is strong enough and the cost of testing exceeds the cost of doing. Reserve experimentation for the genuinely uncertain: video preview, tutorial structure, first-decision framing, notification cadence.
+- **Guardrail metrics on every experiment:** crash-free sessions, `ms_to_interactive` at p90, D7, and store rating trend. A change that lifts D1 and tanks D7 is a change that moved the churn rather than preventing it.
+- **Always segment by device tier.** Low-end Android is where responsiveness failures live, and it is where the 6-point iOS/Android D1 gap comes from.
+
+---
+
+## 12. Folklore watch list
+
+Claims encountered repeatedly during this research that have **no traceable primary source**. Recognise them; do not repeat them in decks; do not plan against them.
+
+| Claim | Status |
+|---|---|
+| "Good onboarding lifts retention by up to 50%" | **D** — untraceable |
+| "Personalised onboarding gives a 52% D30 lift" | **D** — untraceable |
+| "If the aha moment takes more than 90 seconds, users never return" | **D** — no study, though directionally consistent with the Grade-B 2-minute finding |
+| "Mid-core games teaching 8–10 mechanics see 35–45% tutorial completion vs 80%+" | **D** — plausible, unsourced |
+| "A 2006 NN/g study found progressive disclosure gave 30–50% faster task completion" | **D** — I could not establish this study exists |
+| "Progress indicators reduce abandonment by up to 30%" | **D** — untraceable |
+| "Users experiencing jank during onboarding convert 40% lower" | **D** — untraceable |
+| "Push notifications triple retention" | **D as causal** — the 3× figure is a real correlation with massive selection bias |
+| "Fewer options is always better" | **D** — contradicted by a 50-study, 5,036-participant meta-analysis (d ≈ 0.02). The effect is real only under specific moderators |
+| "More juice always improves engagement" | **Contradicted by Grade-A evidence** — amplification *reduced* motivation in a pre-registered N=1,699 experiment |
+
+---
+
+## 13. THE TEN THINGS THAT ACTUALLY MATTER
+
+Ordered by expected impact on SILVERWARE's numbers. Each states the evidence and its grade.
+
+---
+
+### 1. The first two screenshots and the icon decide whether anyone ever sees your game
+Nothing downstream matters if the store page does not convert, and it is the cheapest surface to fix. StoreMaven's sample of 500M+ users shows visitors spend **3–6 seconds** on the first impression before deciding, and 100% of visitors are exposed to the first-impression assets while only a minority scroll (**Grade B**). Published A/B tests of icons and screenshots show lifts from **+15% to +64%** (**Grade C** — selection-biased, so plan for +15–25%). Category CVR for games runs **10–12%** against a US all-category average of **8.56%** (**Grade B**).
+**Do:** three genuinely different icon concepts tested at 60×60px; first two screenshots each carrying one idea, portrait, ≤5-word captions, showing the *fantasy of authority* rather than a table of numbers.
+
+---
+
+### 2. Ship Custom Product Pages — three-quarters of games don't
+Apple's own published data: referred traffic to a matched Custom Product Page converts at **4.1% vs 1.6%** on the default page — a **+156%** lift (**Grade B**). Across 1M+ Apple Ads ad groups, CPPs lifted tap-through from 9.72% to 10.90% and tap-to-install from 63.91% to 70.05%. Games using CPPs see up to **+8.6%** CVR, and **only 26% of games use them**. The limit was doubled to 70 in Oct 2025, and since Jul 2025 they can serve organic search results.
+**Do:** one CPP per acquisition intent — "manage your boyhood club," "rebuild a fallen giant," "the tactics sim in your pocket." Days of work, best documented ROI in this document.
+
+---
+
+### 3. Get the player to a match result inside 60 seconds, with no account and no tutorial
+**20% of installs are lost within 2 minutes of first launch** (deltaDNA, 275 games, **Grade B**). Nielsen's **10-second** attention limit (**Grade A**) sets the ceiling on any unexplained wait. Login walls stop users cold, and ~24% of e-commerce abandoners cite forced account creation (**Grade A/B**).
+This is the highest-leverage in-game decision available to us, because Strategy's genre profile — **worst D1 of any genre at 25.4%, but a D30 (3.12%) that beats Simulation, Action and Shooting** (**Grade B**) — proves the problem is the front door, not the game.
+**Do:** the Section 10 spec. ≤5 taps, ≤60 read-required words, zero modals, zero permission prompts, zero login, before the first result.
+
+---
+
+### 4. Never show a player a zero
+Nunes & Drèze (2006, *JCR*) ran a real field experiment on car-wash loyalty cards: an 8-stamp empty card versus a 10-stamp card with 2 stamps pre-filled — **identical required effort**. Completion was **34% vs 19%** (**Grade A**). Kivetz, Urminsky & Zheng (2006, *JMR*) established the goal-gradient effect in real reward programmes (**Grade A**).
+This is the best-evidenced finding in this document and it is pure presentation.
+**Do:** the player inherits a club **3 matches into a season**, not an empty save. Every progress bar starts non-zero. Every objective displays **distance-to-goal** ("2 wins from the play-offs"), never cumulative total ("14 wins"). The league table shows the five rows around you, not all twenty.
+
+---
+
+### 5. Encode every number that matters as something other than a number
+Users read **at most 28% of the words on a page, and 20% is more likely**; **79% scan, only 16% read word-by-word** (NN/g eyetracking, **Grade A**). Comprehension on a phone-sized screen is **48% of the desktop level** — complex content is *twice as hard* to understand (**Grade A**).
+This is our specific failure mode. A management sim on a phone is the hardest comprehension task on the worst display, delivered to a player who is already 20% likely to leave within two minutes.
+**Do:** bars for attributes, shapes for player profiles, colour for form and fitness, a pitch view instead of a squad table, faces for morale, one verdict line plus one comparison instead of a scout paragraph. Assume any text over 15 words is unread and design so the screen still works.
+
+---
+
+### 6. 100 milliseconds, 1 second, 10 seconds
+Nielsen's response-time limits are properties of human cognition and have not changed since 1993 (**Grade A**): **0.1s** feels instantaneous and produces the sense of direct manipulation; **1s** preserves the flow of thought; **10s** is the outer limit of held attention. Deloitte Digital, across 37 brands over 4 weeks, found a **0.1 second** load-time improvement raised retail conversions **+8.4%** and travel conversions **+10.1%** (**Grade B**, adjacent domain — do not claim it transfers to D1, do note that behaviour is measurably sensitive at the 100ms scale).
+**Do:** tap→visual response under **100ms**, no exceptions; view transitions **200–300ms** ease-out; nothing over **500ms** on a phone; interactive within **2 seconds** of cold start; **skeleton screens, never spinners** (skeletons score higher than spinners on both perceived speed and ease of navigation, **Grade B**); instrument `slow_frame`, `rage_tap` and `ms_to_interactive` from day one.
+
+---
+
+### 7. Juice means legible, proportional consequence — not screen shake
+The best experimental evidence in game UX contradicts the received wisdom. Kao et al. (CHI 2024): **pre-registered, N = 1,699**, purpose-built action RPG, 2×2+control varying feedback amplification, success-dependence and variability, with **free-choice playtime** as a behavioural outcome (**Grade A**). Findings: **curiosity was the strongest predictor of enjoyment and the only predictor of playtime; success-dependent feedback enhanced all three motives; amplification unexpectedly *reduced* them**, apparently by undermining the sense of agency. Hicks et al. (CHI PLAY 2019, N=40 and N=32) found juiciness raised **aesthetic appeal** but had **no effect on usability or performance** (**Grade A**).
+**Do:** make every decision produce a visible, proportional, immediate consequence — the substitution shifts a momentum bar, the signing visibly moves team strength, the tactic changes what happens in the next highlight. Keep uncertainty in outcomes, because curiosity is what predicts voluntary playtime. Spend on cause-and-effect legibility, not on particles.
+
+---
+
+### 8. One primary action, always, phrased as a verb
+There is no single experiment proving this for games, so it is **Grade B by inference** — but it sits at the intersection of Hick's law (**Grade A**), the 2-minute churn cliff (**Grade B**), and the finding that a fifth of players leave before anything has been established. A player who does not know what to do next is a player deciding whether to keep playing.
+The nuance that matters, and that most decks get wrong: **"fewer options" is folklore.** Scheibehenne et al. (2010) meta-analysed **50 studies, 63 conditions, 5,036 participants** and found the average choice-overload effect **≈ d 0.02 — indistinguishable from zero** (**Grade C for the phenomenon overall**). Chernev et al. (2015) showed it appears only under moderators — chiefly **when the user has no basis for evaluating the options**. That describes a new player looking at 11 players with 20 attributes each; it does not describe an experienced player picking a formation.
+**Do:** one thumb-zone CTA per screen, verb + object ("Pick your team for Saturday"). In the first session, cap decisions at three options with a flagged recommendation and a visible consequence. Later, **don't cut options — add evaluability**: recommended flags, smart default sorts, side-by-side comparison.
+
+---
+
+### 9. Teach one loop, then widen — and make disclosure stick
+Progressive disclosure (Nielsen, 1995) has decades of usability evidence behind it: novices learn faster and make fewer errors when advanced features are deferred (**Grade A as principle**; note that the widely-quoted "30–50% faster, 2006 study" is **unverifiable — Grade D**). Its documented cost is that it **slows experts down**, and Football Manager 26 is the live cautionary tale — reviewers describe an interface that gives "less information per glance" while "requiring more searches" (**Grade C**).
+**Do:** session 1 teaches exactly one loop, end to end, containing the win. Systems unlock when the player has a *problem they solve*, not on a timer. Every system ships with a working default so a player who never opens it still succeeds — depth as opportunity, not homework. And **persist disclosure state**: once a player opens the detailed attribute view, they keep it forever. Novices get the simple surface; returning experts are never re-simplified.
+
+---
+
+### 10. Notifications as club news, capped at four a week, asked for after the first win
+Opt-in is **~54% on iOS** (post-iOS 18.2 prompt changes) and **~97% on Android**, but app-to-app variance is enormous (historically 29–73% on iOS) — which is entirely a function of *when and how you ask* (**Grade B**). The often-quoted "3× retention for users who receive push" is a **correlation with heavy selection bias — Grade D as a causal claim**. The genuinely actionable number points the other way: users receiving **more than 6 notifications per week were 3.4× more likely to uninstall within 30 days** than those receiving 1–2 (Leanplum/AppFollow, **Grade B**). Rich media adds **+22%** to open rates and tailored content **+37%** (**Grade B/C**).
+**Do:** never prompt on first launch; soft-prompt after the first match win, pre-framed in-game. Hard cap **4 per week**. Every notification is a **fact about the player's own club** ("Hargreaves is fit for Saturday"), never an offer. A notification that is news is a reason to open; a notification that is marketing is a reason to uninstall.
+
+---
+
+## Sources
+
+**Benchmarks and platform data**
+- GameAnalytics, *2026 Mobile & PC Gaming Benchmarks* — https://www.gameanalytics.com/reports/2026-mobile-pc-gaming-benchmarks (summary figures via https://gamedevreports.substack.com/p/gameanalytics-mobile-and-pc-game)
+- GameAnalytics, *2025 Mobile Gaming Benchmarks* — https://www.gameanalytics.com/reports/2025-mobile-gaming-benchmarks (summary via https://gamedevreports.substack.com/p/gameanalytics-mobile-gaming-benchmarks)
+- Mistplay, *The big list of mobile game retention benchmarks* (AppsFlyer Q3 2022 genre tables) — https://business.mistplay.com/resources/mobile-game-retention-benchmarks/
+- Segwise, *Mobile Game Retention Benchmarks 2026* — https://segwise.ai/blog/mobile-gaming-app-user-retention-strategies
+- AppAgent, *Mobile Game Retention Benchmarks* — https://appagent.com/blog/mobile-game-retention-benchmarks/
+
+**First session**
+- deltaDNA / Mark Robinson, *How first session length impacts game performance*, Game Developer — https://www.gamedeveloper.com/business/how-first-session-length-impacts-game-performance
+- deltaDNA, *Thumbspire case study* — https://deltadna.com/blog/thumbspire-case-study/
+- *Learning to play: understanding in-game tutorials with a pilot study on implicit tutorials*, Heliyon (2022) — https://www.cell.com/heliyon/fulltext/S2405-8440(22)02770-0
+
+**App store conversion**
+- Apple, *Custom product pages on the App Store* — https://developer.apple.com/app-store/custom-product-pages
+- Apptweak, *Average App Conversion Rate per Category (2025)* — https://www.apptweak.com/en/aso-blog/average-app-conversion-rate-per-category
+- Apptweak, *ASO Trends & Benchmarks Report 2025* — https://www.apptweak.com/en/aso-blog/aso-app-store-trends-benchmarks-report
+- StoreMaven, *App Store Screenshots Best Practices* — https://www.storemaven.com/academy/how-to-design-better-screenshot-tests/
+- SplitMetrics case studies: Hobnob (+64%) — https://splitmetrics.com/cases/hobnob-app-optimizing-with-splitmetrics/ ; OLBG (+61%) — https://splitmetrics.com/cases/olbg-ios-screenshots-optimization/ ; Prisma (+19.7%) — https://splitmetrics.com/cases/prisma-optimizes-app-store-images/ ; ŠKODA (+15%) — https://splitmetrics.com/cases/skoda-a-b-tests-ios-screenshots/
+
+**Usability and cognition**
+- Nielsen, *Response Times: The 3 Important Limits*, NN/g — https://www.nngroup.com/articles/response-times-3-important-limits/
+- NN/g, *How Little Do Users Read?* — https://www.nngroup.com/articles/how-little-do-users-read/
+- NN/g, *Login Walls Stop Users in Their Tracks* — https://www.nngroup.com/articles/login-walls/
+- NN/g, *Skeleton Screens 101* — https://www.nngroup.com/articles/skeleton-screens/
+- NN/g, *Executing UX Animations: Duration and Motion Characteristics* — https://www.nngroup.com/articles/animation-duration/
+- NN/g, *Hick's Law: Designing Long Menu Lists* — https://www.nngroup.com/videos/hicks-law-long-menus/
+- Nielsen, *Progressive Disclosure* — https://www.nngroup.com/videos/progressive-disclosure/
+
+**Behavioural science**
+- Nunes & Drèze, *The Endowed Progress Effect: How Artificial Advancement Increases Effort*, JCR (2006) — https://www.researchgate.net/publication/23547282_The_Endowed_Progress_Effect_How_Artificial_Advancement_Increases_Effort
+- Kivetz, Urminsky & Zheng, *The Goal-Gradient Hypothesis Resurrected*, JMR (2006) — summary: https://yukaichou.com/behavioral-analysis/goal-gradient-hypothesis-hull-kivetz-motivation-acceleration/
+- Scheibehenne, Greifeneder & Todd, *Can There Ever Be Too Many Options? A Meta-Analytic Review of Choice Overload*, JCR (2010) — https://academic.oup.com/jcr/article-abstract/37/3/409/1827647
+- Chernev, Böckenholt & Goodman, *Choice overload: A conceptual review and meta-analysis*, JCP (2015) — https://chernev.com/wp-content/uploads/2017/02/ChoiceOverload_JCP_2015.pdf
+
+**Game feel / juice**
+- Kao, Ballou et al., *How does Juicy Game Feedback Motivate? Testing Curiosity, Competence, and Effectance*, CHI 2024 (pre-registered, N=1,699) — https://dl.acm.org/doi/10.1145/3613904.3642656 ; PDF: https://people.csail.mit.edu/dkao/pdf/3613904.3642656.pdf
+- Hicks, Gerling et al., *Juicy Game Design: Understanding the Impact of Visual Embellishments on Player Experience*, CHI PLAY 2019 — https://dl.acm.org/doi/abs/10.1145/3311350.3347171
+- Hicks, *Juicy Game Design: Exploring the Impact of Juiciness on the Player Experience* (thesis) — https://repository.lincoln.ac.uk/articles/thesis/Juicy_Game_Design_Exploring_the_Impact_of_Juiciness_on_the_Player_Experience/24326740
+
+**Performance and speed**
+- Deloitte Digital, *Milliseconds Make Millions* — https://deloitte.com/ie/en/services/consulting/research/milliseconds-make-millions.html ; case study: https://web.dev/case-studies/milliseconds-make-millions
+- *The effect of skeleton screens: Users' perception of speed and ease of navigation* — https://www.researchgate.net/publication/326858669
+
+**Notifications**
+- Airship, *Mobile App Push Notification Benchmarks 2026* — https://www.airship.com/resources/mobile-app-push-notification-benchmarks-2026/
+- Airship, *Mobile App Push Notification Benchmarks for 2025* (PDF) — https://growth.airship.com/rs/313-QPJ-195/images/Airship-2025-Push-Notification-Benchmarks-EN.pdf
+- Business of Apps, *Push Notifications Statistics (2026)* — https://www.businessofapps.com/marketplace/push-notifications/research/push-notifications-statistics/
+
+**Genre comparables**
+- New Star Games — https://www.newstargames.com/
+- *A deconstruction of Top Eleven — Mobile Football Manager* — https://arpubrothers.com/blog/deconstruction-of-top-eleven-football-manager/
+- Jovan Marinković, *Top Eleven Football Manager — Game UX Case Study* — http://www.jovanmarinkovic.com/topeleven
+- *Football Manager 26 is floundering in an interface labyrinth*, Galaxus — https://www.galaxus.at/en/page/football-manager-26-is-floundering-in-an-interface-labyrinth-40507

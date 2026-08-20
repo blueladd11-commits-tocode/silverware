@@ -65,6 +65,58 @@ h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
 .mono{font-family:var(--disp);font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:13px}
 .hide{display:none!important}
 
+/* ============================================================
+   DEPTH AND MOTION (research 09, §5)
+   The interface read as a document because every surface was a flat fill
+   separated by a 1px hairline. Real products layer: a plate has a gradient,
+   a rim light on top, and a three-part shadow underneath.
+   ============================================================ */
+:root{
+  --spring:cubic-bezier(.34,1.4,.5,1);
+  --ease:cubic-bezier(.2,.7,.3,1);
+  --sh-1:0 1px 2px rgba(0,0,0,.5);
+  --sh-2:0 2px 4px rgba(0,0,0,.4), 0 6px 14px rgba(0,0,0,.34);
+  --sh-3:0 3px 6px rgba(0,0,0,.45), 0 10px 26px rgba(0,0,0,.42);
+  --rim:inset 0 1px 0 rgba(255,255,255,.055);
+}
+.card,.act,.fixcard,.opt,.plr-card{
+  background-image:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0) 42%);
+  box-shadow:var(--sh-2),var(--rim);
+}
+.fixcard{box-shadow:var(--sh-3),var(--rim)}
+.slab{box-shadow:var(--sh-3)}
+.btn{box-shadow:var(--sh-2),inset 0 1px 0 rgba(255,255,255,.22)}
+.btn.ghost{box-shadow:var(--sh-1),var(--rim)}
+.tabbar{box-shadow:0 -6px 20px rgba(0,0,0,.45)}
+.sheet{box-shadow:0 -10px 40px rgba(0,0,0,.6)}
+
+/* Press feedback. The single cheapest "this is a game, not a document" win. */
+.btn,.act,.opt,.chips button,.segmented button,.speed button,.plr{
+  transition:transform .09s var(--ease),background-color .12s var(--ease),
+             box-shadow .12s var(--ease),border-color .12s var(--ease);
+}
+.btn:active,.act:active,.opt:active{transform:scale(.965)}
+.chips button:active,.segmented button:active,.speed button:active{transform:scale(.94)}
+.plr:active{transform:scale(.99);background:var(--s2)}
+@media (hover:hover){
+  .act:hover,.opt:hover{border-color:var(--strong)}
+}
+
+/* Entrances: spring in, staggered. Kept short — the evidence (research 10) is
+   that amplification hurts; legible consequence is what reads as quality. */
+@keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+.scroll>.card,.scroll>.act,.scroll>.fixcard,.scroll>.slab{animation:rise .34s var(--spring) both}
+.scroll>*:nth-child(2){animation-delay:.028s}
+.scroll>*:nth-child(3){animation-delay:.056s}
+.scroll>*:nth-child(4){animation-delay:.084s}
+.scroll>*:nth-child(5){animation-delay:.112s}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+}
+
+/* A face is an asset, not a bullet point: give it a rim so it sits on the plate. */
+.face{box-shadow:0 0 0 1.5px rgba(255,255,255,.07), 0 2px 6px rgba(0,0,0,.5)}
+
 .fixcard{background:var(--s1);border:1px solid var(--strong);border-radius:18px;overflow:hidden}
 .fixcard .when{padding:11px 14px 0;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--acc)}
 .fixcard .vs{display:flex;align-items:center;justify-content:center;gap:12px;padding:13px 12px 11px}
@@ -97,7 +149,7 @@ tr.me td:nth-child(2){font-weight:700}
 .tname{display:inline-flex;align-items:center;gap:7px;max-width:140px}
 .tname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.plr{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--hair);cursor:pointer}
+.plr{display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--hair);cursor:pointer}
 .plr:first-child{border-top:0}
 .plr .pos{width:32px;flex:0 0 auto;font-family:var(--disp);font-size:10px;font-weight:700;letter-spacing:.04em;
   color:var(--t3);text-align:center;padding:3px 0;border:1px solid var(--hair);border-radius:6px}
@@ -106,7 +158,8 @@ tr.me td:nth-child(2){font-weight:700}
 .plr .meta{font-size:11px;color:var(--t3);display:flex;gap:6px;align-items:center;margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .plr .meta>span{overflow:hidden;text-overflow:ellipsis}
-.plr .ca{font-weight:700;font-size:18px;font-variant-numeric:tabular-nums;width:32px;text-align:right}
+.plr .ca{font-weight:800;font-size:21px;font-variant-numeric:tabular-nums;width:36px;text-align:right;
+  font-family:var(--disp);letter-spacing:-.02em}
 .flag{font-size:10px;font-weight:700;letter-spacing:.03em;color:var(--t3);text-transform:uppercase}
 .form{display:inline-flex;gap:2px}
 .form i{width:6px;height:6px;border-radius:2px;display:block;font-style:normal}
@@ -289,14 +342,15 @@ function faceSVG(seed,opts){
    ['','M23 46 C23 22 35 11 50 11 C65 11 77 22 77 46 C75 38 72 30 64 28 C58 26.5 52 30 46 28 C38 25 30 32 23 46 Z']  // 13 flop / fringe
   ][hair];
 
-  const BROW=[
-   `<path d="M33 44 Q40 40 46 43" stroke="${hc}" stroke-width="3.2" fill="none" stroke-linecap="round"/>
-    <path d="M54 43 Q60 40 67 44" stroke="${hc}" stroke-width="3.2" fill="none" stroke-linecap="round"/>`,
-   `<rect x="33" y="42" width="13" height="3.4" rx="1.7" fill="${hc}"/>
-    <rect x="54" y="42" width="13" height="3.4" rx="1.7" fill="${hc}"/>`,
-   `<path d="M33 45 Q39 41 46 44" stroke="${hc}" stroke-width="4" fill="none" stroke-linecap="round"/>
-    <path d="M54 44 Q61 41 67 45" stroke="${hc}" stroke-width="4" fill="none" stroke-linecap="round"/>`
+  const BROWS=[
+   [`<path d="M33 44 Q40 40 46 43" stroke="${hc}" stroke-width="3.2" fill="none" stroke-linecap="round"/>`,
+    `<path d="M54 43 Q60 40 67 44" stroke="${hc}" stroke-width="3.2" fill="none" stroke-linecap="round"/>`],
+   [`<rect x="33" y="42" width="13" height="3.4" rx="1.7" fill="${hc}"/>`,
+    `<rect x="54" y="42" width="13" height="3.4" rx="1.7" fill="${hc}"/>`],
+   [`<path d="M33 45 Q39 41 46 44" stroke="${hc}" stroke-width="4" fill="none" stroke-linecap="round"/>`,
+    `<path d="M54 44 Q61 41 67 45" stroke="${hc}" stroke-width="4" fill="none" stroke-linecap="round"/>`]
   ][brow];
+  const BROW_L=BROWS[0], BROW_R=BROWS[1];
 
   const EYE=[
    `<ellipse cx="39.5" cy="52" rx="5.2" ry="3.6" fill="#FFF"/><circle cx="39.5" cy="52" r="2.5" fill="${ey}"/><circle cx="39.5" cy="52" r="1.1" fill="#140F0C"/>
@@ -313,11 +367,24 @@ function faceSVG(seed,opts){
    `<path d="M50 56 Q45 62 47.5 64.5 Q50 66 52.5 64.5 Q55 62 50 56 Z" fill="${shade}" opacity=".8"/>`
   ][nose];
 
-  const MOUTH=[
-   `<path d="M42 70 Q50 75 58 70" stroke="${dark}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
-   `<path d="M43 70.5 Q50 73 57 70.5" stroke="${dark}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
-   `<path d="M43 70 Q50 76 57 70 Q50 72.5 43 70 Z" fill="${dark}"/>`
-  ][mouth];
+  /* Morale drives the mouth. A squad where the unhappy players visibly look
+     unhappy is a football game; a "Morale: Poor" column is a database.
+     The first pass was far too timid to read at 44px — the curve now spans a
+     real frown to an open grin, and the eyebrows angle with it. */
+  const mor = (opts.morale===undefined||opts.morale===null) ? null : clamp(opts.morale,-100,100);
+  const mNorm = mor===null ? 0.25 : mor/100;          // -1 … +1
+  const x0=41.5, x1=58.5, my=70.5;
+  const bend = mNorm*11;                               // control-point offset, +ve = smile
+  let MOUTH;
+  if(mNorm>0.45){
+    // open grin: filled shape, reads instantly even at 40px
+    const d=6+mNorm*4;
+    MOUTH=`<path d="M${x0} ${my-1} Q50 ${my+d} ${x1} ${my-1} Q50 ${my+d*0.34} ${x0} ${my-1} Z" fill="${dark}"/>`;
+  } else {
+    const wt = mNorm<-0.5 ? 3.0 : 2.5;
+    MOUTH=`<path d="M${x0} ${my} Q50 ${my+bend} ${x1} ${my}" stroke="${dark}"
+       stroke-width="${wt}" fill="none" stroke-linecap="round"/>`;
+  }
 
   const BEARD=['',
    `<path d="${HEAD}" fill="${hc}" opacity=".22" clip-path="url(#lo${seed})"/>`,                       // stubble
@@ -328,6 +395,8 @@ function faceSVG(seed,opts){
     <path d="M43 66 Q50 63.5 57 66 Q57 69 50 69 Q43 69 43 66 Z" fill="${hc}"/>`                         // full beard
   ][beard];
 
+  const browRot = -mNorm*9;                 // unhappy: inner ends drive down and together
+  const browY   = -mNorm*1.4;
   return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" class="face" aria-hidden="true">
    <defs>
      <clipPath id="fc${seed}"><circle cx="50" cy="50" r="50"/></clipPath>
@@ -343,10 +412,14 @@ function faceSVG(seed,opts){
     <ellipse cx="78" cy="54" rx="4.4" ry="6" fill="${shade}"/>
     <g transform="translate(50 50) scale(${(0.94+r()*0.13).toFixed(3)} 1) translate(-50 -50)"><path d="${HEAD}" fill="${skin}"/></g>
     ${BEARD}
-    ${BROW}${EYE}${NOSE}${MOUTH}
+    <g transform="translate(0 ${browY})">
+      <g transform="rotate(${browRot} 39.5 43)">${BROW_L}</g>
+      <g transform="rotate(${-browRot} 60.5 43)">${BROW_R}</g></g>
+    ${EYE}${NOSE}${MOUTH}
     ${HAIR[1]?`<path d="${HAIR[1]}" fill="${hc}"/>`:''}
    </g></svg>`;
 }
+
 </script>
 <script>
 /* ============================================================
@@ -1520,10 +1593,13 @@ function crestSVG(club,size){
    <path d="${shield}" fill="none" stroke="#0A0C0F" stroke-width="5"/>
    <path d="${shield}" fill="none" stroke="${x}" stroke-width="2" opacity=".55"/></svg>`;
 }
-function pface(p,size){
+function pface(p,size,opts){
+  opts=opts||{};
   const c=G.clubs.find(cl=>cl.squad.some(x=>x.id===p.id));
   return faceSVG(p.id*13+7,{size,nat:p.nat,age:p.age,
-    kitA:c?c.primary:'#2A3038',kitB:c?c.secondary:'#1A1F26',bg:'#1A1F26'});
+    morale:opts.noMood?null:(p.morale===undefined?0:p.morale),
+    kitA:c?c.primary:'#2A3038',kitB:c?c.secondary:'#1A1F26',
+    bg:opts.bg||'#1A1F26'});
 }
 function tabbar(){
   const T=[['home','⌂','Home'],['squad','◎','Squad'],['market','⇄','Market'],['club','▣','Club'],['world','◍','World']];
@@ -1720,7 +1796,7 @@ function viewSquad(){
       he is often wrong.</div></div>
      <div class="card" style="padding:6px 14px 12px">
      ${y.length?y.map(p=>`<div class="plr">
-       ${pface(p,36)}
+       ${pface(p,46)}
        <div class="nmw"><div class="nm2">${esc(p.name)}</div>
         <div class="meta"><span>${p.pos}</span><span>${p.age}</span>
         <span style="color:var(--loan)">ceiling ~${Math.round(p.pa/10)*10}</span></div></div>
@@ -1737,7 +1813,7 @@ function plrRow(p,slot){
   const off=slot&&slot!==p.pos;
   const last=p.ratings.slice(-5).map(r=>r>=7.1?'W':r>=6.3?'D':'L');
   return `<div class="plr" onclick="showPlayer(${p.id})">
-   ${pface(p,36)}
+   ${pface(p,46)}
    <div class="pos" ${off?'style="color:var(--inj);border-color:var(--inj)"':''}>${slot||p.pos}</div>
    <div class="nmw"><div class="nm2">${esc(p.name)}${p.out>0?'<span style="color:var(--inj)">✚</span>':''}
      ${p.listed?'<span class="pill" style="background:#0E2340;color:var(--trf)">Listed</span>':''}</div>
@@ -1853,7 +1929,7 @@ function viewMarket(){
     body=`<div class="card" style="margin-bottom:10px"><div style="font-size:13px;color:var(--t2)">
       List a player and clubs will come in for him. Wages come off the bill the moment he goes.</div></div>
      <div class="card" style="padding:6px 14px 12px">${squadOf(c).sort((a,b)=>CA(b)-CA(a)).map(p=>`
-      <div class="plr">${pface(p,36)}
+      <div class="plr">${pface(p,46)}
        <div class="pos">${p.pos}</div>
        <div class="nmw"><div class="nm2">${esc(p.name)}</div>
         <div class="meta"><span>${p.age}</span><span style="color:var(--trf)">${money(value(p))}</span>
@@ -1888,7 +1964,7 @@ function mktRow(p,s,ask){
   const star=G.shortlist.includes(p.id);
   const afford=ask<=me().bal;
   return `<div class="plr" onclick="showPlayer(${p.id})" style="align-items:flex-start">
-   ${pface(p,38)}
+   ${pface(p,50)}
    <div class="nmw" style="padding-top:1px">
     <div class="nm2">${esc(p.name)}</div>
     <div class="meta"><span class="pill" style="padding:1px 6px">${p.pos}</span>
@@ -1937,7 +2013,7 @@ function viewClub(){
     <div class="kv"><span class="k2">Capacity</span><span class="v2">${c.capacity.toLocaleString()}</span></div>
     <div class="kv"><span class="k2">Reputation</span><span class="v2">${c.rep}</span></div></div>
    ${scorers.length?`<div class="sechead">Top scorers</div><div class="card" style="padding:6px 14px 12px">
-    ${scorers.map(p=>`<div class="plr" onclick="showPlayer(${p.id})">${pface(p,34)}
+    ${scorers.map(p=>`<div class="plr" onclick="showPlayer(${p.id})">${pface(p,44)}
       <div class="nmw"><div class="nm2">${esc(p.name)}</div>
        <div class="meta"><span>${p.apps} apps</span><span>${p.assists} assists</span></div></div>
       <div class="ca" style="color:var(--acc)">${p.goals}</div></div>`).join('')}</div>`:''}
@@ -2147,7 +2223,7 @@ function showClub(id){
     <div class="kv"><span class="k2">Record</span><span class="v2">${c.W}W ${c.D}D ${c.L}L</span></div></div>
    <div class="sechead">Key players</div>
    <div class="card" style="background:var(--s1);padding:6px 14px 12px">
-   ${best.map(p=>`<div class="plr" onclick="showPlayer(${p.id})">${pface(p,34)}
+   ${best.map(p=>`<div class="plr" onclick="showPlayer(${p.id})">${pface(p,44)}
      <div class="pos">${p.pos}</div><div class="nmw"><div class="nm2">${esc(p.name)}</div>
      <div class="meta"><span class="flag">${p.nat}</span><span>${p.age}</span></div></div>
      <div class="ca" style="color:${ramp(CA(p))}">${Math.round(CA(p))}</div></div>`).join('')}</div>

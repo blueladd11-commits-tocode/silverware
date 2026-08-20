@@ -74,14 +74,15 @@ function faceSVG(seed,opts){
    ['','M23 46 C23 22 35 11 50 11 C65 11 77 22 77 46 C75 38 72 30 64 28 C58 26.5 52 30 46 28 C38 25 30 32 23 46 Z']  // 13 flop / fringe
   ][hair];
 
-  const BROW=[
-   `<path d="M33 44 Q40 40 46 43" stroke="${hc}" stroke-width="3.2" fill="none" stroke-linecap="round"/>
-    <path d="M54 43 Q60 40 67 44" stroke="${hc}" stroke-width="3.2" fill="none" stroke-linecap="round"/>`,
-   `<rect x="33" y="42" width="13" height="3.4" rx="1.7" fill="${hc}"/>
-    <rect x="54" y="42" width="13" height="3.4" rx="1.7" fill="${hc}"/>`,
-   `<path d="M33 45 Q39 41 46 44" stroke="${hc}" stroke-width="4" fill="none" stroke-linecap="round"/>
-    <path d="M54 44 Q61 41 67 45" stroke="${hc}" stroke-width="4" fill="none" stroke-linecap="round"/>`
+  const BROWS=[
+   [`<path d="M33 44 Q40 40 46 43" stroke="${hc}" stroke-width="3.2" fill="none" stroke-linecap="round"/>`,
+    `<path d="M54 43 Q60 40 67 44" stroke="${hc}" stroke-width="3.2" fill="none" stroke-linecap="round"/>`],
+   [`<rect x="33" y="42" width="13" height="3.4" rx="1.7" fill="${hc}"/>`,
+    `<rect x="54" y="42" width="13" height="3.4" rx="1.7" fill="${hc}"/>`],
+   [`<path d="M33 45 Q39 41 46 44" stroke="${hc}" stroke-width="4" fill="none" stroke-linecap="round"/>`,
+    `<path d="M54 44 Q61 41 67 45" stroke="${hc}" stroke-width="4" fill="none" stroke-linecap="round"/>`]
   ][brow];
+  const BROW_L=BROWS[0], BROW_R=BROWS[1];
 
   const EYE=[
    `<ellipse cx="39.5" cy="52" rx="5.2" ry="3.6" fill="#FFF"/><circle cx="39.5" cy="52" r="2.5" fill="${ey}"/><circle cx="39.5" cy="52" r="1.1" fill="#140F0C"/>
@@ -98,11 +99,24 @@ function faceSVG(seed,opts){
    `<path d="M50 56 Q45 62 47.5 64.5 Q50 66 52.5 64.5 Q55 62 50 56 Z" fill="${shade}" opacity=".8"/>`
   ][nose];
 
-  const MOUTH=[
-   `<path d="M42 70 Q50 75 58 70" stroke="${dark}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
-   `<path d="M43 70.5 Q50 73 57 70.5" stroke="${dark}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
-   `<path d="M43 70 Q50 76 57 70 Q50 72.5 43 70 Z" fill="${dark}"/>`
-  ][mouth];
+  /* Morale drives the mouth. A squad where the unhappy players visibly look
+     unhappy is a football game; a "Morale: Poor" column is a database.
+     The first pass was far too timid to read at 44px — the curve now spans a
+     real frown to an open grin, and the eyebrows angle with it. */
+  const mor = (opts.morale===undefined||opts.morale===null) ? null : clamp(opts.morale,-100,100);
+  const mNorm = mor===null ? 0.25 : mor/100;          // -1 … +1
+  const x0=41.5, x1=58.5, my=70.5;
+  const bend = mNorm*11;                               // control-point offset, +ve = smile
+  let MOUTH;
+  if(mNorm>0.45){
+    // open grin: filled shape, reads instantly even at 40px
+    const d=6+mNorm*4;
+    MOUTH=`<path d="M${x0} ${my-1} Q50 ${my+d} ${x1} ${my-1} Q50 ${my+d*0.34} ${x0} ${my-1} Z" fill="${dark}"/>`;
+  } else {
+    const wt = mNorm<-0.5 ? 3.0 : 2.5;
+    MOUTH=`<path d="M${x0} ${my} Q50 ${my+bend} ${x1} ${my}" stroke="${dark}"
+       stroke-width="${wt}" fill="none" stroke-linecap="round"/>`;
+  }
 
   const BEARD=['',
    `<path d="${HEAD}" fill="${hc}" opacity=".22" clip-path="url(#lo${seed})"/>`,                       // stubble
@@ -113,6 +127,8 @@ function faceSVG(seed,opts){
     <path d="M43 66 Q50 63.5 57 66 Q57 69 50 69 Q43 69 43 66 Z" fill="${hc}"/>`                         // full beard
   ][beard];
 
+  const browRot = -mNorm*9;                 // unhappy: inner ends drive down and together
+  const browY   = -mNorm*1.4;
   return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" class="face" aria-hidden="true">
    <defs>
      <clipPath id="fc${seed}"><circle cx="50" cy="50" r="50"/></clipPath>
@@ -128,7 +144,10 @@ function faceSVG(seed,opts){
     <ellipse cx="78" cy="54" rx="4.4" ry="6" fill="${shade}"/>
     <g transform="translate(50 50) scale(${(0.94+r()*0.13).toFixed(3)} 1) translate(-50 -50)"><path d="${HEAD}" fill="${skin}"/></g>
     ${BEARD}
-    ${BROW}${EYE}${NOSE}${MOUTH}
+    <g transform="translate(0 ${browY})">
+      <g transform="rotate(${browRot} 39.5 43)">${BROW_L}</g>
+      <g transform="rotate(${-browRot} 60.5 43)">${BROW_R}</g></g>
+    ${EYE}${NOSE}${MOUTH}
     ${HAIR[1]?`<path d="${HAIR[1]}" fill="${hc}"/>`:''}
    </g></svg>`;
 }
