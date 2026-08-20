@@ -227,6 +227,155 @@ h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
   font-family:var(--disp);font-weight:800;font-size:12px}
 
 /* ============================================================
+   THE PLAYER CARD (research 09, §3)
+   A row is a fact about a man. A card is an object you own, and objects with
+   edges can be collected, traded and lost. Everywhere a player appears he
+   appears as this. Same family as the voice avatars: chamfered silhouette,
+   a real padded frame, one light source at 155deg.
+
+   Three gotchas, all solved below and all found by rendering, not reasoning:
+   1. clip-path clips an outer box-shadow away  -> the cast shadow is a filter
+      on the wrapper, because filters follow the clipped silhouette.
+   2. `inset 0 0 0 2px` gets clipped at the chamfers, leaving the diagonal
+      edge unframed -> the frame is a real 2px padded layer instead.
+   3. one shared --ch keeps the two clip paths identical.
+   ============================================================ */
+.pc{--w:132px;--ch:14px;--rf:33px;--tier:#6E7885;--pa:#1A1F26;--pb:#12161B;--posc:var(--t2);
+  position:relative;flex:0 0 auto;width:var(--w);aspect-ratio:3/4;padding:2px;
+  background:var(--tier);cursor:pointer;
+  clip-path:polygon(var(--ch) 0,calc(100% - var(--ch)) 0,100% var(--ch),100% 100%,
+                    var(--ch) 100%,0 calc(100% - var(--ch)),0 var(--ch));
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.6)) drop-shadow(0 9px 17px rgba(0,0,0,.62));
+  transition:transform .2s var(--spring)}
+.pc:active{transform:translateY(2px) scale(.955)}
+/* nobody has watched him: the frame goes hand-drawn grey and dashes */
+.pc.q{background:repeating-linear-gradient(128deg,#5C6572 0 7px,#2C333D 7px 12px)}
+.pc-in{position:relative;width:100%;height:100%;display:grid;grid-template-rows:62% 16% 22%;
+  overflow:hidden;
+  clip-path:polygon(calc(var(--ch) - 2px) 0,calc(100% - var(--ch) + 2px) 0,
+                    100% calc(var(--ch) - 2px),100% 100%,calc(var(--ch) - 2px) 100%,
+                    0 calc(100% - var(--ch) + 2px),0 calc(var(--ch) - 2px));
+  background:var(--noise),linear-gradient(155deg,var(--pa) 0%,var(--pb) 62%),var(--s1);
+  background-blend-mode:overlay,normal,normal;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -30px 40px -30px rgba(0,0,0,.9)}
+.pc-in::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:4;
+  background:linear-gradient(112deg,transparent 38%,rgba(255,255,255,.085) 47%,transparent 56%)}
+/* sheen is rationed to the top tier — that is what makes it mean something */
+.pc.sw .pc-in::after{background:linear-gradient(112deg,transparent 30%,rgba(255,255,255,.22) 47%,transparent 62%)}
+.pc-top{position:relative;overflow:hidden}
+.pc-face{position:absolute;right:-7%;bottom:0;height:100%;aspect-ratio:1;z-index:1}
+.pc-face svg.face{width:100%;height:100%;display:block;border-radius:0;background:none}
+.pc-rail{position:relative;z-index:2;padding:6px 0 0 7px;display:flex;flex-direction:column;
+  align-items:flex-start;gap:4px}
+.pc-rt{font-family:var(--disp);font-weight:800;font-size:var(--rf);line-height:.86;
+  color:var(--tier);letter-spacing:-.035em;
+  text-shadow:0 2px 0 rgba(0,0,0,.6),0 0 9px rgba(0,0,0,.75)}
+/* a band ("70-85") is not a rating and must not read like one, and "??" is not
+   a number at all — if it kept the hero size the market would be a wall of it */
+.pc-rt.band{font-size:calc(var(--rf) * .40);letter-spacing:0;line-height:1.1;font-weight:700}
+.pc-rt.unk{font-size:calc(var(--rf) * .58);color:#59616D;text-shadow:0 1px 0 rgba(0,0,0,.6)}
+.pc-pos{font-family:var(--ui);font-weight:800;line-height:1;letter-spacing:.05em;
+  padding:3px 5px;border-radius:999px;color:#0A0C0F;background:var(--posc);
+  box-shadow:0 1px 2px rgba(0,0,0,.5)}
+.pc-pos.off{background:var(--inj)}
+.pc-pips{display:flex;gap:2px}
+.pc-pips i{display:block;width:var(--pip,5px);height:var(--pip,5px);border-radius:1px;background:#3A424E}
+.pc-pips i.on{background:var(--tier);box-shadow:0 0 5px var(--tier)}
+/* not our player: hollow pips. Uncertainty has to look uncertain. */
+.pc-pips.u i{background:none;box-shadow:inset 0 0 0 1px #48505C}
+/* tier rank, as marks rather than hue — the greyscale channel for the frame */
+.pc-tk{height:11px;margin-top:1px;width:calc(var(--tkn,0) * 6px - 3px);
+  background:repeating-linear-gradient(90deg,var(--tier) 0 3px,transparent 3px 6px);
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.8))}
+.pc-cond{position:absolute;left:0;right:0;bottom:0;height:3px;z-index:3;background:rgba(0,0,0,.55)}
+.pc-cond i{display:block;height:100%}
+/* over budget: the foot is hatched. Colour says it too, but the texture is what
+   survives a greyscale pass and a two-second scan of twenty-four cards. */
+.pc.over .pc-ft{background:repeating-linear-gradient(115deg,rgba(240,72,79,.20) 0 5px,transparent 5px 11px)}
+/* the shortlist star gets its own 44px target in the corner, so a card grid
+   needs no row of buttons underneath it */
+.pc-star{position:absolute;top:0;right:0;z-index:5;width:44px;height:44px;padding:5px;
+  display:grid;place-items:start end;cursor:pointer}
+.pc-star i{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;font-style:normal;
+  font-size:13px;line-height:1;background:rgba(10,12,15,.72);color:var(--t3);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.pc-star.on i{background:var(--acc);color:#0A0C0F;box-shadow:0 1px 4px rgba(0,0,0,.6)}
+.pc-star:active i{transform:scale(.86)}
+.pc.hasstar .pc-bd{top:30px}
+.pc-bd{position:absolute;top:5px;right:5px;z-index:3;display:grid;place-items:center;
+  min-width:19px;height:19px;padding:0 3px;border-radius:6px;font-style:normal;
+  font-family:var(--ui);font-weight:800;font-size:11px;line-height:1;color:#0A0C0F;
+  box-shadow:0 1px 3px rgba(0,0,0,.65)}
+.pc-nm{display:flex;align-items:center;justify-content:center;padding:0 5px;overflow:hidden;
+  font-family:var(--disp);font-weight:700;line-height:1;text-transform:uppercase;
+  letter-spacing:.03em;color:var(--t1);white-space:nowrap;
+  background:linear-gradient(180deg,rgba(0,0,0,.34),rgba(0,0,0,.62));
+  border-top:1px solid rgba(255,255,255,.09);border-bottom:1px solid rgba(255,255,255,.09)}
+.pc-ft{display:flex;align-items:center;gap:5px;padding:0 7px;min-width:0}
+.pc-ft .crest{filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+.pc-ab{font-family:var(--ui);font-weight:700;letter-spacing:.05em;color:var(--t2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc-v{margin-left:auto;font-family:var(--disp);font-weight:800;letter-spacing:-.01em;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.pc-ft .form{margin-left:auto}
+.pc-ft .form i{width:var(--pip,5px);height:var(--pip,5px)}
+/* the shelves the cards sit on */
+.pcgrid{display:flex;flex-wrap:wrap;gap:11px;margin-bottom:6px;align-items:flex-start}
+.pcshelf{display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;
+  padding:2px 16px 12px;margin:0 -16px}
+.pcshelf::-webkit-scrollbar{display:none}
+.pccell{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+.pccell .btn{width:100%}
+.pcempty{color:var(--t3);padding:16px 2px;font-size:13px}
+/* the hero band: one card, angled plate, the fee at broadcast size */
+.pchero{position:relative;display:flex;gap:14px;align-items:center;overflow:hidden;
+  border-radius:18px;padding:14px;margin-bottom:12px;
+  background:var(--noise),linear-gradient(150deg,#241B07 0%,#12161B 58%),var(--s1);
+  background-blend-mode:overlay,normal,normal;box-shadow:var(--sh-3),var(--rim)}
+.pchero::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--acc)}
+.pchero .ht{flex:1;min-width:0}
+.pchero .hk{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--acc)}
+.pchero .hn{font-family:var(--disp);font-weight:800;font-size:19px;line-height:22px;margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pchero .hm{font-size:11px;color:var(--t3);margin-top:2px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.pchero .hf{font-family:var(--disp);font-weight:800;font-size:31px;line-height:1;letter-spacing:-.03em;
+  margin-top:7px;font-variant-numeric:tabular-nums}
+.afford{height:7px;border-radius:4px;background:var(--s3);overflow:hidden;margin-top:9px;position:relative}
+.afford i{display:block;height:100%;border-radius:4px}
+/* card + identity, the header of any sheet about one man */
+.phero{display:flex;gap:14px;align-items:flex-start;margin-bottom:14px}
+.phero .pht{flex:1;min-width:0;padding-top:2px}
+/* form, at a size where the letters fit — the chip is never colour alone */
+.wdl{display:flex;gap:4px;margin-top:10px}
+.wdl i{width:19px;height:19px;border-radius:5px;display:grid;place-items:center;font-style:normal;
+  font-family:var(--disp);font-weight:800;font-size:10px;color:#0A0C0F}
+.wdl i.W{background:var(--win)}.wdl i.D{background:var(--draw)}.wdl i.L{background:var(--loss)}
+.ringrow{display:flex;align-items:center;gap:9px;margin-top:11px}
+.ring{--v:80;--rc:var(--acc);position:relative;width:42px;height:42px;border-radius:50%;flex:0 0 auto;
+  display:grid;place-items:center;background:conic-gradient(var(--rc) calc(var(--v) * 1%),#2C333D 0)}
+.ring::after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--s2)}
+.ring b{position:relative;z-index:1;font-family:var(--disp);font-weight:800;font-size:13px;color:var(--t1)}
+.rlbl{font-size:11px;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;font-weight:700}
+/* goals, as tiles with the scorer's face rather than lines of text */
+.evtiles{display:flex;flex-direction:column;gap:7px;margin-bottom:11px}
+.evt{display:flex;align-items:center;gap:10px;padding:8px 11px;border-radius:13px;cursor:pointer;
+  background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0) 46%),var(--s1);
+  box-shadow:var(--sh-1),var(--rim);border-left:3px solid var(--strong)}
+.evt.us{border-left-color:var(--acc)}
+.evt .evm{font-family:var(--disp);font-weight:800;font-size:14px;color:var(--t2);
+  min-width:26px;font-variant-numeric:tabular-nums}
+.evt .evn{flex:1;min-width:0;display:flex;flex-direction:column;line-height:16px}
+.evt .evn b{font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.evt .evn span{font-size:11px;color:var(--t3)}
+.evt .evg{flex:0 0 auto;opacity:.9}
+/* a signing reveals itself: the card flips in. 1.2s, once, no pack ceremony. */
+.reveal .pc{animation:pcin .62s cubic-bezier(.2,.8,.25,1) both}
+@keyframes pcin{
+  from{opacity:0;transform:perspective(700px) rotateY(-42deg) translateY(14px) scale(.92)}
+  to{opacity:1;transform:none}}
+
+/* ============================================================
    DEPTH AND MOTION (research 09, §5)
    The interface read as a document because every surface was a flat fill
    separated by a 1px hairline. Real products layer: a plate has a gradient,
@@ -661,6 +810,158 @@ const REALPAT={
  MNR:'plain', MNS:'plain', MYR:'plain', MYB:'plain', NLW:'plain',
  WLB:'plain', BAV:'plain', MDW:'plain', WSY:'plain', PSB:'band'
 };
+/* seven more of Europe's top divisions, same rules: real city, real colours,
+   real ground, real level, stand-in name */
+const REAL2={
+por:[
+["Lisbon Red","LSR","Lisbon","#E30613","#FFFFFF",64642,84],
+["Porto Blue","PRT","Porto","#00428C","#FFFFFF",50033,85],
+["Lisbon Green","LSG","Lisbon","#008D57","#FFFFFF",50095,83],
+["Braga Red","BRA","Braga","#E30613","#FFFFFF",30286,76],
+["Guimarães White","GUI","Guimarães","#FFFFFF","#000000",30000,68],
+["Porto Chequer","BOA","Porto","#000000","#FFFFFF",28263,63],
+["Vila do Conde Green","VDC","Vila do Conde","#0A6E3C","#FFFFFF",5000,60],
+["Famalicão Blue","FAM","Famalicão","#003DA5","#FFFFFF",5186,59],
+["Estoril Yellow","EST","Estoril","#FFD100","#003DA5",8000,58],
+["Barcelos Red","GIL","Barcelos","#C8102E","#FFFFFF",12504,57],
+["Moreira Green","MOR","Moreira","#0A6E3C","#FFFFFF",6153,56],
+["Arouca Yellow","ARO","Arouca","#FFE500","#000000",5600,55],
+["Lisbon Black","CSP","Lisbon","#000000","#FFFFFF",5000,55],
+["Faro White","FAR","Faro","#FFFFFF","#000000",30305,53],
+["Portimão Black","POM","Portimão","#000000","#FFFFFF",9544,52],
+["Amadora Green","AMA","Amadora","#0A6E3C","#E30613",9288,51],
+["Chaves Blue","CHV","Chaves","#003DA5","#FFFFFF",8396,50],
+["Vizela White","VIZ","Vizela","#FFFFFF","#003DA5",6000,49],
+["Madeira Black","MAD","Funchal","#000000","#FFFFFF",5132,50],
+["Azores Red","AZR","Ponta Delgada","#C8102E","#FFFFFF",12500,49]],
+bel:[
+["Bruges Blue","BRU","Bruges","#005CA9","#000000",29042,79],
+["Brussels Purple","AND","Brussels","#4B2E83","#FFFFFF",21500,75],
+["Genk Blue","GNK","Genk","#003DA5","#FFFFFF",23718,74],
+["Antwerp Red","ANT","Antwerp","#E30613","#FFFFFF",16144,72],
+["Ghent Blue","GHE","Ghent","#00539F","#FFFFFF",20000,73],
+["Brussels Gold","USG","Brussels","#FFD100","#003DA5",8000,74],
+["Liège Red","LIE","Liège","#E30613","#FFFFFF",27670,68],
+["Bruges Green","CER","Bruges","#009640","#000000",29042,64],
+["Mechelen Red","MEC","Mechelen","#C8102E","#FFE500",16672,62],
+["Charleroi Black","CHR","Charleroi","#000000","#FFFFFF",15000,63],
+["Leuven White","LEU","Leuven","#FFFFFF","#003DA5",10020,58],
+["Westerlo Yellow","WES","Westerlo","#FFE500","#003DA5",8035,57],
+["Kortrijk Red","KOR","Kortrijk","#C8102E","#FFFFFF",9399,56],
+["Sint-Truiden Yellow","STT","Sint-Truiden","#FFD100","#003DA5",14600,57],
+["Eupen Black","EUP","Eupen","#000000","#FFFFFF",8363,54],
+["Molenbeek White","MOL","Brussels","#FFFFFF","#000000",12266,55],
+["Beerschot Purple","BEE","Antwerp","#4B2E83","#FFFFFF",12771,53],
+["Dender White","DEN","Denderleeuw","#FFFFFF","#E30613",5000,51],
+["Lommel Green","LOM","Lommel","#0A6E3C","#FFFFFF",8000,50],
+["Waregem Red","ZUL","Waregem","#C8102E","#FFFFFF",12250,52]],
+ned:[
+["Amsterdam Red","AJX","Amsterdam","#D2122E","#FFFFFF",55500,84],
+["Eindhoven Red","EIN","Eindhoven","#EE2E24","#FFFFFF",35000,83],
+["Rotterdam Red","FYN","Rotterdam","#CD0000","#FFFFFF",51117,81],
+["Alkmaar Red","ALK","Alkmaar","#E30613","#FFFFFF",19478,74],
+["Enschede Red","ENS","Enschede","#E30613","#FFFFFF",30205,72],
+["Utrecht Red","UTR","Utrecht","#E30613","#FFFFFF",23750,70],
+["Arnhem Yellow","ARN","Arnhem","#FFE500","#000000",21248,64],
+["Rotterdam White","SPA","Rotterdam","#FFFFFF","#E30613",11026,60],
+["Heerenveen Blue","HRV","Heerenveen","#003DA5","#FFFFFF",27224,63],
+["Deventer Yellow","DEV","Deventer","#FFE500","#E30613",10400,61],
+["Nijmegen Red","NIJ","Nijmegen","#C8102E","#000000",12500,62],
+["Sittard Yellow","SIT","Sittard","#FFE500","#009640",12500,57],
+["Zwolle Blue","ZWO","Zwolle","#003DA5","#FFFFFF",13250,58],
+["Almelo Black","HER","Almelo","#000000","#FFFFFF",12080,56],
+["Tilburg Blue","TIL","Tilburg","#003DA5","#FFFFFF",14500,57],
+["Waalwijk Yellow","WAA","Waalwijk","#FFE500","#003DA5",7508,55],
+["Rotterdam Black","EXC","Rotterdam","#000000","#E30613",4500,54],
+["Almere Red","ALR","Almere","#C8102E","#000000",4501,53],
+["Groningen Green","GRO","Groningen","#009640","#FFFFFF",22550,59],
+["Breda Yellow","BRE","Breda","#FFE500","#000000",19000,55]],
+tur:[
+["Istanbul Gold","GAL","Istanbul","#FDB912","#A32638",52223,84],
+["Istanbul Navy","FEN","Istanbul","#072C5F","#FFED00",50509,83],
+["Istanbul Black","BES","Istanbul","#000000","#FFFFFF",41903,80],
+["Trabzon Claret","TRZ","Trabzon","#7A1B2E","#63B3E8",40782,76],
+["Başakşehir Orange","BSK","Istanbul","#F47B20","#003DA5",17319,72],
+["Adana Blue","ADN","Adana","#003DA5","#FFFFFF",33543,67],
+["Konya Green","KON","Konya","#0A6E3C","#FFFFFF",42000,66],
+["Antalya Red","ANY","Antalya","#C8102E","#FFFFFF",32539,64],
+["Kayseri Yellow","KAY","Kayseri","#FFE500","#C8102E",32864,62],
+["Sivas Red","SIV","Sivas","#C8102E","#FFFFFF",27532,61],
+["Alanya Orange","ALA","Alanya","#F47B20","#0A6E3C",10842,63],
+["Gaziantep Red","GZT","Gaziantep","#C8102E","#000000",33502,60],
+["Rize Green","RIZ","Rize","#0A6E3C","#003DA5",15332,58],
+["Samsun Red","SAM","Samsun","#C8102E","#FFFFFF",33919,59],
+["Hatay Maroon","HAT","Antakya","#7A1B2E","#FFFFFF",25000,57],
+["Kasımpaşa Navy","KAS","Istanbul","#072C5F","#FFFFFF",14234,56],
+["Ankara Navy","ANK","Ankara","#072C5F","#FFE500",20560,55],
+["Pendik Blue","PEN","Istanbul","#003DA5","#FFFFFF",4000,52],
+["Istanbul Yellow","ISY","Istanbul","#FFE500","#000000",12500,51],
+["Karagümrük Red","KRG","Istanbul","#C8102E","#000000",7000,53]],
+pol:[
+["Warsaw Green","LEG","Warsaw","#14683B","#FFFFFF",31103,72],
+["Poznań Blue","POZ","Poznań","#004C99","#FFFFFF",42837,70],
+["Częstochowa Red","RAK","Częstochowa","#C8102E","#003DA5",5500,71],
+["Szczecin Navy","POG","Szczecin","#072C5F","#8C0F1F",21163,66],
+["Białystok Yellow","JAG","Białystok","#FFE500","#C8102E",22386,65],
+["Wrocław Green","SLA","Wrocław","#0A6E3C","#FFFFFF",45105,63],
+["Łódź Red","WID","Łódź","#C8102E","#FFFFFF",18018,62],
+["Kraków Red","CRA","Kraków","#C8102E","#FFFFFF",15016,61],
+["Kraków White","WIS","Kraków","#FFFFFF","#C8102E",33130,60],
+["Zabrze Blue","GOR","Zabrze","#003DA5","#FFFFFF",24563,59],
+["Gliwice Red","PIA","Gliwice","#C8102E","#003DA5",9913,58],
+["Radom Green","RAD","Radom","#0A6E3C","#FFFFFF",15000,56],
+["Kielce Yellow","KIE","Kielce","#FFE500","#C8102E",15550,55],
+["Mielec Blue","STL","Mielec","#003DA5","#FFFFFF",6864,53],
+["Poznań Green","WAR","Poznań","#0A6E3C","#FFFFFF",2500,52],
+["Niepołomice Green","PUS","Niepołomice","#0A6E3C","#FFE500",3000,50],
+["Łódź White","LKS","Łódź","#FFFFFF","#C8102E",18018,54],
+["Chorzów Blue","RUC","Chorzów","#003DA5","#FFFFFF",9300,51],
+["Lubin Green","ZAG","Lubin","#0A6E3C","#FFFFFF",16068,57],
+["Lublin Blue","MOT","Lublin","#003DA5","#FFE500",15200,52]],
+cze:[
+["Prague Claret","SPT","Prague","#8B1A1A","#FFE500",18887,70],
+["Vinohrady Red","SLV","Prague","#D7192D","#FFFFFF",20800,71],
+["Plzeň Blue","PLZ","Plzeň","#003DA5","#C8102E",11700,68],
+["Ostrava Blue","OST","Ostrava","#003DA5","#FFFFFF",15123,63],
+["Olomouc Blue","OLO","Olomouc","#003DA5","#FFFFFF",12566,61],
+["Hradiště Blue","SLO","Uherské Hradiště","#003DA5","#FFFFFF",8121,58],
+["Jablonec Green","JAB","Jablonec","#0A6E3C","#FFE500",6280,59],
+["Vršovice Green","BOH","Prague","#0A6E3C","#FFFFFF",5000,57],
+["Boleslav Green","MBL","Mladá Boleslav","#0A6E3C","#FFFFFF",5000,58],
+["Teplice Yellow","TEP","Teplice","#FFE500","#003DA5",18221,55],
+["Hradec Blue","HRA","Hradec Králové","#003DA5","#FFFFFF",9300,56],
+["Liberec White","LIB","Liberec","#FFFFFF","#003DA5",9900,55],
+["Karviná Green","KAR","Karviná","#0A6E3C","#FFFFFF",4200,52],
+["Zlín Blue","ZLN","Zlín","#003DA5","#FFE500",6375,51],
+["Pardubice Red","PDB","Pardubice","#C8102E","#FFFFFF",4300,53],
+["Dejvice Yellow","DUK","Prague","#FFE500","#C8102E",5000,50],
+["Budějovice Blue","CBU","České Budějovice","#003DA5","#FFFFFF",6681,52],
+["Brno Red","BRN","Brno","#C8102E","#FFFFFF",10200,50],
+["Opava Blue","OPA","Opava","#003DA5","#FFE500",7758,49],
+["Příbram Red","PRI","Příbram","#C8102E","#003DA5",9100,48]],
+gre:[
+["Piraeus Red","OLY","Piraeus","#E30613","#FFFFFF",32115,78],
+["Athens Green","PAO","Athens","#009640","#FFFFFF",16003,73],
+["Filadelfeia Yellow","AEK","Athens","#FFD100","#000000",32500,74],
+["Thessaloniki Black","PAK","Thessaloniki","#000000","#FFFFFF",28703,75],
+["Thessaloniki Yellow","ARI","Thessaloniki","#FFE500","#000000",22800,66],
+["Agrinio Green","PAN","Agrinio","#0A6E3C","#FFFFFF",7500,57],
+["Volos Blue","VOL","Volos","#003DA5","#FFFFFF",5500,56],
+["Peristeri Blue","ATR","Athens","#003DA5","#FFFFFF",9500,58],
+["Crete Black","OFI","Heraklion","#000000","#FFFFFF",9000,59],
+["Lamia Blue","LAM","Lamia","#003DA5","#FFFFFF",5500,54],
+["Tripoli Yellow","AST","Tripoli","#FFE500","#003DA5",7500,57],
+["Kifisia Blue","KIF","Athens","#003DA5","#FFE500",3000,52],
+["Levadia Green","LVD","Livadeia","#0A6E3C","#FFFFFF",5900,53],
+["Ioannina Blue","PAS","Ioannina","#003DA5","#FFFFFF",7652,55],
+["Serres Red","PSR","Serres","#C8102E","#FFFFFF",8000,51],
+["Kallithea White","KAL","Athens","#FFFFFF","#C8102E",4500,50],
+["Nikaia Red","ION","Nikaia","#C8102E","#003DA5",5300,50],
+["Smyrni Blue","APO","Athens","#003DA5","#FFFFFF",10500,52],
+["Larissa Red","LAR","Larissa","#C8102E","#FFFFFF",13108,53],
+["Veria Red","VRA","Veria","#C8102E","#FFFFFF",7000,49]]
+};
+
 const REAL={
 eng0:[
 ["Manchester Red","MNR","Manchester","#DA020E","#FBE122",74310,90],
@@ -766,14 +1067,14 @@ ger:[
 ["Bochum Blue","BOC","Bochum","#005CA9","#FFFFFF",26000,60],
 ["Heidenheim Red","HDH","Heidenheim","#E30613","#003C7D",15000,58],
 ["Darmstadt Blue","DAR","Darmstadt","#004E9E","#FFFFFF",17810,56],
-["Kiel Blue","KIE","Kiel","#003D7C","#FFFFFF",15034,57]],
+["Kiel Blue","KEL","Kiel","#003D7C","#FFFFFF",15034,57]],
 ita:[
 ["Turin Black","TRB","Turin","#000000","#FFFFFF",41507,88],
 ["Milan Red","MLR","Milan","#FB090B","#000000",75923,87],
 ["Milan Blue","MLB","Milan","#0068A8","#000000",75923,89],
 ["Naples Sky","NAP","Naples","#12A0D7","#FFFFFF",54726,86],
 ["Rome Yellow","RMY","Rome","#8E1F2F","#F0BC42",70634,81],
-["Rome Sky","RMS","Rome","#87D8F7","#FFFFFF",70634,79],
+["Rome Sky","MRS","Rome","#87D8F7","#FFFFFF",70634,79],
 ["Bergamo Blue","BRG","Bergamo","#1D63AC","#000000",21300,82],
 ["Florence Purple","FLR","Florence","#682A8D","#FFFFFF",43147,76],
 ["Bologna Red","BLG","Bologna","#1A2F48","#9F1F35",38279,74],
@@ -784,13 +1085,13 @@ ita:[
 ["Lecce Yellow","LEC","Lecce","#FFE500","#D2232A",31533,61],
 ["Verona Yellow","VER","Verona","#F9E300","#0A2240",39211,62],
 ["Empoli Blue","EMP","Empoli","#005CA9","#FFFFFF",16284,60],
-["Monza Red","MZA","Monza","#E30613","#FFFFFF",15000,63],
+["Monza Red","MZZ","Monza","#E30613","#FFFFFF",15000,63],
 ["Cagliari Red","CAG","Cagliari","#B31B33","#0A2240",16416,59],
 ["Salerno Granata","SAL","Salerno","#7A1B2E","#FFFFFF",37245,57],
 ["Frosinone Blue","FRO","Frosinone","#0B3B7A","#FFE500",16227,56]],
 fra:[
-["Paris Blue","PSB","Paris","#004170","#DA291C",47929,91],
-["Marseille White","MRS","Marseille","#FFFFFF","#2FAEE0",67394,80],
+["Paris Blue","PAR","Paris","#004170","#DA291C",47929,91],
+["Marseille White","MSL","Marseille","#FFFFFF","#2FAEE0",67394,80],
 ["Lyon Red","LYN","Lyon","#FFFFFF","#D8232A",59186,78],
 ["Monaco Red","MON","Monaco","#E63329","#FFFFFF",18523,79],
 ["Lille Red","LIL","Lille","#E01E13","#FFFFFF",50186,77],
@@ -802,7 +1103,7 @@ fra:[
 ["Montpellier Blue","MTP","Montpellier","#00337F","#F47B20",32900,67],
 ["Toulouse Violet","TLS","Toulouse","#5C2D91","#FFFFFF",33150,66],
 ["Brest Red","BRS","Brest","#E30613","#FFFFFF",15931,65],
-["Reims Red","REI","Reims","#E4002B","#FFFFFF",21684,64],
+["Reims Red","RMI","Reims","#E4002B","#FFFFFF",21684,64],
 ["Saint-Étienne Green","STE","Saint-Étienne","#009F4D","#FFFFFF",41965,66],
 ["Bordeaux Navy","BDX","Bordeaux","#000C3F","#8E1F2F",42115,63],
 ["Auxerre White","AUX","Auxerre","#FFFFFF","#0055A5",21379,60],
@@ -816,7 +1117,14 @@ const NATIONS={
  esp:{name:'Spain',adj:'Spanish',tiers:['La Liga Nacional'],code:'ESP'},
  ger:{name:'Germany',adj:'German',tiers:['Bundesliga Nord'],code:'GER'},
  ita:{name:'Italy',adj:'Italian',tiers:['Serie Nazionale'],code:'ITA'},
- fra:{name:'France',adj:'French',tiers:['Ligue Nationale'],code:'FRA'}
+ fra:{name:'France',adj:'French',tiers:['Ligue Nationale'],code:'FRA'},
+ por:{name:'Portugal',adj:'Portuguese',tiers:['Primeira Nacional'],code:'POR'},
+ bel:{name:'Belgium',adj:'Belgian',tiers:['Pro Division'],code:'BEL'},
+ ned:{name:'Netherlands',adj:'Dutch',tiers:['Eredivisie Nacional'],code:'NED'},
+ tur:{name:'Türkiye',adj:'Turkish',tiers:['Süper Division'],code:'TUR'},
+ pol:{name:'Poland',adj:'Polish',tiers:['Ekstra Division'],code:'POL'},
+ cze:{name:'Czechia',adj:'Czech',tiers:['Fortuna Division'],code:'CZE'},
+ gre:{name:'Greece',adj:'Greek',tiers:['Super Division'],code:'GRE'}
 };
 const PLACES={
  eng:['Gorton','Ancoats','Chorlton','Openshaw','Didsbury','Salford','Eccles','Stretford','Bermondsey','Deptford',
@@ -965,6 +1273,7 @@ function genClubNames(nat,count,used,usedAbbr){
 /* ============================================================
    PEOPLE — names by nationality, screened against famous players
    ============================================================ */
+ const NAMES_BEL_ALIAS=1;
 const NAMES={
  eng:{f:['Alfie','Archie','Bailey','Callum','Charlie','Connor','Dylan','Elliot','Ethan','Finlay','Freddie','Harvey',
    'Isaac','Jacob','Jenson','Joel','Kieran','Lewis','Logan','Mason','Micah','Nathan','Oakley','Oscar','Reuben','Riley',
@@ -1002,6 +1311,35 @@ const NAMES={
    'Lucas','Matheus','Murilo','Otávio','Paulo','Rafael','Rodrigo','Thiago','Vinícius','Wesley'],
   l:['Albuquerque','Bittencourt','Cavalcanti','Dutra','Esteves','Fontoura','Gonçalves','Lourenço','Macedo',
    'Nascimento','Peixoto','Queiroz','Rezende','Sampaio','Teixeira','Vasconcelos','Andrade','Bezerra']},
+ por:{f:['André','Bruno','Diogo','Fábio','Gonçalo','Hugo','João','Miguel','Nuno','Pedro','Rafael',
+   'Ricardo','Rúben','Sérgio','Tiago','Vítor','Duarte','Afonso','Gil','Simão'],
+  l:['Abreu','Bettencourt','Carvalhal','Coutinho','Esteves','Fonseca','Guedes','Lourenço','Machado',
+   'Moutinho','Nogueira','Pinheiro','Quaresma','Resende','Salgado','Tavares','Valente','Ximenes',
+   'Azevedo','Bandeira']},
+ ned:{f:['Bas','Daan','Dirk','Frenkie','Gijs','Jasper','Joost','Koen','Lars','Luuk','Maarten','Niels',
+   'Pim','Ruud','Sander','Sem','Stijn','Thijs','Wout','Bram'],
+  l:['Aalbers','Bakhuis','Boersma','Dekkers','Ekelenkamp','Groenendijk','Hoogland','Kuiper','Lammers',
+   'Meijerink','Nijhuis','Oostveen','Poortvliet','Rietveld','Sanders','Terpstra','Veldkamp','Wielemaker',
+   'Zwanenburg','Brouwers']},
+ tur:{f:['Ahmet','Arda','Berkay','Burak','Cenk','Emre','Enes','Furkan','Hakan','İlkay','Kaan','Kerem',
+   'Mert','Onur','Ozan','Serdar','Taylan','Umut','Yusuf','Barış'],
+  l:['Akgün','Bayraktar','Çakır','Demirel','Erdoğan','Güler','Işık','Kaplan','Korkmaz','Öztürk',
+   'Polat','Sarıoğlu','Şahin','Taşkın','Tekin','Ulusoy','Yalçın','Yıldırım','Aydın','Coşkun']},
+ pol:{f:['Adam','Bartosz','Dawid','Filip','Jakub','Kacper','Kamil','Krzysztof','Łukasz','Maciej',
+   'Mateusz','Michał','Paweł','Piotr','Przemysław','Rafał','Szymon','Tomasz','Wojciech','Sebastian'],
+  l:['Bednarek','Cieślak','Dąbrowski','Gorzelniak','Jankowski','Kaczmarek','Kowalczyk','Lewandowicz',
+   'Majewski','Nowicki','Olszewski','Pawlak','Rutkowski','Sikorski','Szymański','Walczak','Wiśniewski',
+   'Zieliński','Adamczyk','Baran']},
+ cze:{f:['Adam','David','Filip','Jakub','Jan','Jaroslav','Jiří','Lukáš','Marek','Martin','Matěj',
+   'Michal','Ondřej','Patrik','Pavel','Petr','Radek','Tomáš','Vojtěch','Václav'],
+  l:['Bartoš','Čermák','Doležal','Fiala','Havlíček','Holub','Janoušek','Kadlec','Kopecký','Krejčí',
+   'Malý','Novotný','Pospíšil','Růžička','Sedláček','Šimek','Urban','Vlček','Zeman','Beneš']},
+ gre:{f:['Alexandros','Andreas','Christos','Dimitris','Giorgos','Ilias','Kostas','Lefteris','Manolis',
+   'Nikos','Panagiotis','Petros','Stavros','Stelios','Thanasis','Vangelis','Vasilis','Yiannis',
+   'Michalis','Sotiris'],
+  l:['Anagnostou','Chatzis','Dimopoulos','Fotiadis','Galanis','Iliopoulos','Kalfas','Karagiannis',
+   'Lambrou','Makris','Nikolaidis','Oikonomou','Papadakis','Rallis','Samaras','Theodorou','Tsakiris',
+   'Vlachos','Zervas','Kyriakou']},
  afr:{f:['Abdou','Amadou','Bakary','Cheikh','Ebrima','Ibrahima','Kwame','Lamine','Mamadou','Moussa','Ousmane',
    'Samba','Sekou','Yaya','Kofi','Emeka','Tunde','Sadio'],
   l:['Bamba','Camara','Cissé','Diallo','Diop','Fofana','Gueye','Kanté','Keita','Konaté','Mensah','Ndiaye',
@@ -1014,7 +1352,14 @@ const NATPOOL={eng:['eng','eng','eng','eng','eng','eng','esp','fra','bra','afr',
  esp:['esp','esp','esp','esp','esp','esp','bra','afr','fra','ita'],
  ger:['ger','ger','ger','ger','ger','ger','fra','afr','esp','bra'],
  ita:['ita','ita','ita','ita','ita','ita','esp','fra','bra','afr'],
- fra:['fra','fra','fra','fra','fra','fra','afr','afr','esp','bra']};
+ fra:['fra','fra','fra','fra','fra','fra','afr','afr','esp','bra'],
+ por:['por','por','por','por','por','bra','bra','afr','esp','fra'],
+ bel:['ned','ned','fra','fra','bel','afr','afr','ned','fra','ita'],
+ ned:['ned','ned','ned','ned','ned','ned','afr','bra','ger','bel'],
+ tur:['tur','tur','tur','tur','tur','tur','bra','afr','fra','ger'],
+ pol:['pol','pol','pol','pol','pol','pol','cze','ger','bra','afr'],
+ cze:['cze','cze','cze','cze','cze','cze','pol','ger','afr','bra'],
+ gre:['gre','gre','gre','gre','gre','gre','bra','afr','esp','ita']};
 function personName(nat){
   const p=NAMES[nat]||NAMES.eng;
   for(let i=0;i<12;i++){
@@ -1336,13 +1681,14 @@ const G={clubs:[],leagues:[],euro:{},me:0,week:0,season:2026,inbox:[],objective:
   tab:'home',squadView:'lineup',marketView:'scout',speed:'key',lastResult:null,
   window:'summer',shortlist:[],offers:[],chronicle:[],unbeaten:0,seasonEnded:false,mod:{},renames:{}};
 
+const EURO_N=32;                 // eight groups of four, then a round of sixteen
 const EUROS=[
  {key:'ucl',name:'Champions Cup',short:'CHAMPIONS',col:'var(--ucl)',from:[0,3]},
  {key:'uel',name:'Europa Cup',short:'EUROPA',col:'var(--uel)',from:[3,6]},
  {key:'uecl',name:'Conference Cup',short:'CONFERENCE',col:'var(--uecl)',from:[6,9]}
 ];
 const EUROWEEK={2:['g',0],4:['g',1],6:['g',2],9:['g',3],11:['g',4],13:['g',5],
-  19:['qf',0],21:['qf',1],26:['sf',0],28:['sf',1],35:['f',0]};
+  17:['r16',0],19:['r16',1],24:['qf',0],26:['qf',1],29:['sf',0],31:['sf',1],35:['f',0]};
 const MONTHS=['Aug','Aug','Aug','Sep','Sep','Sep','Sep','Oct','Oct','Oct','Nov','Nov','Nov','Nov','Dec','Dec','Dec','Dec',
 'Dec','Jan','Jan','Jan','Feb','Feb','Feb','Feb','Mar','Mar','Mar','Apr','Apr','Apr','Apr','Apr','May','May','May','May'];
 const DAYS=[9,16,23,1,8,15,22,3,17,24,1,8,22,29,6,13,20,26,29,3,17,24,1,8,15,22,7,14,21,4,11,18,22,25,2,9,16,24];
@@ -1365,10 +1711,17 @@ function buildWorld(){
     {nat:'esp',tier:0,name:NATIONS.esp.tiers[0],key:'esp'},
     {nat:'ger',tier:0,name:NATIONS.ger.tiers[0],key:'ger'},
     {nat:'ita',tier:0,name:NATIONS.ita.tiers[0],key:'ita'},
-    {nat:'fra',tier:0,name:NATIONS.fra.tiers[0],key:'fra'}
+    {nat:'fra',tier:0,name:NATIONS.fra.tiers[0],key:'fra'},
+    {nat:'por',tier:0,name:NATIONS.por.tiers[0],key:'por'},
+    {nat:'bel',tier:0,name:NATIONS.bel.tiers[0],key:'bel'},
+    {nat:'ned',tier:0,name:NATIONS.ned.tiers[0],key:'ned'},
+    {nat:'tur',tier:0,name:NATIONS.tur.tiers[0],key:'tur'},
+    {nat:'pol',tier:0,name:NATIONS.pol.tiers[0],key:'pol'},
+    {nat:'cze',tier:0,name:NATIONS.cze.tiers[0],key:'cze'},
+    {nat:'gre',tier:0,name:NATIONS.gre.tiers[0],key:'gre'}
   ];
   specs.forEach((sp,si)=>{
-    const rows=REAL[sp.key]||[];
+    const rows=REAL[sp.key]||REAL2[sp.key]||[];
     const ids=[];
     rows.forEach((r,i)=>{
       const [name,abbr,place,primary,secondary,capacity,rep]=r;
@@ -1467,7 +1820,7 @@ function buildEurope(prevTables){
       for(let i=E.from[0];i<E.from[1];i++)if(t[i])entrants.push(t[i].id);
     });
     // pad with the best clubs not already entered anywhere, never by duplicating
-    if(entrants.length<16){
+    if(entrants.length<EURO_N){
       const taken=new Set(entrants);
       Object.values(G.euro).forEach(C=>C.groups.forEach(g=>g.forEach(id=>taken.add(id))));
       const spare=topLeagues.flatMap(l=>{
@@ -1475,17 +1828,18 @@ function buildEurope(prevTables){
         return t.slice(E.from[1],E.from[1]+5).map(c=>c.id)})
         .filter(id=>!taken.has(id))
         .sort((a,b)=>G.clubs[b].rep-G.clubs[a].rep);
-      while(entrants.length<16&&spare.length)entrants.push(spare.shift());
-      while(entrants.length<16){
+      while(entrants.length<EURO_N&&spare.length)entrants.push(spare.shift());
+      while(entrants.length<EURO_N){
         const any=G.clubs.filter(c=>c.tier===0&&!taken.has(c.id)&&!entrants.includes(c.id))
           .sort((a,b)=>b.rep-a.rep)[0];
         if(!any)break; entrants.push(any.id);
       }
     }
-    const pool=[...new Set(entrants)].slice(0,16);
-    if(pool.length<16)return;
+    const pool=[...new Set(entrants)].slice(0,EURO_N);
+    if(pool.length<EURO_N)return;
     for(let i=pool.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
-    const groups=[pool.slice(0,4),pool.slice(4,8),pool.slice(8,12),pool.slice(12,16)];
+    const groups=[];
+    for(let g=0;g<EURO_N/4;g++)groups.push(pool.slice(g*4,g*4+4));
     const md=[[],[],[],[],[],[]];
     groups.forEach(g=>{
       const rr=roundRobin(4);           // 6 matchdays for 4 teams
@@ -1508,7 +1862,7 @@ function euroFixtureFor(cid,week){
   const tie=(E.ko[w[0]]||[]).find(t=>t.a===cid||t.b===cid);
   if(!tie)return null;
   const leg=w[1];
-  const label={qf:'Quarter-final',sf:'Semi-final',f:'FINAL'}[w[0]];
+  const label={r16:'Last 16',qf:'Quarter-final',sf:'Semi-final',f:'FINAL'}[w[0]];
   if(w[0]==='f')return {comp:E,home:tie.a,away:tie.b,stage:label,neutral:true,tie};
   return {comp:E,home:leg===0?tie.a:tie.b,away:leg===0?tie.b:tie.a,stage:label+' · leg '+(leg+1),neutral:false,tie,leg};
 }
@@ -1726,17 +2080,19 @@ function advanceEuro(week){
     if(w[0]==='g'&&w[1]===5){
       const qual=[];
       C.groups.forEach((g,i)=>{const t=euroGroupTable(C,i);qual.push(t[0].id,t[1].id)});
-      drawKO(C,'qf',qual);C.stage='qf';
-      if(qual.includes(G.me))note('Through to the '+C.name+' quarter-finals','You survived the group. Eight left.',{from:vV('league')});
+      drawKO(C,'r16',qual);C.stage='r16';
+      if(qual.includes(G.me))note('Through to the '+C.name+' last sixteen','You survived the group. Sixteen left.',{from:vV('league')});
       else if(G.clubs[G.me].euro===E.key)note('Out of the '+C.name,'The group stage was the end of it this year.',{from:vV('league')});
     }
-    if((w[0]==='qf'||w[0]==='sf')&&w[1]===1){
+    if((w[0]==='r16'||w[0]==='qf'||w[0]==='sf')&&w[1]===1){
       const winners=(C.ko[w[0]]||[]).map(t=>{
         let win = t.ga>t.gb?t.a : t.gb>t.ga?t.b : (rnd()<0.5?t.a:t.b);
         t.done=true;t.win=win;return win});
-      if(w[0]==='qf'){drawKO(C,'sf',winners);C.stage='sf'}
-      else{drawKO(C,'f',winners);C.stage='f';C.ko.f[0].single=true}
-      if(winners.includes(G.me))note('Into the '+C.name+' '+(w[0]==='qf'?'semi-final':'FINAL'),'One more step.',{from:vV('league')});
+      if(w[0]==='r16'){drawKO(C,'qf',winners);C.stage='qf'}
+      else if(w[0]==='qf'){drawKO(C,'sf',winners);C.stage='sf'}
+      else{drawKO(C,'f',winners);C.stage='f';if(C.ko.f[0])C.ko.f[0].single=true}
+      const nx={r16:'quarter-final',qf:'semi-final',sf:'FINAL'}[w[0]];
+      if(winners.includes(G.me))note('Into the '+C.name+' '+nx,'One more step.',{from:vV('league')});
     }
     if(w[0]==='f'){
       const t=C.ko.f[0];if(!t)return;
@@ -1806,6 +2162,7 @@ function doTransfer(p,seller,buyer,fee,wage){
   seller.bal+=fee;buyer.bal-=fee;
   seller._keyWk=-1;buyer._keyWk=-1;
   autoXI(seller);autoXI(buyer);
+  _poolKey='';
   SW.fire('onTransfer',p,seller,buyer,fee);
 }
 /* AI-to-AI market, run at each window */
@@ -1968,6 +2325,29 @@ function endSeasonProcess(){
     c.bal=Math.round((c.bal*0.45+revenue(c)*0.20)/1e5)*1e5;
     autoXI(c);
   });
+  /* A competition must never end a season without a winner. If the bracket is
+     still standing for any reason, settle it on the tie that is furthest along
+     rather than quietly rebuilding Europe over an unfinished tournament. */
+  EUROS.forEach(E=>{
+    const C=G.euro[E.key];
+    if(!C||C.winner!=null)return;
+    const stage=['f','sf','qf','r16'].find(k=>(C.ko[k]||[]).length);
+    if(!stage)return;
+    let ties=C.ko[stage].slice();
+    while(ties.length){
+      const w=ties.map(t=>t.ga>t.gb?t.a:t.gb>t.ga?t.b:(rnd()<0.5?t.a:t.b));
+      if(w.length===1){C.winner=w[0];break}
+      ties=[];for(let i=0;i<w.length;i+=2)ties.push({a:w[i],b:w[i+1],ga:0,gb:0});
+      ties.forEach(t=>{const A=G.clubs[t.a],B=G.clubs[t.b];
+        if(!A||!B){t.ga=1;return}
+        const r=simulate(A,B,true);t.ga=r.g[0];t.gb=r.g[1]});
+    }
+    if(C.winner!=null){
+      G.clubs[C.winner].titles++;
+      chron(G.clubs[C.winner].name+' won the '+C.name);
+      if(C.winner===G.me)note('YOU WON THE '+C.name.toUpperCase(),'Silverware.',{from:vV('league')});
+    }
+  });
   buildEurope(tables);
   aiMarket(46);
   G.season++;G.week=0;G.window='summer';G.seasonEnded=false;
@@ -2110,8 +2490,10 @@ function crestSVG(club,size){
 }
 function pface(p,size,opts){
   opts=opts||{};
-  const c=G.clubs.find(cl=>cl.squad.some(x=>x.id===p.id));
-  return faceSVG(p.id*13+7,{size,nat:p.nat,age:p.age,
+  /* the club scan is O(clubs x squad) and this runs 25 times in a card grid —
+     any caller that already knows the club should hand it over. */
+  const c=opts.club||G.clubs.find(cl=>cl.squad.some(x=>x.id===p.id));
+  return faceSVG(p.id*13+7,{size,nat:p.nat,age:p.age,sq:opts.sq,
     morale:opts.noMood?null:(p.morale===undefined?0:p.morale),
     kitA:c?c.primary:'#2A3038',kitB:c?c.secondary:'#1A1F26',
     bg:opts.bg||'#1A1F26'});
@@ -2605,7 +2987,7 @@ function euroStatusLine(c){
   if(E.stage==='group'){const gi=E.groups.findIndex(g=>g.includes(c.id));
     const t=euroGroupTable(E,gi),p=t.findIndex(x=>x.id===c.id)+1;
     return `Group ${String.fromCharCode(65+gi)} · ${ord(p)} · ${c.euroPts} pts`}
-  const st={qf:'Quarter-final',sf:'Semi-final',f:'FINAL'}[E.stage];
+  const st={r16:'Last 16',qf:'Quarter-final',sf:'Semi-final',f:'FINAL'}[E.stage];
   const alive=(E.ko[E.stage]||[]).some(t=>t.a===c.id||t.b===c.id);
   return alive?st:'Eliminated';
 }
@@ -2633,8 +3015,8 @@ function viewSquad(){
       ${pitchView(c)}
       <div class="sechead">${picking?'<span style="color:var(--acc)">Tap a player to swap him in</span>':'Bench'}
         <span class="n">${bench.length}</span></div>
-      <div class="card" style="padding:6px 14px 12px">
-      ${bench.map(p=>benchRow(c,p)).join('')}</div>`;  } else if(G.squadView==='tactics'){
+      <div class="pcgrid">${bench.map(p=>pcard(p,{w:pcw(3,10),club:c,
+        tap:'benchSwap('+p.id+')'})).join('')}</div>`;  } else if(G.squadView==='tactics'){
     const sl=(lbl,key,lo,hi)=>{const v=c[key];
       return `<div style="margin-bottom:18px"><div class="row" style="margin-bottom:7px">
         <span style="font-weight:600;font-size:14px">${lbl}</span><span class="spacer"></span>
@@ -2671,15 +3053,13 @@ function viewSquad(){
     body=`<div class="card" style="margin-bottom:10px"><div style="font-size:13px;color:var(--t2)">
       Academy players do not appear in the first team until you promote them. Their ceiling is a scout's estimate —
       he is often wrong.</div></div>
-     <div class="card" style="padding:6px 14px 12px">
-     ${y.length?y.map(p=>`<div class="plr">
-       ${pface(p,46)}
-       <div class="nmw"><div class="nm2">${esc(p.name)}</div>
-        <div class="meta"><span>${p.pos}</span><span>${p.age}</span>
-        <span style="color:var(--loan)">ceiling ~${Math.round(p.pa/10)*10}</span></div></div>
-       <div class="ca" style="color:${ramp(CA(p))}">${Math.round(CA(p))}</div>
-       <button class="btn xs" style="margin-left:8px" onclick="event.stopPropagation();promote(${p.id})">Promote</button></div>`).join('')
-      :'<div class="dim" style="padding:14px 0">Nobody in the academy right now. Intake comes at the end of the season.</div>'}</div>`;
+     ${y.length?`<div class="pcgrid">${y.map(p=>{const w=pcw(2,11);
+       return `<div class="pccell" style="width:${w}px">${pcard(p,{w,club:c,
+         footHTML:crestSVG(c,Math.round(w*0.125))+'<span class="pc-v" style="font-size:'+
+           Math.round(w*0.085)+'px;color:var(--loan)">~'+(Math.round(p.pa/10)*10)+'</span>'})}
+        <button class="btn xs" style="min-height:34px"
+          onclick="event.stopPropagation();promote(${p.id})">Promote</button></div>`}).join('')}</div>`
+      :'<div class="card"><div class="dim" style="padding:14px 0">Nobody in the academy right now. Intake comes at the end of the season.</div></div>'}`;
   }
   return `${topbar()}<div class="scroll">
    <div class="segmented ${views.length>4?'many':''}">${views.map(([k,l])=>`<button aria-selected="${G.squadView===k}"
@@ -2689,16 +3069,6 @@ function kitChip(c,p){
   const k=kitFor(c),{ink,halo}=numInk(k);
   return `<span class="kitchip" style="background:${kitCSS(k)}">
     <i style="color:${ink};text-shadow:${halo}">${shirtNo(c,p)}</i></span>`;
-}
-function benchRow(c,p){
-  const last=p.ratings.slice(-5).map(r=>r>=7.1?'W':r>=6.3?'D':'L');
-  return `<div class="plr" onclick="benchSwap(${p.id})">
-   ${pface(p,46)}${kitChip(c,p)}
-   <div class="nmw"><div class="nm2">${esc(p.name)}${p.out>0?'<span style="color:var(--inj)">✚</span>':''}</div>
-    <div class="meta"><span class="pill" style="padding:1px 6px">${p.pos}</span>
-      <span class="flag">${p.nat}</span><span>${p.age}</span>${fstrip(last)}
-      <span style="color:${p.cond<66?'var(--inj)':'var(--t3)'}">${Math.round(p.cond)}%</span></div></div>
-   <div class="ca" style="color:${ramp(CA(p))}">${Math.round(CA(p))}</div></div>`;
 }
 function plrRow(p,slot){
   const v=slot?CA(p,slot):CA(p);
@@ -2712,6 +3082,116 @@ function plrRow(p,slot){
     <div class="meta"><span class="flag">${p.nat}</span><span>${p.age}</span>${fstrip(last)}
      <span style="color:${p.cond<66?'var(--inj)':'var(--t3)'}">${Math.round(p.cond)}%</span></div></div>
    <div class="ca" style="color:${ramp(v)}">${Math.round(v)}</div></div>`;
+}
+/* ============================================================
+   THE PLAYER CARD — research 09 §3
+   Six tiers over the CA scale, because five is not enough granularity for a
+   30-95 range and eight is unlearnable. The frame carries the tier as HUE and
+   as a count of rank marks, so the taxonomy survives greyscale. The rating is
+   the largest glyph on the card at every size; at weight 700 it stops
+   dominating and the whole thing reads like a list row again, so it is 800.
+   ============================================================ */
+const PCTIER=[
+  {k:'iron',      lo:0,  fr:'#6E7885', a:'#1A1F26', b:'#12161B', n:0},
+  {k:'bronze',    lo:45, fr:'#C1783C', a:'#2A1C10', b:'#16110C', n:0},
+  {k:'silver',    lo:58, fr:'#B9C3CE', a:'#232A33', b:'#141A20', n:1},
+  {k:'gold',      lo:72, fr:'#FFC53D', a:'#3A2E10', b:'#17130A', n:1},
+  {k:'elite',     lo:85, fr:'#7FD9FF', a:'#0E2A38', b:'#08161E', n:2},
+  {k:'silverware',lo:92, fr:'#F4F6F8', a:'#242424', b:'#000000', n:3}
+];
+const PCUNK={k:'unknown',fr:'#5C6572',a:'#171B21',b:'#0C0F13',n:0};
+function pcTier(n){
+  if(n===null||n===undefined||isNaN(n))return PCUNK;
+  let t=PCTIER[0];
+  for(let i=0;i<PCTIER.length;i++)if(n>=PCTIER[i].lo)t=PCTIER[i];
+  return t;
+}
+/* a match rating is a different scale and deserves the same taxonomy */
+function pcTierRating(r){
+  return pcTier(r>=8.6?95:r>=7.9?88:r>=7.2?78:r>=6.6?64:r>=6.0?50:38);
+}
+/* position families: four hues, all already in the palette, learned in one
+   session. GK violet, defence blue, midfield green, attack red. */
+const PCPOSC={GK:'var(--loan)',CB:'var(--trf)',FB:'var(--trf)',DM:'var(--win)',
+  CM:'var(--win)',AM:'var(--win)',W:'var(--loss)',ST:'var(--loss)'};
+/* What the player is allowed to know, and how sure he is allowed to feel.
+   abilityLabel() may hand back "74", "≈74", "70–85" or "??". */
+function pcRead(p,mine){
+  if(mine)return {t:String(Math.round(CA(p))),n:Math.round(CA(p)),u:0};
+  const l=String(abilityLabel(p));
+  let m;
+  if(/^\d+$/.test(l))return {t:l,n:+l,u:0};
+  if((m=l.match(/^≈(\d+)$/)))return {t:l,n:+m[1],u:1};
+  if((m=l.match(/^(\d+)[–-](\d+)$/)))return {t:l,n:Math.round((+m[1]+ +m[2])/2),u:2};
+  return {t:'??',n:null,u:3};
+}
+/* Surname only. Truncation is a design failure — pick the shorter token. */
+function pcName(p){
+  const parts=String(p.name).trim().split(/\s+/);
+  let s=parts[parts.length-1];
+  if(s.length>13){
+    const alt=parts.filter(x=>x.length>=3).sort((a,b)=>a.length-b.length)[0];
+    if(alt)s=alt;
+  }
+  return s;
+}
+/* Exact card width for a row of `cols`, so nothing has to guess at layout time. */
+function pcw(cols,gap,inset){
+  const c=Math.min(window.innerWidth||375,480)-(inset===undefined?32:inset);
+  return Math.max(84,Math.floor((c-(gap===undefined?11:gap)*(cols-1))/cols));
+}
+function pcard(p,o){
+  o=o||{};
+  const club=o.club||G.clubs.find(c=>c.squad&&c.squad.some(x=>x.id===p.id));
+  const mine=!!club&&club.id===G.me;
+  const w=o.w||132;
+  const R=o.num!==undefined?{t:String(o.num),n:null,u:0}:pcRead(p,mine);
+  const T=o.tier||pcTier(R.n);
+  const rf=Math.round(w*0.250), ch=Math.round(w*0.106), cz=Math.round(w*0.125),
+        pf=Math.max(9,Math.round(w*0.062)), af=Math.max(9,Math.round(w*0.066)),
+        pip=Math.max(4,Math.round(w*0.036));
+  const nm=pcName(p), nf0=Math.round(w*0.112);
+  const nf=nm.length>12?Math.round(nf0*0.70):nm.length>9?Math.round(nf0*0.84):nf0;
+  const slot=o.slot||p.pos, off=o.slot&&o.slot!==p.pos;
+  const small=w<118;                       // sm cards drop the second-order marks
+  /* potential, as pips. pa is never printed; only our own men are legible. */
+  let pips='';
+  if(!small){
+    const on=mine?clamp(Math.round((p.pa-30)/13),1,5):0;
+    pips=`<span class="pc-pips${mine?'':' u'}" style="--pip:${pip}px">${
+      [0,1,2,3,4].map(i=>`<i class="${i<on?'on':''}"></i>`).join('')}</span>`;
+  }
+  const bd=p.out>0?['✚','var(--inj)']:p.listed?['⇄','var(--trf)']:p.youth?['★','var(--loan)']:null;
+  const cnd=mine&&!small?`<span class="pc-cond"><i style="width:${clamp(p.cond,0,100)}%;background:${
+    p.cond<60?'var(--inj)':ramp(p.cond*0.9)}"></i></span>`:'';
+  const last=(p.ratings||[]).slice(-5).map(r=>r>=7.1?'W':r>=6.3?'D':'L');
+  let foot;
+  if(o.foot==='none')foot='';
+  else if(o.footHTML!==undefined)foot=o.footHTML;
+  else if(o.fee!==undefined)
+    foot=`${club?crestSVG(club,cz):''}<span class="pc-v" style="font-size:${Math.round(w*0.085)}px;color:${
+      o.feeCol||'var(--trf)'}">${money(o.fee)}</span>`;
+  else
+    foot=`${club?crestSVG(club,cz):''}<span class="pc-ab" style="font-size:${af}px">${
+      club?esc(club.abbr):'—'}</span>${small?'':fstrip(last)}`;
+  const star=o.star?`<span class="pc-star${G.shortlist.indexOf(p.id)>=0?' on':''}"
+    onclick="event.stopPropagation();toggleShort(${p.id})"><i>${
+      G.shortlist.indexOf(p.id)>=0?'★':'☆'}</i></span>`:'';
+  return `<div class="pc${T.k==='unknown'?' q':''}${T.k==='silverware'?' sw':''}${
+     o.over?' over':''}${star?' hasstar':''}"
+   style="--w:${w}px;--ch:${ch}px;--rf:${rf}px;--tier:${T.fr};--pa:${T.a};--pb:${T.b};--pip:${pip}px;--posc:${
+     PCPOSC[p.pos]||'var(--t2)'}" onclick="${o.tap||('showPlayer('+p.id+')')}">${star}
+   <div class="pc-in"><div class="pc-top">
+     <span class="pc-face">${pface(p,Math.round(w*0.9),{sq:1,club:club})}</span>
+     <span class="pc-rail">
+       <span class="pc-rt${R.u===2?' band':R.u===3?' unk':''}">${esc(R.t)}</span>
+       <span class="pc-pos${off?' off':''}" style="font-size:${pf}px">${esc(slot)}</span>
+       ${pips}${T.n&&!small?`<span class="pc-tk" style="--tkn:${T.n}"></span>`:''}
+     </span>
+     ${bd?`<i class="pc-bd" style="background:${bd[1]}">${bd[0]}</i>`:''}${cnd}
+   </div>
+   <div class="pc-nm" style="font-size:${nf}px">${esc(nm)}</div>
+   <div class="pc-ft" style="font-size:${af}px">${foot}</div></div></div>`;
 }
 function setTac(k,v){me()[k]=v;save();render()}
 function setForm(f){me().formation=f;autoXI(me());save();render()}
@@ -2768,8 +3248,14 @@ function mktSort(list){
   }[m.sort]||((a,b)=>CA(b.p)-CA(a.p));
   return list.sort(cmp);
 }
+/* Pricing every player in a 280-club world on every render cost 58ms, which is
+   ~230ms on a phone. The pool only changes when the week or the budget does. */
+let _poolCache=null,_poolKey='';
 function scoutPool(){
-  const c=me(),out=[],ceiling=c.bal*2.2;
+  const c=me();
+  const key=G.season+'|'+G.week+'|'+c.bal+'|'+c.id+'|'+G.clubs.length;
+  if(_poolKey===key&&_poolCache)return _poolCache;
+  const out=[],ceiling=c.bal*2.2;
   G.clubs.forEach(s=>{
     if(s.id===G.me)return;
     const sq=squadOf(s);
@@ -2782,6 +3268,7 @@ function scoutPool(){
       out.push({p,s,ask});
     }
   });
+  _poolCache=out;_poolKey=key;
   return out;
 }
 function viewMarket(){
@@ -2798,6 +3285,7 @@ function viewMarket(){
     const all=scoutPool();
     const pool=mktSort(mktFilter(all));
     const n=mktActive();
+    const cw=pcw(2,11);
     body=`<div class="chips">${['ALL','GK','CB','FB','DM','CM','AM','W','ST'].map(f=>
       `<button aria-selected="${m.pos===f}" onclick="mkt().pos='${f}';render()">${f}</button>`).join('')}</div>
      <div class="row" style="gap:8px;margin:2px 0 10px">
@@ -2808,27 +3296,24 @@ function viewMarket(){
        <span class="spacer"></span>
        <span class="dim" style="font-size:12px">${pool.length} player${pool.length===1?'':'s'}</span>
      </div>
-     <div class="card" style="padding:6px 14px 12px">
-     ${pool.slice(0,30).map(({p,s,ask})=>mktRow(p,s,ask)).join('')
-       ||`<div class="dim" style="padding:18px 0;text-align:center">Nobody matches that.
-          <button class="btn ghost xs" style="margin:10px auto 0" onclick="mktReset()">Clear filters</button></div>`}</div>`;
+     ${pool.length?`${mktHero(pool[0])}${shortShelf()}
+       <div class="pcgrid">${pool.slice(1,25).map(({p,s,ask})=>mktCard(p,s,ask,cw)).join('')}</div>`
+       :`<div class="card"><div class="dim" style="padding:18px 0;text-align:center">Nobody matches that.
+          <button class="btn ghost xs" style="margin:10px auto 0" onclick="mktReset()">Clear filters</button></div></div>`}`;
   } else if(G.marketView==='shortlist'){
     const rows=G.shortlist.map(id=>{
       let p=null,s=null;G.clubs.forEach(cl=>{const f=cl.squad.find(x=>x.id===id);if(f){p=f;s=cl}});
       return p?{p,s,ask:askingPrice(p,s,c)}:null}).filter(Boolean);
-    body=`<div class="card" style="padding:6px 14px 12px">
-     ${rows.length?rows.map(({p,s,ask})=>mktRow(p,s,ask)).join('')
-      :'<div class="dim" style="padding:14px 0">Nothing shortlisted. Star a player in Scout to track him.</div>'}</div>`;
+    const cw2=pcw(2,11);
+    body=rows.length?`<div class="pcgrid">${rows.map(({p,s,ask})=>mktCard(p,s,ask,cw2)).join('')}</div>`
+      :'<div class="card"><div class="dim" style="padding:14px 0">Nothing shortlisted. Star a player in Scout to track him.</div></div>';
   } else {
     body=`<div class="card" style="margin-bottom:10px"><div style="font-size:13px;color:var(--t2)">
       List a player and clubs will come in for him. Wages come off the bill the moment he goes.</div></div>
-     <div class="card" style="padding:6px 14px 12px">${squadOf(c).sort((a,b)=>CA(b)-CA(a)).map(p=>`
-      <div class="plr">${pface(p,46)}
-       <div class="pos">${p.pos}</div>
-       <div class="nmw"><div class="nm2">${esc(p.name)}</div>
-        <div class="meta"><span>${p.age}</span><span style="color:var(--trf)">${money(value(p))}</span>
-        <span>${money(p.wage)}/wk</span></div></div>
-       <button class="btn ${p.listed?'':'ghost'} xs" onclick="toggleList(${p.id})">${p.listed?'Listed':'List'}</button></div>`).join('')}</div>`;
+     <div class="pcgrid">${squadOf(c).sort((a,b)=>CA(b)-CA(a)).map(p=>{const w=pcw(2,11);
+       return `<div class="pccell" style="width:${w}px">${pcard(p,{w,club:c,fee:value(p)})}
+        <button class="btn ${p.listed?'':'ghost'} xs" style="min-height:34px"
+          onclick="event.stopPropagation();toggleList(${p.id})">${p.listed?'Listed':'List'}</button></div>`}).join('')}</div>`;
   }
   return `${topbar()}<div class="scroll">
    <div class="card" style="margin-bottom:12px"><div class="row">
@@ -2854,21 +3339,46 @@ function abilityColour(p){
   if(sc&&sc.knowledge){try{ if(sc.knowledge(p.id)<0.55)return 'var(--t2)' }catch(e){}}
   return ramp(CA(p));
 }
-function mktRow(p,s,ask){
-  const star=G.shortlist.includes(p.id);
+/* A market result is a card, not a row: six of them fill a phone screen with the
+   same information as six rows and four times the graphic weight. The fee lives
+   in the card foot because the fee is the reason you are looking. */
+function mktCard(p,s,ask,w){
   const afford=ask<=me().bal;
-  return `<div class="plr" onclick="showPlayer(${p.id})" style="align-items:flex-start">
-   ${pface(p,50)}
-   <div class="nmw" style="padding-top:1px">
-    <div class="nm2">${esc(p.name)}</div>
-    <div class="meta"><span class="pill" style="padding:1px 6px">${p.pos}</span>
-      <span class="flag">${p.nat}</span><span>${p.age}</span></div>
-    <div class="meta" style="margin-top:3px">${crestSVG(s,12)}<span>${esc(s.name)}</span></div></div>
-   <div style="text-align:right;flex:0 0 auto">
-    <div class="ca" style="color:${abilityColour(p)};width:auto;font-size:${abilityLabel(p).length>3?'14px':'18px'}">${abilityLabel(p)}</div>
-    <div style="font-size:12px;font-weight:700;margin-top:2px;color:${afford?'var(--trf)':'var(--t3)'}">${money(ask)}</div></div>
-   <button class="btn ghost xs" style="margin-left:6px;min-width:38px;padding:0"
-     onclick="event.stopPropagation();toggleShort(${p.id})">${star?'★':'☆'}</button></div>`;
+  return pcard(p,{w,club:s,fee:ask,star:1,over:!afford,
+    feeCol:afford?'var(--trf)':'var(--t3)'});
+}
+/* The hero band. One target, the fee at broadcast size, and your balance as the
+   track underneath it — the bar says "can I afford him" without a sentence. */
+function mktHero(h){
+  const c=me(),afford=h.ask<=c.bal;
+  const pct=clamp(h.ask/Math.max(1,c.bal)*100,2,100);
+  return `<div class="pchero" onclick="showPlayer(${h.p.id})">
+   ${pcard(h.p,{w:124,club:h.s,tap:'void 0'})}
+   <div class="ht">
+     <div class="hk">Top of the list</div>
+     <div class="hn">${esc(h.p.name)}</div>
+     <div class="hm">${h.p.pos} · ${h.p.age} · ${esc(h.s.abbr)}</div>
+     <div class="hf" style="color:${afford?'var(--acc)':'var(--loss)'}">${money(h.ask)}</div>
+     <div class="afford"><i style="width:${pct}%;background:${afford?'var(--acc)':'var(--loss)'}"></i></div>
+     <div class="hm" style="margin-top:5px">${afford?money(c.bal-h.ask)+' left after':'−'+money(h.ask-c.bal)+' short'}</div>
+   </div></div>`;
+}
+/* Collections have to be visible to be desirable, so the shortlist rides along
+   at the top of the Scout screen as a shelf you can always see. */
+function shortShelf(){
+  if(!G.shortlist.length)return '';
+  const c=me(),cards=[];
+  G.shortlist.forEach(id=>{
+    let p=null,s=null;
+    G.clubs.forEach(cl=>{const f=cl.squad.find(x=>x.id===id);if(f){p=f;s=cl}});
+    if(!p)return;
+    const ask=askingPrice(p,s,c);
+    cards.push(pcard(p,{w:96,club:s,fee:ask,over:ask>c.bal,
+      feeCol:ask<=c.bal?'var(--trf)':'var(--t3)'}));
+  });
+  if(!cards.length)return '';
+  return `<div class="sechead">Shortlist<span class="n">${cards.length}</span></div>
+   <div class="pcshelf">${cards.join('')}</div>`;
 }
 function toggleShort(id){const i=G.shortlist.indexOf(id);
   if(i<0)G.shortlist.push(id);else G.shortlist.splice(i,1);render()}
@@ -2972,8 +3482,8 @@ function viewWorld(){
     if(E.stage==='group'){
       body=groupsHTML();
     } else {
-      const label={qf:'Quarter-finals',sf:'Semi-finals',f:'Final'};
-      body=['qf','sf','f'].filter(s=>E.ko[s]).map(s=>`<div class="sechead">${label[s]}</div>
+      const label={r16:'Last 16',qf:'Quarter-finals',sf:'Semi-finals',f:'Final'};
+      body=['r16','qf','sf','f'].filter(s=>E.ko[s]).map(s=>`<div class="sechead">${label[s]}</div>
        <div class="card">${E.ko[s].map(tie=>`<div class="kv">
         <span class="k2" style="display:flex;align-items:center;gap:7px">${crestSVG(G.clubs[tie.a],16)}
           <span style="${tie.win===tie.a?'font-weight:700;color:var(--t1)':''}">${G.clubs[tie.a].abbr}</span>
@@ -3033,14 +3543,19 @@ function showPlayer(id){
   const mine=cl.id===G.me;
   const ask=mine?0:askingPrice(p,cl,me());
   const avg=p.ratings.length?(p.ratings.reduce((a,b)=>a+b,0)/p.ratings.length).toFixed(2):'—';
-  sheet(`<div class="row" style="margin-bottom:14px;align-items:flex-start">
-    ${pface(p,64)}
-    <div style="min-width:0"><h3 style="margin:0">${esc(p.name)}</h3>
-     <div class="dim" style="font-size:13px">${p.pos} · ${p.age} · ${p.nat.toUpperCase()}</div>
-     <div class="row" style="gap:6px;margin-top:6px">${crestSVG(cl,16)}
-      <span style="font-size:12px;color:var(--t2)">${esc(cl.name)}</span></div></div>
-    <span class="spacer"></span>
-    <div style="font-weight:700;font-size:30px;color:${ramp(CA(p))}">${Math.round(CA(p))}</div></div>
+  const last5=(p.ratings||[]).slice(-5).map(r=>r>=7.1?'W':r>=6.3?'D':'L');
+  sheet(`<div class="phero">
+    ${pcard(p,{w:138,club:cl,tap:'void 0'})}
+    <div class="pht"><h3 style="margin:0;font-size:21px;line-height:24px">${esc(p.name)}</h3>
+     <div class="dim" style="font-size:13px;margin-top:2px">${p.pos} · ${p.age} · ${p.nat.toUpperCase()} · ${p.foot||'R'}-footed</div>
+     <div class="row" style="gap:6px;margin-top:8px">${crestSVG(cl,22)}
+      <span style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(cl.name)}</span></div>
+     <div class="wdl">${last5.length?last5.map(x=>`<i class="${x}">${x}</i>`).join('')
+       :'<span class="dim" style="font-size:11px">No minutes yet</span>'}</div>
+     <div class="ringrow"><span class="ring" style="--v:${clamp(Math.round(p.cond),0,100)};--rc:${
+       p.cond<60?'var(--inj)':ramp(p.cond*0.9)}"><b>${Math.round(p.cond)}</b></span>
+      <span class="rlbl">Condition</span></div>
+    </div></div>
    ${p.trait&&(p.traitKnown||mine)?`<div class="card" style="background:var(--s1);margin-bottom:10px;border-color:var(--acc)">
      <div style="font-size:12px;color:var(--acc);font-weight:700;letter-spacing:.05em;text-transform:uppercase">Trait</div>
      <div style="font-size:14px;margin-top:3px">${esc(p.trait)}</div></div>`:''}
@@ -3049,7 +3564,6 @@ function showPlayer(id){
      <span class="t"><i style="width:${p.a[i]}%;background:${ramp(p.a[i])}"></i></span>
      <span class="v3" style="color:${ramp(p.a[i])}">${p.a[i]}</span></div>`).join('')}</div></div>
    <div class="card" style="margin-top:10px;background:var(--s1)">
-    <div class="kv"><span class="k2">Condition</span><span class="v2">${Math.round(p.cond)}%</span></div>
     <div class="kv"><span class="k2">Appearances</span><span class="v2">${p.apps}</span></div>
     <div class="kv"><span class="k2">Goals / assists</span><span class="v2">${p.goals} / ${p.assists}</span></div>
     <div class="kv"><span class="k2">Average rating</span><span class="v2">${avg}</span></div>
@@ -3069,8 +3583,17 @@ function sheetBid(id){
   if(!p)return;
   const c=me(),ask=askingPrice(p,s,c);
   const opts=[['Cheeky',Math.round(ask*0.7/50000)*50000],['Fair',ask],['Blow them away',Math.round(ask*1.12/50000)*50000]];
-  sheet(`<h3>Offer for ${esc(p.name)}</h3>
-   <div class="sh-sub">${esc(s.name)} value him at roughly ${money(ask)}. You have ${money(c.bal)}.</div>
+  sheet(`<div class="phero" style="margin-bottom:14px">
+    ${pcard(p,{w:124,club:s,tap:'void 0'})}
+    <div class="pht"><div class="hk" style="color:var(--acc);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase">Offer for</div>
+     <h3 style="margin:2px 0 0;font-size:20px;line-height:23px">${esc(p.name)}</h3>
+     <div class="dim" style="font-size:12px;margin-top:3px">${esc(s.name)} want about</div>
+     <div class="hf" style="font-family:var(--disp);font-weight:800;font-size:28px;line-height:1;margin-top:4px;color:${
+       ask<=c.bal?'var(--acc)':'var(--loss)'}">${money(ask)}</div>
+     <div class="afford"><i style="width:${clamp(ask/Math.max(1,c.bal)*100,2,100)}%;background:${
+       ask<=c.bal?'var(--acc)':'var(--loss)'}"></i></div>
+     <div class="hm" style="font-size:11px;color:var(--t3);margin-top:4px">You have ${money(c.bal)}</div>
+    </div></div>
    ${opts.map(([l,v],i)=>`<div class="opt ${i===1?'rec':''}" ${v>c.bal?'style="opacity:.45"':''}
      onclick="${v>c.bal?'':`makeBid(${p.id},${v})`}">
      <div><div style="font-weight:600">${l}</div><div class="dim" style="font-size:12px">${money(v)}
@@ -3113,9 +3636,8 @@ function makeBid(id,amount){
   sheet(`<div class="slab" style="margin-bottom:14px"><div class="k">Done deal</div>
     <div class="v" style="font-size:26px;line-height:29px">${esc(p.name)}</div>
     <div class="d">${money(amount)} from ${esc(from)}</div></div>
-   <div class="row" style="gap:12px;margin-bottom:14px">${pface(p,56)}
-    <div><div style="font-weight:700">${esc(p.name)}</div>
-     <div class="dim" style="font-size:13px">${p.pos} · ${p.age} · ability ${Math.round(CA(p))}</div></div></div>
+   <div class="reveal" style="display:flex;justify-content:center;margin-bottom:14px">
+     ${pcard(p,{w:172,club:me(),tap:'void 0'})}</div>
    <button class="btn" onclick="closeSheet();render()">Continue</button>`);
 }
 function showClub(id){
@@ -3388,9 +3910,15 @@ function showReport(){
      <div class="k">Full time · ${esc(f.comp.name)}</div>
      <div class="v">${G.clubs[hi].abbr} ${R.g[0]}–${R.g[1]} ${G.clubs[ai].abbr}</div>
      <div class="d">${w?'You won':d?'Drew':'You lost'}. ${esc(luckTxt)}</div></div>
-   ${scorers.length?`<div class="card" style="background:var(--s1);margin-bottom:10px;padding:6px 14px 10px">
-     ${scorers.map(e=>`<div class="kv"><span class="k2">${e.m}' ${esc(e.who)}</span>
-       <span class="v2 mono" style="color:${e.s===s?'var(--win)':'var(--t3)'}">${G.clubs[e.s===0?hi:ai].abbr}</span></div>`).join('')}</div>`:''}
+   ${scorers.length?`<div class="evtiles">${scorers.map(e=>{
+     const hit=e.wid!==undefined?findPlayer(e.wid):null;
+     const ec=G.clubs[e.s===0?hi:ai];
+     return `<div class="evt${e.s===s?' us':''}"${hit?` onclick="closeSheet();showPlayer(${e.wid})"`:''}>
+      <span class="evm">${e.m}'</span>
+      ${hit?pface(hit.p,38,{bg:'#141920',club:hit.c}):crestSVG(ec,30)}
+      <span class="evn"><b>${esc(e.who)}</b>${e.ast?`<span>assist ${esc(e.ast)}</span>`:
+        e.setp?'<span>set piece</span>':''}</span>
+      <span class="evg">${crestSVG(ec,20)}</span></div>`}).join('')}</div>`:''}
    <div class="sechead" style="margin-top:4px">Why it happened</div>
    <div class="card" style="background:var(--s1);padding:4px 14px 12px">
    ${drv.map(([l,v])=>{const pos=v>=0,wpx=Math.min(37,Math.abs(v)*95);
@@ -3401,10 +3929,29 @@ function showReport(){
     <div class="kv"><span class="k2">Shots</span><span class="v2">${R.shots[s]} – ${R.shots[o]}</span></div>
     <div class="kv"><span class="k2">Expected goals</span><span class="v2">${R.xg[s].toFixed(1)} – ${R.xg[o].toFixed(1)}</span></div>
     <div class="kv"><span class="k2">Possession</span><span class="v2">${Math.round(R.drv.poss[s]*100)}%</span></div></div>
+   ${reportRatings()}
    ${SW.collect('reportBlocks',G.lastResult).join('')}
    <div style="font-size:12px;color:var(--t3);margin:12px 2px 0">Every number came out of the same simulation every
    other club is run through. The engine is never told which side is yours.</div>
    <button class="btn" style="margin-top:14px" onclick="closeSheet();afterReport()">Continue</button>`);
+}
+/* Who actually played, best first, with the match rating standing in for the
+   ability numeral and tiered on performance. Eleven cards; no rows. */
+function reportRatings(){
+  const c=me();
+  if(!c||!c.xi)return '';
+  const w=pcw(3,9,36);                       // the sheet is inset like the page
+  const men=c.xi.map(({p,slot})=>({p,slot,r:(p.ratings||[])[p.ratings.length-1]}))
+    .filter(x=>typeof x.r==='number').sort((a,b)=>b.r-a.r);
+  if(!men.length)return '';
+  const gl=(G.lastResult&&G.lastResult.R.ev||[]).filter(e=>e.t==='goal');
+  return `<div class="sechead" style="margin-top:14px">How they played
+    <span class="n">${men[0].r.toFixed(1)} best</span></div>
+   <div class="pcgrid">${men.map(({p,slot,r})=>{
+     const g=gl.filter(e=>e.wid===p.id).length;
+     return pcard(p,{w,club:c,slot,num:r.toFixed(1),tier:pcTierRating(r),
+       footHTML:g?`<span class="pc-ab" style="font-size:10px">GOAL${g>1?' x'+g:''}</span>`
+         :`<span class="pc-ab" style="font-size:10px">${esc(p.nat.toUpperCase())}</span>`})}).join('')}</div>`;
 }
 function afterReport(){
   closeSheet();
