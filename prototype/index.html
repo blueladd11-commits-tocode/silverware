@@ -168,7 +168,7 @@ h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
 /* 148px, not 132px: the CTA dock's top edge sits 142px above the viewport bottom
    (64px offset + 78px of dock), so 132px let the last card slide under it. The notch is
    handled by #app's matching bottom inset, which scales with the dock's own inset offset. */
-.scroll{padding:0 16px 148px}
+.scroll{padding:0 16px 184px}
 .tabbar{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);
   background:var(--s1);border-top:1px solid var(--hair);padding-bottom:env(safe-area-inset-bottom);z-index:30}
 .tabbar button{background:none;border:0;color:var(--t3);padding:9px 0 11px;font-family:var(--ui);font-size:10px;
@@ -2082,6 +2082,11 @@ function myLeagueFixture(w){
   return {home:l.clubs[f[0]],away:l.clubs[f[1]],comp:{name:l.name,key:'league'},stage:'Matchday '+(w+1),neutral:false};
 }
 function weekFixtures(){
+  if(G.pre>0){
+    const opp=G.preOpp&&G.preOpp[3-G.pre];
+    if(opp!=null)return [{home:(G.pre%2?G.me:opp),away:(G.pre%2?opp:G.me),neutral:false,
+      comp:{name:'Pre-season',key:'friendly'},stage:'Friendly '+(4-G.pre)+' of 3'}];
+  }
   const out=[];
   const eu=euroFixtureFor(G.me,G.week);if(eu)out.push(eu);
   out.push(...SW.collect('extraFixtures',G.week));   // domestic cup etc.
@@ -2547,6 +2552,7 @@ function endSeasonProcess(){
   buildEurope(tables);
   aiMarket(46);
   G.season++;G.week=0;G.window='summer';G.seasonEnded=false;
+  G.pre=3;G.preOpp=preOpponents();
   G.objective=objectiveFor(me());G.objective.accepted=false;
   G.leagues.forEach(l=>{l.fixtures=roundRobin(20)});
   SW.fire('onSeasonEndAfter',{pos,hit});
@@ -2559,12 +2565,24 @@ function money(n){
   if(a>=1000)return (n<0?'-':'')+'£'+Math.round(a/1000)+'k';
   return (n<0?'-':'')+'£'+a;
 }
+function preOpponents(){
+  const myRep=me().rep;
+  const pool=G.clubs.filter(c=>c.id!==G.me&&Math.abs(c.rep-myRep)<14);
+  const out=[];const used=new Set();
+  while(out.length<3&&pool.length){
+    const c=pool[Math.floor(rnd()*pool.length)];
+    if(used.has(c.id))continue;used.add(c.id);out.push(c.id);
+  }
+  return out;
+}
 function newGame(clubId){
   RND=mulberry32(20260820);
   buildWorld();
   G.me=clubId;G.week=0;G.season=2026;G.inbox=[];G.chronicle=[];G.shortlist=[];G.window='summer';
   G.tab='home';G.lastResult=null;G.seasonEnded=false;
   G.objective=objectiveFor(me());G.objective.accepted=false;
+  G.pre=3;G.preOpp=preOpponents();
+  G.managerName=window._mgrName||G.managerName||'The Manager';
   G.mod={};
   SW.fire('init');
   note('Welcome to '+me().name,'The board expect: '+G.objective.text+'. Nobody remembers fifth.',{from:vV('board')});
@@ -2609,7 +2627,8 @@ function save(){try{
     fixtures:G.leagues.map(l=>l.fixtures),
     euro:Object.keys(G.euro).map(k=>({k,groups:G.euro[k].groups,md:G.euro[k].md,
       stage:G.euro[k].stage,ko:G.euro[k].ko,winner:G.euro[k].winner})),
-    chronicle:G.chronicle,inbox:G.inbox,shortlist:G.shortlist,mod:G.mod,renames:G.renames
+    chronicle:G.chronicle,inbox:G.inbox,shortlist:G.shortlist,mod:G.mod,renames:G.renames,
+    pre:G.pre||0,preOpp:G.preOpp||[],mgr:G.managerName||''
   }));
   return true}catch(e){console.warn('save failed',e);return false}}
 function load(){try{
@@ -2619,6 +2638,7 @@ function load(){try{
   G.me=d.me;G.week=d.week;G.season=d.season;G.objective=d.objective;G.window=d.window;
   G.fxIndex=d.fx||0;G.chronicle=d.chronicle||[];G.inbox=d.inbox||[];
   G.shortlist=d.shortlist||[];G.mod=d.mod||{};G.renames=d.renames||{};applyRenames();
+  G.pre=d.pre||0;G.preOpp=d.preOpp||[];G.managerName=d.mgr||'The Manager';
   PID=d.pid||PID;
   d.clubs.forEach((s2,i)=>{
     const c=G.clubs[i];
@@ -2969,6 +2989,11 @@ function go(t){G.tab=t;render()}
 /* ---------- ASSISTANT COACH ---------- */
 function assistantPlan(){
   const f=nextFixture();if(!f)return null;
+  /* A module may own the assistant's matchday advice entirely — the game-plans
+     system replaces raw reactive suggestions with argued deviations from the
+     manager's own plans. First claim wins. */
+  const ov=SW.first('assistantAdvice',f);
+  if(ov)return ov;
   const c=me(),oppId=f.home===G.me?f.away:f.home,o=G.clubs[oppId];
   const home=f.home===G.me;
   const d=o.rep-c.rep;
@@ -3117,6 +3142,8 @@ function viewHub(){
   const tired=c.xi.filter(({p})=>p.cond<66);
   if(tired.length>=3)acts.push({ic:'◐',bg:'#2B2410',col:'var(--acc)',
     a:'Legs are heavy',b:tired.length+' of the XI under 66%',fn:"go('squad')"});
+  if(windowOpen()&&(G.week===21||(G.week===0&&G.pre===0)))acts.push({ic:'⏳',bg:'#3A2E10',col:'var(--acc)',
+    priority:72,a:'Transfer deadline',b:'The window shuts when you continue',fn:"go('market')"});
   acts.push(...SW.collect('hubCards'));
   acts.sort((x,y)=>(y.priority||0)-(x.priority||0));
   const overflow=Math.max(0,acts.length-3);
@@ -3176,7 +3203,8 @@ function viewHub(){
      <div style="font-size:13px;color:var(--t2)"><b style="color:var(--acc)">◆ Two games this week</b> —
      ${esc(weekFixtures().map(x=>x.comp.name).join(' then '))}. Legs will not recover in between.</div></div>`:''}
    <div class="cta-dock">${G.week<38
-     ?`<button class="btn" onclick="startMatch()">▶ ${f?(f.comp.key==='league'?'Play matchday '+(G.week+1):'Play '+f.comp.name):'Advance week'}</button>`
+     ?`<button class="btn" onclick="startMatch()">▶ ${G.pre>0?'Pre-season friendly '+(4-G.pre)+' of 3'
+        :f?(f.comp.key==='league'?'Play matchday '+(G.week+1):'Play '+f.comp.name):'Advance week'}</button>`
      :`<button class="btn" onclick="doEndSeason()">★ End of season</button>`}</div>
    ${tabbar()}`;
 }
@@ -3625,6 +3653,7 @@ function viewClub(){
     <div class="kv"><span class="k2">Weekly wage bill</span><span class="v2">${money(wageBill(c))}</span></div>
     <div class="kv"><span class="k2">Stadium</span><span class="v2">${esc(c.stadium)}</span></div>
     <div class="kv"><span class="k2">Capacity</span><span class="v2">${c.capacity.toLocaleString()}</span></div>
+    <div class="kv"><span class="k2">Manager</span><span class="v2">${esc(G.managerName||'The Manager')}</span></div>
     <div class="kv"><span class="k2">Reputation</span><span class="v2">${c.rep}</span></div></div>
    <div class="sechead">Names</div>
    <div class="act" onclick="sheetRenames()">
@@ -4010,10 +4039,27 @@ function evText(e){
   _lastPhrase[e.t]=i;
   return pool[i].replace('%s',e.who||'');
 }
+/* Respect the teamsheet. startMatch used to call autoXI(), which threw away
+   every manual lineup change the moment the manager pressed Play. Now only the
+   unavailable are replaced; the manager's picks are law. */
+function fillXI(c){
+  if(!c.xi||c.xi.length!==11){autoXI(c);return}
+  const used=new Set(c.xi.map(x=>x.p&&x.p.id).filter(Boolean));
+  c.xi.forEach(slot=>{
+    const pl=slot.p;
+    const gone=!pl||pl.out>0||!c.squad.some(x=>x.id===pl.id);
+    if(!gone)return;
+    if(pl)used.delete(pl.id);
+    let best=null,bs=-1;
+    c.squad.forEach(q=>{if(used.has(q.id)||q.out>0||q.youth)return;
+      const v=CA(q,slot.slot);if(v>bs){bs=v;best=q}});
+    if(best){slot.p=best;used.add(best.id)}
+  });
+}
 function startMatch(){
   const f=nextFixture();
   if(!f){advanceWeek();return}
-  autoXI(me());
+  fillXI(me());
   const home=G.clubs[f.home],away=G.clubs[f.away];
   const S=matchInit(home,away,f.neutral,matchSeed(home,away));
   MT={S,R:S,f,home,away,hi:f.home,ai:f.away,i:0,g:[0,0],min:0,shown:[],timer:null,
@@ -4110,6 +4156,17 @@ function finishMatch(){
   if(MT.S&&MT.S.seeded&&matchInit._save){RND=matchInit._save;matchInit._save=null}
   if(!MT.S.done){matchRun(MT.S)}
   const R=MT.S,{f,hi,ai}=MT;
+  if(f.comp.key==='friendly'){
+    /* friendlies build legs, not records: no table, no stats, no board judgement */
+    me().xi.forEach(({p})=>{p.cond=Math.max(40,p.cond-ri(6,12))});
+    G.lastResult={R,f,hi,ai};
+    const t0=document.querySelector('.take');if(t0)t0.remove();MT=null;
+    G.fxIndex=0;G.pre--;
+    G.clubs.forEach(recover);
+    if(G.pre===0)note('Pre-season is done','Three friendlies in the legs. The real thing starts now.',
+      typeof vV==='function'?{from:vV('assistant')}:undefined);
+    save();showReport();return;
+  }
   const claimed=SW.first('applyResult',{R,f,hi,ai});
   if(claimed){/* a module owns this competition */}
   else if(f.comp.key==='league')applyLeague(hi,ai,R);
@@ -4252,6 +4309,11 @@ function revealSelected(){
   });
 }
 let BOOTNAT='eng',BOOTTIER=0;
+window.bootPick=function(id){
+  const inp=document.getElementById('mgrName');
+  window._mgrName=(inp&&inp.value.trim().slice(0,24))||'';
+  newGame(id);render();
+};
 function bootMenu(){
   if(!G.clubs.length){RND=mulberry32(20260820);buildWorld()}
   const ls=G.leagues.filter(l=>l.nat===BOOTNAT);
@@ -4268,7 +4330,12 @@ function bootMenu(){
     <div style="color:var(--acc);font-family:var(--disp);font-weight:700;font-size:12px;letter-spacing:.12em;
       text-transform:uppercase;margin-top:4px">Nobody remembers fifth</div>
     <div style="color:var(--t2);font-size:14px;margin-top:14px">Take any club in any division. The harder the job,
-      the more it means.</div></div>
+      the more it means.</div>
+    <div style="max-width:280px;margin:16px auto 0;text-align:left">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+        color:var(--t3);margin-bottom:6px">Your name</div>
+      <input id="mgrName" maxlength="24" placeholder="The Manager" autocomplete="off"
+        value="${esc(G.managerName||'')}"></div></div>
    <div class="scroll" style="padding-bottom:34px">
     <div class="chips">${Object.keys(NATIONS).map(n=>`<button aria-selected="${BOOTNAT===n}"
       onclick="BOOTNAT='${n}';BOOTTIER=0;bootMenu()">${NATIONS[n].name}</button>`).join('')}</div>
@@ -4277,7 +4344,7 @@ function bootMenu(){
     <div class="sechead">${esc(l.name)}</div>
     <div class="card" style="padding:6px 14px 12px">
     ${clubs.map(c=>{const o=objectiveFor(c);
-      return `<div class="plr" onclick="newGame(${c.id});render()">
+      return `<div class="plr" onclick="bootPick(${c.id})">
       ${crestSVG(c,32)}
       <div class="nmw"><div class="nm2">${esc(c.name)}</div>
        <div class="meta"><span>${esc(c.stadium)}</span><span>·</span><span>${esc(o.text.replace(/ \(top \d+\)/,''))}</span></div></div>
