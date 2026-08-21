@@ -194,6 +194,13 @@ function reveal(id,what){
   return false;
 }
 function reportFor(id){ var r = st().rep[id]; return r ? r.text : null; }
+function estimateOf(id){
+  var k=knowledge(id), p=pOf(id);
+  if(!p)return null;
+  if(k>=0.92)return Math.round(CA(p));
+  var r=st().rep[id];
+  return Math.round(r ? r.est : looseEst(p,k));
+}
 
 /* ============================================================
    SCOUTS
@@ -219,6 +226,7 @@ function biasHint(sc){
 function weeksFor(sc,kind){
   if(kind==='player') return Math.max(2, 6-sc.q);
   if(kind==='youth')  return Math.max(2, 5-sc.q);
+  if(kind==='brief')  return Math.max(3, 7-sc.q);
   return Math.max(3, 8-sc.q);
 }
 
@@ -361,13 +369,18 @@ function tick(){
   var s=st(); if(!s.sc.length) return;
   for(var i=0;i<s.sc.length;i++){
     var sc=s.sc[i]; if(!sc.asg) continue;
+    if(sc.asg.kind==='brief'){
+      var bb=briefById(sc.asg.bid);
+      if(!bb){ sc.asg=null; defaultJob(sc); continue; }
+      briefWeek(sc,bb);                      // he is out watching every week he is on it
+    }
     sc.asg.left--;
     if(sc.asg.left<=0){
       var a=sc.asg; sc.asg=null; sc.done++;
       complete(sc,a);
-      /* competent default: he goes straight back out to his own patch.
+      /* competent default: back on the brief if there is one, else his own patch.
          Disagreeing with that — re-tasking him — is the player's job. */
-      if(!sc.asg) assign(sc.id,'region',sc.nat);
+      if(!sc.asg){ if(a.kind==='brief' && briefById(a.bid)) toBrief(sc.id,a.bid); else defaultJob(sc); }
     }
   }
 }
@@ -375,6 +388,7 @@ function tick(){
 function complete(sc,a){
   if(a.kind==='player') return doPlayer(sc,a.pid);
   if(a.kind==='youth')  return doYouth(sc);
+  if(a.kind==='brief')  return doBrief(sc,a.bid);
   return doRegion(sc,a.nat);
 }
 
@@ -478,6 +492,230 @@ function file(sc,p,cl,k,gem){
 }
 
 /* ============================================================
+   RECRUITMENT BRIEFS
+   "I need a left-footed centre-half under 25 for under half the
+   budget." You say it once; the network works it every week.
+   A brief uses the SAME vocabulary as the market filters — the
+   chips you filter with are the chips you brief with — and it is
+   run through the core's own mktFilter so the two never disagree.
+   ============================================================ */
+var MAXB  = 3;
+var POSN  = {GK:'goalkeeper',CB:'centre-half',FB:'full-back',DM:'holding midfielder',CM:'midfielder',
+             AM:'number ten',W:'winger',ST:'striker'};
+var POSL  = ['GK','CB','FB','DM','CM','AM','W','ST'];
+var BOPT  = {
+  ageBand:[['ALL','Any age'],['U21','Under 21'],['U24','Under 24'],['U27','Under 27'],['27+','27 and over']],
+  price:[['Budget','Within budget'],['Half','Half budget'],['Quarter','Quarter budget'],['Free','Free agents'],['ALL','Any price']],
+  minCA:[[0,'Any level'],[60,'60+'],[70,'70+'],[78,'78+'],[85,'85+']],
+  foot:[['ALL','Any foot'],['R','Right'],['L','Left'],['B','Both']],
+  height:[['ALL','Any height'],['Tall','Tall (186+)'],['Average','Average'],['Short','Short (175-)']],
+  strong:[[-1,'Anything']].concat(ATT.map(function(n,i){return [i,n]}))
+};
+function briefDef(pos){
+  return { pos:pos||'ST', ageBand:'U27', price:'Budget', minCA:0, foot:'ALL', height:'ALL', nat:'ALL', strong:-1 };
+}
+function briefs(){ var s=st(); if(!s.briefs) s.briefs=[]; return s.briefs; }
+function briefById(id){ return briefs().find(function(b){return b.id===id}) || null; }
+function briefLine(b){
+  var bits=[];
+  var ab = BOPT.ageBand.find(function(o){return o[0]===b.ageBand}); if(b.ageBand!=='ALL' && ab) bits.push(ab[1].toLowerCase());
+  if(b.foot==='L') bits.push('left-footed'); else if(b.foot==='B') bits.push('two-footed'); else if(b.foot==='R') bits.push('right-footed');
+  if(b.height==='Tall') bits.push('tall'); else if(b.height==='Short') bits.push('short');
+  bits.push(POSN[b.pos]||b.pos);
+  if(b.minCA) bits.push(b.minCA+'+');
+  if(b.nat && b.nat!=='ALL' && NATIONS[b.nat]) bits.push('from '+NATIONS[b.nat].name);
+  var pr = BOPT.price.find(function(o){return o[0]===b.price}); if(b.price!=='ALL' && pr) bits.push(pr[1].toLowerCase());
+  if(b.strong>=0) bits.push('strong '+ATT[b.strong].toLowerCase());
+  return bits.join(' · ');
+}
+function briefTitle(b){ return 'The ' + (POSN[b.pos]||b.pos) + ' brief'; }
+
+/* the weakest slot in the formation we actually play */
+function weakestPos(){
+  var c=me(); if(!c) return 'ST';
+  var shape = (typeof SHAPE!=='undefined' && SHAPE[c.formation]) ? SHAPE[c.formation] : null;
+  if(!shape) return 'ST';
+  if(!c.xi || !c.xi.length){ try{ autoXI(c); }catch(e){} }
+  var worst=null, wv=1e9;
+  for(var i=0;i<shape.length;i++){
+    var x = c.xi && c.xi[i];
+    var v = x && x.p ? CA(x.p, shape[i]) : 0;
+    if(v<wv){ wv=v; worst=shape[i]; }
+  }
+  return worst || 'ST';
+}
+/* nobody has said what they want: the assistant says it for them */
+function ensureDefault(){
+  var s=st(), bs=briefs();
+  if(bs.length) return null;
+  var b = briefDef(weakestPos()); b.id = s.nid++; b.auto=true; b.w=G.week; b.s=G.season;
+  bs.push(b);
+  return b;
+}
+
+/* run a brief through the core's filter engine without touching the player's own filters */
+function briefMatch(b, pool){
+  if(typeof mktFilter==='function' && typeof MKT_DEF!=='undefined'){
+    var keep = G.mkt;
+    G.mkt = Object.assign({}, MKT_DEF, {pos:b.pos, ageBand:b.ageBand, price:b.price, minCA:b.minCA,
+                                        height:b.height, foot:b.foot, nat:b.nat});
+    try { return mktFilter(pool); } finally { G.mkt = keep; }
+  }
+  /* core without a market: the same rules, by hand */
+  var A = {ALL:[0,99],'U21':[0,20],'U24':[0,23],'U27':[0,26],'27+':[27,99]}[b.ageBand] || [0,99];
+  var H = {ALL:[0,999],'Tall':[186,999],'Average':[176,185],'Short':[0,175]}[b.height] || [0,999];
+  var bal = me() ? me().bal : 0;
+  var cap = b.price==='Free'?0.0001 : b.price==='Budget'?bal : b.price==='Half'?bal*0.5 : b.price==='Quarter'?bal*0.25 : Infinity;
+  return pool.filter(function(x){
+    var p=x.p;
+    if(b.pos!=='ALL' && p.pos!==b.pos) return false;
+    if(p.age<A[0]||p.age>A[1]) return false;
+    if((p.height||180)<H[0]||(p.height||180)>H[1]) return false;
+    if(b.foot!=='ALL' && (p.foot||'R')!==b.foot) return false;
+    if(b.nat!=='ALL' && p.nat!==b.nat) return false;
+    if(b.minCA && CA(p)<b.minCA) return false;
+    return x.ask<=cap;
+  });
+}
+function basePool(){
+  if(typeof scoutPool==='function'){ try{ return scoutPool(); }catch(e){} }
+  var out=[], c=me(); if(!c) return out;
+  for(var i=0;i<G.clubs.length;i++){
+    var cl=G.clubs[i]; if(cl.id===G.me) continue;
+    var sq=squadOf(cl);
+    for(var j=0;j<sq.length;j++) out.push({p:sq[j], s:cl, ask: typeof askingPrice==='function' ? askingPrice(sq[j],cl,c) : value(sq[j])});
+  }
+  return out;
+}
+/* everyone who fits the brief; the scout's own patch first, the world if his patch is dry */
+function briefCands(b, sc){
+  var all = briefMatch(b, basePool()).filter(function(x){ return x.s && x.s.id!==G.me; });
+  if(b.strong>=0){
+    var hard = all.filter(function(x){ return x.p.a[b.strong] >= CA(x.p)+4; });
+    if(hard.length>=3) all = hard;
+  }
+  if(sc && sc.nat){
+    var local = all.filter(function(x){ return x.s.nat===sc.nat; });
+    if(local.length>=3) return local;
+  }
+  return all;
+}
+function briefScore(b, sc, x){
+  var p=x.p, k=knowledge(p.id);
+  var v = estOf(sc,p,k);
+  if(b.strong>=0) v += (p.a[b.strong]-CA(p))*0.35;
+  return v + Math.max(0,(27-p.age))*0.5 - Math.max(0,(p.age-30))*3;
+}
+
+/* a week on the brief: he is out watching, and a little sticks each time */
+function briefWeek(sc, b){
+  var c = briefCands(b, sc); if(!c.length) return;
+  var n = Math.min(c.length, 2+Math.floor(sc.q/2));
+  for(var i=0;i<n;i++){ var x=c[Math.floor(rnd()*c.length)]; learn(x.p.id, 0.03+sc.q*0.008); }
+}
+/* the deliverable: three men, in his words, every one of them on brief */
+function doBrief(sc, bid){
+  var s=st(), b=briefById(bid); if(!b) return;
+  var c = briefCands(b, sc);
+  if(!c.length){
+    note(sc.name + ' has nothing for the ' + (POSN[b.pos]||b.pos) + ' brief',
+      'I have been through everyone. Nobody fits what you asked for at that money. Loosen it or raise it.',
+      {from:vH(sc.name,'scout',sc.nat,52)});
+    b.dry = G.week;
+    return;
+  }
+  var sweep = Math.min(c.length, 4+sc.q);
+  for(var w=0;w<sweep;w++){ var x=c[Math.floor(rnd()*c.length)]; learn(x.p.id, 0.05+sc.q*0.012); }
+  /* men we already know inside out are not news; look past them when there is anyone else */
+  var fresh = c.filter(function(x){ return knowledge(x.p.id) < 0.85; });
+  if(fresh.length>=3) c = fresh;
+  c.sort(function(p1,p2){ return briefScore(b,sc,p2)-briefScore(b,sc,p1); });
+  var top = c.slice(0,3), picks=[];
+  var prev = briefReport(bid);
+  if(prev && prev.picks.length===top.length && top.every(function(x){ return prev.picks.some(function(pk){return pk.pid===x.p.id}); })){
+    /* same three men as last time: he keeps watching them, he does not keep writing */
+    for(var j=0;j<top.length;j++) learn(top[j].p.id, 0.12 + sc.q*0.04);
+    b.still = G.week;
+    return;
+  }
+  for(var i=0;i<top.length;i++){
+    var p=top[i].p, cl=top[i].s;
+    var k = learn(p.id, 0.30 + sc.q*0.08 - i*0.04);
+    var r = writeReport(sc,p,cl,k,false); r.scnat=sc.nat; r.brief=bid;
+    s.rep[p.id]=r; s.nm[p.id]=p.name;
+    if(k>=0.8 && p.trait) reveal(p.id,'trait');
+    picks.push({ pid:p.id, nm:p.name, cl:cl.name, line:briefPickLine(sc,p,cl,i,k) });
+  }
+  LAB=Object.create(null);
+  var rep = { id:s.nid++, bid:bid, sc:sc.id, scn:sc.name, scnat:sc.nat, w:G.week, s:G.season,
+              picks:picks, open:briefOpen(sc,b,picks.length) };
+  if(!s.brep) s.brep=[];
+  s.brep = s.brep.filter(function(r){ return r.bid!==bid; });   // one live report per brief
+  s.brep.push(rep);
+  b.unread = true; b.dry = undefined;
+  var first = picks[0];
+  note(sc.name + ' has ' + (picks.length===1?'one man':picks.length+' men') + ' for the ' + (POSN[b.pos]||b.pos) + ' brief',
+    rep.open + ' ' + first.line, {from:vH(sc.name,'scout',sc.nat,52), about:vP(top[0].p), rel:'on'});
+}
+function briefOpen(sc,b,n){
+  var pool = [
+    'You asked for a {p}. I have {n}.',
+    'The {p} brief. {N} names, and I would put my name to all of them.',
+    'Went looking for a {p}. {N} worth your time, the rest were not.',
+    'Here is your {p}. {N} of them, in the order I would ring them.'
+  ];
+  var t = pool[Math.floor(h2(sc.id*11, b.id*7+n)*pool.length)];
+  var nw = n===1?'one':n===2?'two':'three';
+  return t.replace('{p}', POSN[b.pos]||b.pos).replace('{n}', nw).replace('{N}', nw.charAt(0).toUpperCase()+nw.slice(1));
+}
+function briefPickLine(sc,p,cl,rank,k){
+  var lab = (p.pos==='GK') ? ATTG : ATT;
+  var hi=0; for(var i=1;i<7;i++) if(p.a[i]>p.a[hi]) hi=i;
+  var g = GOOD[lab[hi]] || 'He has one real strength and he leans on it.';
+  var lead = rank===0 ? 'First choice: ' : rank===1 ? 'If he says no, ' : 'Third man, ';
+  var tail = rank===0 ? '' : (k>=0.5 ? ' Nothing wrong with him either.' : ' I have seen less of him.');
+  return lead + p.name + ' at ' + cl.name + ', ' + p.age + '. ' + g + tail;
+}
+function briefReport(bid){ var s=st(); return (s.brep||[]).find(function(r){return r.bid===bid}) || null; }
+
+/* all scouts on a brief, and how to put one there */
+function onBrief(bid){ return st().sc.filter(function(x){return x.asg && x.asg.kind==='brief' && x.asg.bid===bid}); }
+function toBrief(scoutId, bid){
+  var s=st(), sc=s.sc.find(function(x){return x.id===scoutId}); if(!sc || !briefById(bid)) return;
+  sc.asg = { kind:'brief', bid:bid, nat:sc.nat, pid:0, left:weeksFor(sc,'brief'), tot:weeksFor(sc,'brief') };
+}
+/* a scout with nothing to do goes to the brief that has nobody on it; else his own patch */
+function defaultJob(sc){
+  var bs=briefs();
+  if(bs.length){
+    var bare = bs.slice().sort(function(a,b){ return onBrief(a.id).length - onBrief(b.id).length; })[0];
+    toBrief(sc.id, bare.id); return;
+  }
+  assign(sc.id,'region',sc.nat);
+}
+function removeBrief(bid){
+  var s=st();
+  s.briefs = briefs().filter(function(b){return b.id!==bid});
+  if(s.brep) s.brep = s.brep.filter(function(r){return r.bid!==bid});
+  if(s.draft && s.draft.id===bid) s.draft=null;
+  s.sc.forEach(function(sc){ if(sc.asg && sc.asg.kind==='brief' && sc.asg.bid===bid){ sc.asg=null; defaultJob(sc); } });
+}
+
+/* a report whose men have moved on, or a brief nobody can still read, is binned */
+function pruneBriefs(){
+  var s=st();
+  s.briefs = briefs().filter(function(b){ return b && POSN[b.pos]; });
+  if(s.brep){
+    s.brep = s.brep.filter(function(r){
+      if(!briefById(r.bid)) return false;
+      r.picks = r.picks.filter(function(pk){ var p=pOf(pk.pid); return p && p.name===pk.nm; });
+      return r.picks.length>0;
+    });
+  }
+  s.sc.forEach(function(sc){ if(sc.asg && sc.asg.kind==='brief' && !briefById(sc.asg.bid)){ sc.asg=null; defaultJob(sc); } });
+}
+
+/* ============================================================
    UI
    ============================================================ */
 var UI = {
@@ -509,6 +747,123 @@ var UI = {
     );
   },
 
+  /* ----- recruitment briefs ----- */
+  brief: function(bid){                     // open the builder — new or existing
+    var s=st(), b = bid ? briefById(bid) : null;
+    if(!b && briefs().length>=MAXB){
+      sheet('<h3>Three briefs is the limit</h3><div class="sh-sub">Any more and the network is not looking for anything. Bin one first.</div>' +
+        '<button class="btn ghost" onclick="closeSheet();render()">Right</button>');
+      return;
+    }
+    s.draft = b ? Object.assign({}, b) : Object.assign(briefDef(weakestPos()), {id:0});
+    UI.briefSheet();
+  },
+  briefSet: function(k,v){ var s=st(); if(!s.draft) return; s.draft[k]=v; UI.briefSheet(); },
+  briefSheet: function(){
+    var s=st(), d=s.draft; if(!d) return;
+    var isNew = !d.id;
+    var chip = function(k,v,l){
+      var on = d[k]===v;
+      return '<button onclick="SW.get(\'scouting\').ui.briefSet(\'' + k + '\',' + (typeof v==='number'?v:"'"+v+"'") + ')"' +
+        ' style="min-height:44px;padding:0 13px;border-radius:11px;cursor:pointer;font-family:var(--ui);font-weight:700;font-size:13px;' +
+        'border:1px solid ' + (on?'var(--acc)':'var(--hair)') + ';background:' + (on?'var(--acc)':'var(--s1)') + ';color:' + (on?'var(--tinv)':'var(--t2)') + '">' + esc(l) + '</button>';
+    };
+    var row = function(label,k,opts){
+      return '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:7px">' + label + '</div>' +
+        '<div class="row" style="gap:6px;flex-wrap:wrap">' + opts.map(function(o){return chip(k,o[0],o[1])}).join('') + '</div></div>';
+    };
+    var nats = [['ALL','Anywhere']].concat(REG.map(function(n){return [n,NATIONS[n].name]}));
+    var weak = weakestPos();
+    sheet(
+      '<h3>' + (isNew ? 'What are we looking for?' : 'Change the brief') + '</h3>' +
+      '<div class="sh-sub">' + (d.auto || isNew ? 'Your weakest slot is ' + esc(POSN[weak]||weak) + ', so that is pre-set. ' : '') +
+        'Same chips as the market. Tap what matters, then send them.</div>' +
+      row('Position','pos',POSL.map(function(p){return [p,p]})) +
+      row('Age','ageBand',BOPT.ageBand) +
+      row('Price','price',BOPT.price) +
+      row('Minimum ability','minCA',BOPT.minCA) +
+      row('Strong at','strong',BOPT.strong) +
+      row('Preferred foot','foot',BOPT.foot) +
+      row('Height','height',BOPT.height) +
+      row('From','nat',nats) +
+      '<div class="card" style="background:var(--s1);font-size:13px;color:var(--t2);margin-bottom:10px">' + esc(briefLine(d)) + '</div>' +
+      '<button class="btn" onclick="SW.get(\'scouting\').ui.briefSave()">' + (isNew ? 'Send the scouts' : 'Update the brief') + '</button>' +
+      '<button class="btn ghost" style="margin-top:8px" onclick="closeSheet();render()">Leave it</button>'
+    );
+  },
+  briefSave: function(){
+    var s=st(), d=s.draft; if(!d) return;
+    var b = d.id ? briefById(d.id) : null;
+    if(b){ Object.assign(b, d); b.auto=false; }
+    else {
+      if(briefs().length>=MAXB) return;
+      d.id = s.nid++; d.auto=false; d.w=G.week; d.s=G.season;
+      briefs().push(d); b=d;
+      /* somebody goes straight on it: an idle man first, then a regional sweep */
+      var free = s.sc.filter(function(x){return !x.asg})[0] ||
+                 s.sc.filter(function(x){return x.asg && x.asg.kind==='region'}).sort(function(a,b2){return b2.q-a.q})[0];
+      if(!free){
+        var crowded = briefs().filter(function(x){return x.id!==b.id && onBrief(x.id).length>1})
+          .sort(function(x,y){return onBrief(y.id).length-onBrief(x.id).length})[0];
+        if(crowded) free = onBrief(crowded.id).sort(function(a,b2){return b2.q-a.q})[0];
+      }
+      if(free) toBrief(free.id, b.id);
+    }
+    s.draft=null;
+    save(); closeSheet(); render();
+  },
+  briefDrop: function(bid){
+    var b=briefById(bid); if(!b) return;
+    sheet('<h3>Bin ' + esc(briefTitle(b).toLowerCase()) + '?</h3>' +
+      '<div class="sh-sub">Anyone on it goes back to his own patch. The report goes too.</div>' +
+      '<div class="opt" onclick="SW.get(\'scouting\').ui.briefDropYes(' + bid + ')"><div><div style="font-weight:600">Bin it</div>' +
+      '<div class="dim" style="font-size:12px">We are not looking for that any more</div></div></div>' +
+      '<button class="btn ghost" style="margin-top:6px" onclick="closeSheet();render()">Keep it</button>');
+  },
+  briefDropYes: function(bid){ removeBrief(bid); save(); closeSheet(); render(); },
+  briefStaff: function(bid){                 // who works it
+    var s=st(), b=briefById(bid); if(!b) return;
+    if(!s.sc.length){
+      sheet('<h3>Nobody to send</h3><div class="sh-sub">You have no scouts. Hire one and he goes straight on it.</div>' +
+        '<button class="btn ghost" onclick="closeSheet();render()">Right</button>');
+      return;
+    }
+    var rows = s.sc.map(function(sc){
+      var on = sc.asg && sc.asg.kind==='brief' && sc.asg.bid===bid;
+      var a=sc.asg;
+      var where = !a ? 'Idle' : a.kind==='brief' ? (on ? 'On this brief' : 'On another brief')
+                 : a.kind==='youth' ? 'Our academy' : a.kind==='player' ? 'One player' : 'Sweeping ' + NATIONS[a.nat].name;
+      return '<div class="opt' + (on?' rec':'') + '" onclick="SW.get(\'scouting\').ui.briefToggle(' + bid + ',' + sc.id + ')">' +
+        '<div><div style="font-weight:600">' + esc(sc.name) + ' <span class="dim" style="font-weight:400">' + STAR[sc.q] + '</span></div>' +
+        '<div class="dim" style="font-size:12px">' + esc(where) + ' · ' + weeksFor(sc,'brief') + ' weeks to a report</div></div>' +
+        (on?'<span class="st">On it</span>':'') + '</div>';
+    }).join('');
+    sheet('<h3>Who works ' + esc(briefTitle(b).toLowerCase()) + '?</h3>' +
+      '<div class="sh-sub">Tap a man to put him on it, tap again to take him off.</div>' + rows +
+      '<button class="btn ghost" style="margin-top:6px" onclick="closeSheet();render()">Done</button>');
+  },
+  briefToggle: function(bid, scoutId){
+    var s=st(), sc=s.sc.find(function(x){return x.id===scoutId}); if(!sc) return;
+    if(sc.asg && sc.asg.kind==='brief' && sc.asg.bid===bid){ sc.asg=null; assign(sc.id,'region',sc.nat); }
+    else toBrief(scoutId, bid);
+    save(); UI.briefStaff(bid);
+  },
+  briefRead: function(bid){
+    var b=briefById(bid); if(b){ b.unread=false; save(); }
+    G.tab='market'; G.marketView='scouts'; closeSheet(); render();
+  },
+  briefShort: function(pid){ if(typeof toggleShort==='function') toggleShort(pid); },
+  briefBid: function(pid){
+    if(typeof sheetBid!=='function') return;
+    if(typeof windowOpen==='function' && !windowOpen()){
+      sheet('<h3>The window is shut</h3><div class="sh-sub">Shortlist him and come back when it opens.</div>' +
+        '<button class="btn" onclick="SW.get(\'scouting\').ui.briefShort(' + pid + ');closeSheet();render()">Shortlist him</button>' +
+        '<button class="btn ghost" style="margin-top:8px" onclick="closeSheet();render()">Leave it</button>');
+      return;
+    }
+    sheetBid(pid);
+  },
+
   assign: function(scoutId){
     var s=st(), sc=s.sc.find(function(x){return x.id===scoutId}); if(!sc) return;
     var shortl = G.shortlist.map(function(id){return pOf(id)}).filter(Boolean).slice(0,4);
@@ -527,12 +882,20 @@ var UI = {
         '<div><div style="font-weight:600">' + esc(p.name) + '</div>' +
         '<div class="dim" style="font-size:12px">Shortlisted · ' + p.pos + ' · ' + weeksFor(sc,'player') + ' weeks, and he comes back sure</div></div></div>';
     }).join('');
+    var brs = briefs().map(function(b){
+      var on = sc.asg && sc.asg.kind==='brief' && sc.asg.bid===b.id;
+      return '<div class="opt' + (on?' rec':'') + '" onclick="SW.get(\'scouting\').ui.set(' + scoutId + ',\'brief\',' + b.id + ')">' +
+        '<div><div style="font-weight:600">' + esc(briefTitle(b)) + '</div>' +
+        '<div class="dim" style="font-size:12px">' + esc(briefLine(b)) + ' · ' + weeksFor(sc,'brief') + ' weeks</div></div>' +
+        (on?'<span class="st">On it</span>':'') + '</div>';
+    }).join('');
     sheet(
       speakerBar(vH(sc.name,'scout',sc.nat,52),null,'',STAR[sc.q] + ' \u00b7 ' + money(sc.wage) + '/wk') +
       '<h3>Where do you want ' + esc(sc.name) + '?</h3>' +
       '<div class="sh-sub">' + STAR[sc.q] + ' · ' + money(sc.wage) + '/wk. He will be gone ' +
         weeksFor(sc,'region') + ' weeks on a sweep, ' + weeksFor(sc,'player') + ' on one man.</div>' +
-      (named ? '<div class="sechead" style="margin:0 0 8px">One player</div>' + named : '') +
+      (brs ? '<div class="sechead" style="margin:0 0 8px">A brief</div>' + brs : '') +
+      (named ? '<div class="sechead" style="margin:14px 0 8px">One player</div>' + named : '') +
       '<div class="sechead" style="margin:14px 0 8px">A region</div>' + opts +
       '<div class="sechead" style="margin:14px 0 8px">Home</div>' + youth +
       '<button class="btn ghost" style="margin-top:6px" onclick="closeSheet();render()">Leave him where he is</button>'
@@ -540,7 +903,7 @@ var UI = {
   },
 
   set: function(scoutId,kind,arg){
-    assign(scoutId,kind,arg);
+    if(kind==='brief') toBrief(scoutId,arg); else assign(scoutId,kind,arg);
     save(); closeSheet(); render();
   },
 
@@ -580,12 +943,14 @@ var UI = {
     s.cand = s.cand.filter(function(x){return x.id!==cid});
     cand.asg = null;
     s.sc.push(cand);
-    assign(cand.id,'region',cand.nat);
+    defaultJob(cand);
     s.cand.push(makeScout());
     save(); closeSheet(); render();
+    var ja = cand.asg, jb = ja && ja.kind==='brief' ? briefById(ja.bid) : null;
     sheet('<h3>' + esc(cand.name) + ' is yours</h3>' +
       '<div class="sh-sub">' + STAR[cand.q] + ' · ' + money(cand.wage) + '/wk. ' +
-      'He has gone straight to ' + esc(NATIONS[cand.nat].name) + '. First report in ' + weeksFor(cand,'region') + ' weeks.</div>' +
+      (jb ? 'He has gone straight onto ' + esc(briefTitle(jb).toLowerCase()) + '. First report in ' + weeksFor(cand,'brief') + ' weeks.'
+          : 'He has gone straight to ' + esc(NATIONS[cand.nat].name) + '. First report in ' + weeksFor(cand,'region') + ' weeks.') + '</div>' +
       '<button class="btn ghost" onclick="closeSheet();render()">Good</button>');
   },
 
@@ -608,6 +973,64 @@ function kv(k,v){ return '<div class="kv"><span class="k2">' + k + '</span><span
 function agoTxt(w){
   var d = G.week - w;
   return d<=0 ? 'this week' : d===1 ? 'last week' : d + ' weeks ago';
+}
+
+/* ---------- the briefs: what we are looking for, who is looking, what came back ---------- */
+function briefBlock(){
+  var s=st(), c=me();
+  ensureDefault();
+  var bs=briefs();
+  var cards = bs.map(function(b){
+    var staff = onBrief(b.id);
+    var rep = briefReport(b.id);
+    var who = staff.length ? staff.map(function(x){return esc(x.name) + (x.asg.left<=1?' (this week)':' ('+x.asg.left+' wks)')}).join(', ')
+                           : 'Nobody on it';
+    var picks = '';
+    if(rep){
+      picks = '<div style="font-size:13px;line-height:19px;color:var(--t1);margin:10px 0 6px">' +
+        '<span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--acc);font-weight:700">' + esc(rep.scn) + ' · ' + agoTxt(rep.w) + '</span><br>' +
+        esc(rep.open) + '</div>' +
+        rep.picks.map(function(pk){
+          var p = pOf(pk.pid); if(!p) return '';
+          var cl = clubOf(pk.pid);
+          var ask = (cl && c && typeof askingPrice==='function') ? askingPrice(p,cl,c) : value(p);
+          var shorted = G.shortlist.indexOf(pk.pid)>=0;
+          return '<div class="plr" style="align-items:flex-start;padding:9px 0" onclick="showPlayer(' + pk.pid + ')">' + pface(p,40) +
+            '<div class="pos">' + p.pos + '</div>' +
+            '<div class="nmw"><div class="nm2">' + esc(p.name) + '</div>' +
+            '<div class="meta"><span>' + p.age + '</span><span>' + esc(cl?cl.name:pk.cl) + '</span><span style="color:var(--trf)">' + money(ask) + '</span></div>' +
+            '<div style="font-size:12px;line-height:17px;color:var(--t2);margin-top:4px;white-space:normal">' + esc(pk.line) + '</div>' +
+            '<div class="row" style="gap:6px;margin-top:6px">' +
+              '<button class="btn ' + (shorted?'':'ghost ') + 'xs" style="min-height:36px" onclick="event.stopPropagation();SW.get(\'scouting\').ui.briefShort(' + pk.pid + ')">' + (shorted?'Shortlisted':'Shortlist') + '</button>' +
+              '<button class="btn xs" style="min-height:36px" onclick="event.stopPropagation();SW.get(\'scouting\').ui.briefBid(' + pk.pid + ')">Bid</button>' +
+            '</div></div>' +
+            '<div class="ca" style="color:' + ramp(estimateOf(pk.pid)||60) + ';width:auto;font-size:13px">' + label(pk.pid,p) + '</div></div>';
+        }).join('');
+    } else if(b.dry!==undefined){
+      picks = '<div style="font-size:13px;color:var(--inj);margin-top:8px">Nobody fits that at that money. Loosen it.</div>';
+    } else if(staff.length){
+      picks = '<div style="font-size:13px;color:var(--t3);margin-top:8px">Out looking. Report in ' + Math.min.apply(null, staff.map(function(x){return x.asg.left})) + ' week' + (Math.min.apply(null, staff.map(function(x){return x.asg.left}))===1?'':'s') + '.</div>';
+    } else {
+      picks = '<div style="font-size:13px;color:var(--inj);margin-top:8px">Nobody is working it. Put a man on it.</div>';
+    }
+    return '<div class="card" style="margin-bottom:10px;border-color:' + (b.unread?'var(--acc)':'var(--hair)') + '" onclick="SW.get(\'scouting\').ui.briefRead(' + b.id + ')">' +
+      '<div class="row" style="align-items:flex-start">' +
+        '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:15px">' + esc(briefTitle(b)) +
+          (b.auto ? ' <span class="pill" style="font-size:10px">Assistant\'s pick</span>' : '') + '</div>' +
+          '<div class="dim" style="font-size:12px;margin-top:2px">' + esc(briefLine(b)) + '</div>' +
+          '<div style="font-size:12px;margin-top:4px;color:' + (staff.length?'var(--t2)':'var(--inj)') + '">' + who + '</div></div>' +
+        '<button class="btn ghost xs" style="min-height:36px;padding:0 10px;flex:0 0 auto" onclick="event.stopPropagation();SW.get(\'scouting\').ui.brief(' + b.id + ')">Edit</button>' +
+      '</div>' + picks +
+      '<div class="row" style="gap:6px;margin-top:10px">' +
+        '<button class="btn ghost xs" style="min-height:36px" onclick="event.stopPropagation();SW.get(\'scouting\').ui.briefStaff(' + b.id + ')">Who works it</button>' +
+        '<span class="spacer"></span>' +
+        '<button class="btn ghost xs" style="min-height:36px;color:var(--t3)" onclick="event.stopPropagation();SW.get(\'scouting\').ui.briefDrop(' + b.id + ')">Bin</button>' +
+      '</div></div>';
+  }).join('');
+  var add = bs.length<MAXB
+    ? '<button class="btn ghost sm" style="margin-bottom:10px" onclick="SW.get(\'scouting\').ui.brief(0)">New brief' + (bs.length?' · ' + bs.length + '/' + MAXB:'') + '</button>'
+    : '';
+  return '<div class="sechead">What we are looking for' + (bs.some(function(b){return b.unread}) ? '<span class="n">new</span>' : '') + '</div>' + cards + add;
 }
 
 /* ---------- the Market sub-view ---------- */
@@ -647,6 +1070,7 @@ function viewScouts(){
     ? '<div class="card" style="padding:6px 14px 12px">' + s.sc.map(function(sc){
         var a=sc.asg;
         var where = a ? (a.kind==='youth' ? 'Our academy'
+                       : a.kind==='brief' ? (function(){var b=briefById(a.bid);return b?esc(briefTitle(b)):'A brief'})()
                        : a.kind==='player' ? (function(){var p=pOf(a.pid);return p?esc(p.name):'One player'})()
                        : esc(NATIONS[a.nat].name))
                       : 'Idle — costing you money';
@@ -694,7 +1118,7 @@ function viewScouts(){
       }).join('') + '</div>'
     : '<div class="card"><div style="font-size:13px;color:var(--t3)">Five scouts. That is the lot.</div></div>';
 
-  return repBlock +
+  return briefBlock() + repBlock +
     '<div class="sechead">The network</div>' +
     '<div class="card" style="margin-bottom:10px"><div class="row">' +
       '<div><div class="dim" style="font-size:10px;letter-spacing:.06em;text-transform:uppercase">Scouts</div>' +
@@ -715,13 +1139,8 @@ SW.register({
   /* --- published interface --- */
   knowledge: knowledge,
   reveal: reveal,
-  estimate: function(id){
-    var k=knowledge(id), p=pOf(id);
-    if(!p)return null;
-    if(k>=0.92)return Math.round(CA(p));
-    var s2=st(), r=s2.rep[id];
-    return Math.round(r ? r.est : looseEst(p,k));
-  },
+  estimate: estimateOf,
+  briefs: function(){ return briefs().map(function(b){ return {id:b.id, pos:b.pos, line:briefLine(b), auto:!!b.auto}; }); },
   reportFor: reportFor,
   label: label,
   ceiling: ceilLabel,
@@ -737,11 +1156,14 @@ SW.register({
       chief.nat = c ? c.nat : 'eng';
       chief.q = 2; chief.wage = wageOf(2); chief.name = personName(chief.nat);
       s.sc.push(chief);
-      assign(chief.id,'region',chief.nat);
       refreshCand();
+      var b0 = ensureDefault();
+      if(b0) toBrief(chief.id, b0.id); else assign(chief.id,'region',chief.nat);
       note('You inherited a scout',
-        chief.name + ' has been here longer than you have. He is out in ' + NATIONS[chief.nat].name +
-        ' and he will file in ' + weeksFor(chief,'region') + ' weeks. Everyone else on the market is a rumour.', {from:vV('staff')});
+        chief.name + ' has been here longer than you have. ' +
+        (b0 ? 'Your weakest slot is ' + (POSN[b0.pos]||b0.pos) + ', so I have sent him looking for one. Change the brief on the Scouts tab if you disagree. He files in ' + weeksFor(chief,'brief') + ' weeks.'
+            : 'He is out in ' + NATIONS[chief.nat].name + ' and he will file in ' + weeksFor(chief,'region') + ' weeks.') +
+        ' Everyone else on the market is a rumour.', {from:vV('assist')});
     }
   },
 
@@ -763,6 +1185,9 @@ SW.register({
     Object.keys(s.k).forEach(function(id){ if(!pOf(+id)) delete s.k[id]; });
     s.unread = s.unread.filter(function(id){return s.rep[id]});
     if(!s.cand || !s.cand.length) refreshCand();
+    pruneBriefs();
+    ensureDefault();
+    s.draft=null;
     LAB=Object.create(null);
   },
 
@@ -782,6 +1207,11 @@ SW.register({
     s.unread = s.unread.filter(function(id){return s.rep[id]});
     s.gem = null;
     refreshCand();
+    pruneBriefs();
+    /* the assistant's own brief follows the weakest slot; yours stay as you wrote them */
+    var ab = briefs().find(function(b){return b.auto});
+    if(ab){ var wp=weakestPos(); if(wp!==ab.pos){ ab.pos=wp; if(s.brep) s.brep=s.brep.filter(function(r){return r.bid!==ab.id}); } }
+    ensureDefault();
     /* a season's fresh intake is a fresh set of strangers */
     var c=me();
     if(c && s.sc.length){
@@ -795,6 +1225,16 @@ SW.register({
     invalidate();
     var s=st(), out=[];
     if(!s.sc) return out;
+    var nb = briefs().filter(function(b){return b.unread && briefReport(b.id)});
+    if(nb.length){
+      var br = briefReport(nb[0].id), n = br.picks.length;
+      out.push({
+        ic:'◎', bg:'#0E2340', col:'var(--trf)',
+        a: br.scn + ' has ' + (n===1?'a man':n===2?'two men':'three men') + ' for the ' + (POSN[nb[0].pos]||nb[0].pos) + ' brief',
+        b: br.picks.map(function(pk){return pk.nm}).join(', '),
+        fn: "SW.get('scouting').ui.briefRead(" + nb[0].id + ")", priority: 30
+      });
+    }
     var unread = s.unread.filter(function(id){return s.rep[id]});
     if(unread.length){
       var gem = unread.find(function(id){return s.rep[id].gem});
