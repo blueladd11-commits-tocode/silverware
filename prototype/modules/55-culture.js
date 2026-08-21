@@ -1279,6 +1279,7 @@ SW.register({
     return p?justification(p):null},
   policing(){return policing()},
   trust(id){return trustOf(id)},
+  standards(){return S().standards.slice()},   // requested by plans: read-only copy
   culture(){return cultureScore()},
   captain(){return S().captain},
   promise(pid,what,weeks){promise(pid,what,weeks)},

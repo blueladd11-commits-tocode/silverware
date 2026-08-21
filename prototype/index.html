@@ -565,6 +565,20 @@ tr.me td:nth-child(2){font-weight:700}
 .segmented.many::-webkit-scrollbar{display:none}
 .segmented.many button{flex:0 0 auto;padding:9px 13px}
 .segmented button[aria-selected=true]{background:var(--s3);color:var(--t1)}
+/* Squad header strip — the four things a manager checks before anything else. */
+#sqhead{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:7px;margin:2px 0 10px}
+.sqh{background:var(--s1);border:1px solid var(--hair);border-radius:12px;min-height:52px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  cursor:pointer;color:var(--t1);font-family:var(--ui);padding:6px 2px}
+.sqh .k{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)}
+.sqh .v{font-family:var(--disp);font-weight:800;font-size:15px;line-height:16px;white-space:nowrap}
+/* Second-level toggle inside a squad group: quieter than the primary segments. */
+.segmented.sub{margin:-6px 0 14px;background:none;padding:0;gap:6px}
+.segmented.sub button{background:var(--s1);border:1px solid var(--hair);min-height:44px;color:var(--t3)}
+.segmented.sub button[aria-selected=true]{background:var(--s3);color:var(--t1);border-color:var(--strong)}
+/* Segment switches swap only #sqbody — the page never flashes. Short fade+lift on entry. */
+@keyframes sqin{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.sqin{animation:sqin .17s var(--ease) both}
 .chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chips button{flex:0 0 auto;border:1px solid var(--hair);background:var(--s1);color:var(--t2);border-radius:10px;
@@ -2974,8 +2988,10 @@ function shortVoice(d){
 
 function tabbar(){
   const T=[['home','⌂','Home'],['squad','◎','Squad'],['market','⇄','Market'],['club','▣','Club'],['world','◍','World']];
+  /* The Squad tab always lands on Lineup — the most-used view. Deep links that set
+     G.squadView first and then call go('squad') are unaffected: only the tab button resets. */
   return `<nav class="tabbar">${T.map(([k,g,l])=>
-    `<button aria-selected="${G.tab===k}" onclick="go('${k}')"><span class="g">${g}</span>${l}</button>`).join('')}</nav>`;
+    `<button aria-selected="${G.tab===k}" onclick="${k==='squad'?"G.squadView='lineup';":''}go('${k}')"><span class="g">${g}</span>${l}</button>`).join('')}</nav>`;
 }
 function topbar(){
   const c=me(),l=myLeague();
@@ -3220,18 +3236,133 @@ function euroStatusLine(c){
 /* ============================================================
    SQUAD
    ============================================================ */
-function viewSquad(){
+/* Two-level structure. Seven-plus flat chips became three primary segments, each with a
+   quiet internal toggle. G.squadView stays the single source of truth (the leaf view key),
+   so every existing deep link (G.squadView='contracts';go('squad')) still works — the
+   group is derived from the leaf, never stored. */
+const SQGROUPS=[
+  {key:'match',label:'Matchday',views:['lineup','tactics','plans']},
+  {key:'squad',label:'Squad',views:['list','training','academy','contracts']},
+  {key:'room',label:'The Room',views:['room','culture']}];
+/* A module-contributed view the groups do not know by name still needs a home:
+   guess from its key, default to the Squad group rather than breaking. */
+function sqGroupOf(k){
+  for(const g of SQGROUPS)if(g.views.includes(k))return g.key;
+  if(/plan|tactic|match|set/.test(k))return 'match';
+  if(/room|culture|morale|talk|harmony/.test(k))return 'room';
+  return 'squad';
+}
+const SQLAST={};      // last leaf used per group — session memory, deliberately not saved
+const SQSCROLL={};    // scroll position per leaf — restored when you come back
+function squadAllViews(){
+  const core=[
+    {key:'lineup',label:'Lineup',render:sqLineup},
+    {key:'tactics',label:'Tactics',render:sqTactics},
+    {key:'list',label:'Players',render:sqList},
+    {key:'training',label:'Training',render:sqTraining},
+    {key:'academy',label:'Academy',render:sqAcademy}];
+  const extra=SW.collect('squadViews').filter(v=>v&&v.key&&typeof v.render==='function'
+    &&!core.some(x=>x.key===v.key));
+  return core.concat(extra);
+}
+function sqViewsIn(gk,all){
+  const g=SQGROUPS.find(x=>x.key===gk);
+  const named=g.views.map(k=>all.find(v=>v.key===k)).filter(Boolean);
+  const strays=all.filter(v=>!SQGROUPS.some(x=>x.views.includes(v.key))&&sqGroupOf(v.key)===gk);
+  return named.concat(strays);
+}
+window.sqGroup=function(gk){
+  const vs=sqViewsIn(gk,squadAllViews());if(!vs.length)return;
+  const last=SQLAST[gk];
+  sqGo(vs.some(v=>v.key===last)?last:vs[0].key);
+};
+/* Switch leaf views by swapping only #sqbody — topbar, header strip and segments stay
+   put, so nothing flashes and the eye never loses its place. */
+window.sqGo=function(k){
+  if(G.tab==='squad')SQSCROLL[G.squadView]=window.scrollY;
+  G.squadView=k;SQLAST[sqGroupOf(k)]=k;
+  if(G.tab!=='squad'){go('squad');return}
+  const seg=document.getElementById('sqseg'),sub=document.getElementById('sqsubwrap'),
+        body=document.getElementById('sqbody');
+  if(!seg||!sub||!body){render();return}
+  seg.innerHTML=sqSegHTML();
+  sub.innerHTML=sqSubHTML();
+  body.innerHTML=sqBodyHTML();
+  body.classList.remove('sqin');void body.offsetWidth;body.classList.add('sqin');
+  _rsig=rsig();
+  window.scrollTo(0,SQSCROLL[k]||0);
+  revealSelected();
+};
+function sqSegHTML(){
+  const gk=sqGroupOf(G.squadView),all=squadAllViews();
+  return SQGROUPS.filter(g=>sqViewsIn(g.key,all).length).map(g=>
+    `<button aria-selected="${gk===g.key}" onclick="sqGroup('${g.key}')">${g.label}</button>`).join('');
+}
+function sqSubHTML(){
+  const all=squadAllViews(),vs=sqViewsIn(sqGroupOf(G.squadView),all);
+  if(vs.length<2)return '';
+  return `<div class="segmented sub ${vs.length>4?'many':''}">${vs.map(v=>
+    `<button aria-selected="${G.squadView===v.key}" onclick="sqGo('${v.key}')">${esc(v.label)}</button>`).join('')}</div>`;
+}
+function sqBodyHTML(){
+  const all=squadAllViews();
+  let v=all.find(x=>x.key===G.squadView);
+  if(!v){v=all[0];G.squadView=v.key}   // stale key in an old save — land on Lineup
+  SQLAST[sqGroupOf(v.key)]=v.key;      // deep-linked arrivals count as "last used" too
+  try{return v.render()||''}
+  catch(e){console.error('[squad view '+v.key+']',e);
+    return '<div class="card"><div class="dim" style="padding:14px 0">This view failed to render.</div></div>'}
+}
+/* The strip above the segments: next fixture, XI average, the room, injuries.
+   Each cell jumps straight to the place you would go to act on it. */
+function sqHeader(){
   const c=me();
-  const extra=SW.collect('squadViews');
-  const views=[['lineup','Lineup'],['tactics','Tactics'],['training','Training'],['academy','Academy'],
-    ...extra.map(v=>[v.key,v.label])];
-  let body='';
-  const ext=extra.find(v=>v.key===G.squadView);
-  if(ext){return `${topbar()}<div class="scroll">
-    <div class="segmented ${views.length>4?'many':''}">${views.map(([k,l])=>`<button aria-selected="${G.squadView===k}"
-      onclick="G.squadView='${k}';render()">${l}</button>`).join('')}</div>${ext.render()}</div>${tabbar()}`}
-  if(G.squadView==='lineup'){
-    const bench=squadOf(c).filter(p=>!c.xi.find(x=>x.p.id===p.id));
+  const xi=Math.round(c.xi.reduce((s,x)=>s+CA(x.p,x.slot),0)/11);
+  const inj=squadOf(c).filter(p=>p.out>0).length;
+  const f=nextFixture();
+  const opp=f&&G.clubs[f.home===G.me?f.away:f.home];
+  const m=SW.get('morale'),h=m?m.harmony():null;
+  const hw=h==null?null:h>=55?'Buzzing':h>=30?'Good':h>=10?'Settled':h>=-10?'Flat':h>=-35?'Fraying':'Toxic';
+  const cell=(k,v,fn,warn)=>`<button class="sqh" onclick="${fn}">
+    <span class="k">${k}</span><span class="v"${warn?' style="color:var(--inj)"':''}>${v}</span></button>`;
+  return cell('Next',opp?`${esc(opp.abbr)} <span class="dim">${f.home===G.me?'H':'A'}</span>`:'—',"go('home')")
+    +cell('XI avg',xi,"sqGo('lineup')")
+    +(hw?cell('The room',esc(hw),"sqGo('room')",h<=-36):'')
+    +cell(inj===1?'Injury':'Injuries',inj,'sqInjured()',inj>0);
+}
+window.sqInjured=function(){
+  const inj=squadOf(me()).filter(p=>p.out>0).sort((a,b)=>b.out-a.out);
+  sheet(`<h3>Treatment room</h3>
+   <div class="sh-sub">${inj.length?inj.length+' unavailable. Tap a player for the detail.':'Everyone is available.'}</div>
+   ${inj.map(p=>plrRow(p)).join('')}`);
+};
+function viewSquad(){
+  return `${topbar()}<div class="scroll">
+   <div id="sqhead">${sqHeader()}</div>
+   <div class="segmented" id="sqseg">${sqSegHTML()}</div>
+   <div id="sqsubwrap">${sqSubHTML()}</div>
+   <div id="sqbody" class="sqin">${sqBodyHTML()}</div>
+  </div>${tabbar()}`;
+}
+/* The full first-team roster in one list — XI first within each unit. Two taps from
+   anywhere to any player's file. */
+function sqList(){
+  const c=me(),xiIds=new Set(c.xi.map(x=>x.p.id));
+  const order=['GK','CB','FB','DM','CM','AM','W','ST'];
+  const units=[['Goalkeepers',['GK']],['Defence',['CB','FB']],['Midfield',['DM','CM','AM']],['Attack',['W','ST']]];
+  const sq=squadOf(c).slice().sort((a,b)=>
+    (xiIds.has(b.id)-xiIds.has(a.id))||(order.indexOf(a.pos)-order.indexOf(b.pos))||(CA(b)-CA(a)));
+  return `<div class="row" style="margin:2px 2px 0">
+    <span class="dim" style="font-size:12px">${sq.length} players · ${money(wageBill(c))}/wk in wages</span></div>
+   ${units.map(([lbl,poss])=>{const g2=sq.filter(p=>poss.includes(p.pos));if(!g2.length)return '';
+    return `<div class="sechead">${lbl}<span class="n">${g2.length}</span></div>
+     <div class="card" style="padding:2px 14px 6px">${g2.map(p=>plrRow(p)).join('')}</div>`}).join('')}`;
+}
+function sqLineup(){
+  const c=me();let body='';
+  {
+    const bench=squadOf(c).filter(p=>!c.xi.find(x=>x.p.id===p.id))
+      .sort((a,b)=>(a.out>0)-(b.out>0)||CA(b)-CA(a));  // fit first, best first — the next sub is top-left
     const picking=G.pickSlot!==undefined&&G.pickSlot!==null;
     body=`<div class="row" style="margin-bottom:10px">
       <span class="pill acc">${c.formation}</span>
@@ -3242,7 +3373,12 @@ function viewSquad(){
       <div class="sechead">${picking?'<span style="color:var(--acc)">Tap a player to swap him in</span>':'Bench'}
         <span class="n">${bench.length}</span></div>
       <div class="pcgrid">${bench.map(p=>pcard(p,{w:pcw(3,10),club:c,
-        tap:'benchSwap('+p.id+')'})).join('')}</div>`;  } else if(G.squadView==='tactics'){
+        tap:'benchSwap('+p.id+')'})).join('')}</div>`;  }
+  return body;
+}
+function sqTactics(){
+  const c=me();let body='';
+  {
     const sl=(lbl,key,lo,hi)=>{const v=c[key];
       return `<div style="margin-bottom:18px"><div class="row" style="margin-bottom:7px">
         <span style="font-weight:600;font-size:14px">${lbl}</span><span class="spacer"></span>
@@ -3264,7 +3400,12 @@ function viewSquad(){
         ${a.same?'<div class="pill acc" style="margin-top:10px;padding:8px 11px">✓ You are set up as advised</div>'
         :`<button class="btn xs" style="margin-top:11px;width:100%" onclick="applyPlan()">Apply his plan (${a.plan.formation})</button>`}
        </div>`:''}</div>`;
-  } else if(G.squadView==='training'){
+  }
+  return body;
+}
+function sqTraining(){
+  const c=me();let body='';
+  {
     body=`<div class="sechead">Weekly focus</div>
      ${Object.entries(TRAIN).map(([k,t])=>`<div class="opt ${c.training===k?'rec':''}" onclick="setTrain('${k}')">
       <div><div style="font-weight:600">${t.lbl}</div><div class="dim" style="font-size:12px">${esc(t.d)}</div></div>
@@ -3274,7 +3415,12 @@ function viewSquad(){
       ${c.squad.filter(p=>p.age<=21).length>7?'We have a lot of young lads. Youth focus would pay off over a couple of seasons.'
        :costRatio(c)>80?'We cannot buy our way out of trouble. Training is the only lever we have left.'
        :'Fitness work through a congested run keeps legs fresh and cuts injuries.'}</div></div>`;
-  } else {
+  }
+  return body;
+}
+function sqAcademy(){
+  const c=me();let body='';
+  {
     const y=c.squad.filter(p=>p.youth).sort((a2,b)=>b.pa-a2.pa);
     body=`<div class="card" style="margin-bottom:10px"><div style="font-size:13px;color:var(--t2)">
       Academy players do not appear in the first team until you promote them. Their ceiling is a scout's estimate —
@@ -3287,9 +3433,7 @@ function viewSquad(){
           onclick="event.stopPropagation();promote(${p.id})">Promote</button></div>`}).join('')}</div>`
       :'<div class="card"><div class="dim" style="padding:14px 0">Nobody in the academy right now. Intake comes at the end of the season.</div></div>'}`;
   }
-  return `${topbar()}<div class="scroll">
-   <div class="segmented ${views.length>4?'many':''}">${views.map(([k,l])=>`<button aria-selected="${G.squadView===k}"
-     onclick="G.squadView='${k}';render()">${l}</button>`).join('')}</div>${body}</div>${tabbar()}`;
+  return body;
 }
 function kitChip(c,p,size){
   const k=kitFor(c),{ink,halo}=numInk(k);
@@ -3767,7 +3911,41 @@ function closeSheet(){const s=$('.sheetwrap');if(s)s.remove();unlockScroll()}
 function sheet(html){closeSheet();const d=document.createElement('div');d.className='sheetwrap';
   d.onclick=e=>{if(e.target===d)closeSheet()};
   d.innerHTML=`<div class="sheet"><div class="grab"></div>${html}</div>`;
-  document.body.appendChild(d);lockScroll()}
+  document.body.appendChild(d);sheetDrag(d.querySelector('.sheet'));lockScroll()}
+/* Pull the sheet down from its top to close it. Engages only when the sheet — and any
+   scrollable region inside it — is at the top of its own scroll, so a list that manages
+   its own scrolling never fights the gesture: scrolling wins, dismissal starts at the top. */
+function _innerScrolled(el,stop){
+  for(let n=el;n&&n!==stop;n=n.parentElement){if(n.scrollTop>0)return true}
+  return false;
+}
+function sheetDrag(sh){
+  if(!sh)return;
+  let y0=null,dy=0,drag=false;
+  sh.addEventListener('touchstart',e=>{y0=e.touches[0].clientY;dy=0;drag=false},{passive:true});
+  sh.addEventListener('touchmove',e=>{
+    if(y0==null)return;
+    dy=e.touches[0].clientY-y0;
+    if(!drag){
+      if(dy>8&&sh.scrollTop<=0&&!_innerScrolled(e.target,sh)){drag=true;sh.style.transition='none'}
+      else if(dy<-6){y0=null;return}   // an upward gesture is a scroll — stand down
+    }
+    if(drag){e.preventDefault();sh.style.transform='translateY('+Math.max(0,dy)+'px)'}
+  },{passive:false});
+  const end=()=>{
+    if(drag){
+      if(dy>90&&!matchMedia('(prefers-reduced-motion: reduce)').matches){
+        sh.style.transition='transform .16s ease-in';sh.style.transform='translateY(105%)';
+        setTimeout(closeSheet,150);
+      }else if(dy>90){closeSheet()}
+      else{sh.style.transition='transform .18s var(--ease)';sh.style.transform='';
+        setTimeout(()=>{sh.style.transition=''},200)}
+    }
+    y0=null;drag=false;
+  };
+  sh.addEventListener('touchend',end);
+  sh.addEventListener('touchcancel',end);
+}
 function sheetObjective(){
   sheet(`<h3>The board's expectation</h3>
    <div class="sh-sub">Everything you are judged on flows from this. Agree it, or argue it down and pay for it.</div>
@@ -4290,12 +4468,21 @@ function doEndSeason(){
 /* ============================================================
    BOOT
    ============================================================ */
+/* A full render used to throw the scroll position away every time — adjust one tactic
+   slider and you were back at the top of the page. Keep the position when the player is
+   still looking at the same view; only a genuine navigation starts from the top. */
+let _rsig='';
+function rsig(){return G.tab+'/'+(G.tab==='squad'?G.squadView:G.tab==='market'?G.marketView
+  :G.tab==='club'?(G.clubView||''):G.tab==='world'?(G.worldView||''):'')}
 function render(){
   closeSheet();
-  window.scrollTo(0,0);
+  const sig=rsig();
+  const keep=sig===_rsig?window.scrollY:0;
+  _rsig=sig;
   const v=G.tab==='home'?viewHub():G.tab==='squad'?viewSquad():G.tab==='market'?viewMarket()
     :G.tab==='club'?viewClub():viewWorld();
   app().innerHTML=v;
+  window.scrollTo(0,keep);
   revealSelected();
 }
 /* Seven squad sub-views overflow a 375px screen by 235px. Without this, picking "Culture"
