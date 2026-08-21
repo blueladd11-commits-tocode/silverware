@@ -1895,6 +1895,11 @@ const MONTHS=['Aug','Aug','Aug','Sep','Sep','Sep','Sep','Oct','Oct','Oct','Nov',
 'Dec','Jan','Jan','Jan','Feb','Feb','Feb','Feb','Mar','Mar','Mar','Apr','Apr','Apr','Apr','Apr','May','May','May','May'];
 const DAYS=[9,16,23,1,8,15,22,3,17,24,1,8,22,29,6,13,20,26,29,3,17,24,1,8,15,22,7,14,21,4,11,18,22,25,2,9,16,24];
 const weekDate=w=>`${DAYS[w%38]} ${MONTHS[w%38]}`;
+/* Pre-season is July into early August, the way a real summer runs. The league
+   kicks off on the second weekend of August, which is what weekDate(0) returns. */
+const PRE_DATES=['5 Jul','12 Jul','19 Jul','26 Jul','2 Aug'];
+const PRE_N=PRE_DATES.length;
+const preDate=()=>PRE_DATES[PRE_N-(G.pre||0)]||PRE_DATES[0];
 
 function roundRobin(n){
   const ids=[...Array(n).keys()],rounds=[],half=n/2;let arr=ids.slice(1);
@@ -2097,9 +2102,11 @@ function myLeagueFixture(w){
 }
 function weekFixtures(){
   if(G.pre>0){
-    const opp=G.preOpp&&G.preOpp[3-G.pre];
+    const i=PRE_N-G.pre;
+    const opp=G.preOpp&&G.preOpp[i%(G.preOpp.length||1)];
     if(opp!=null)return [{home:(G.pre%2?G.me:opp),away:(G.pre%2?opp:G.me),neutral:false,
-      comp:{name:'Pre-season',key:'friendly'},stage:'Friendly '+(4-G.pre)+' of 3'}];
+      comp:{name:'Pre-season',key:'friendly'},
+      stage:'Friendly '+(i+1)+' of '+PRE_N+' · '+preDate()}];
   }
   const out=[];
   const eu=euroFixtureFor(G.me,G.week);if(eu)out.push(eu);
@@ -2365,6 +2372,13 @@ function playerWillJoin(p,seller,buyer){
   if(seller.rep-buyer.rep>18&&amb>0.5)return {ok:false,msg:'He will not drop that far down.'};
   return {ok:true,wageUp:1.15};
 }
+/* Nobody is blamed for something they did not do. Any module that lists a
+   player states WHO did it; copy that accuses the manager must check this. */
+function listPlayer(p,by,why){
+  p.listed=true; p.listedBy=by||'manager'; p.listedWhy=why||'';
+}
+function unlistPlayer(p){ p.listed=false; p.listedBy=null; p.listedWhy=''; }
+function listedByManager(p){ return !!p.listed && (p.listedBy||'manager')==='manager' }
 function doTransfer(p,seller,buyer,fee,wage){
   seller.squad=seller.squad.filter(x=>x.id!==p.id);
   p._tier=buyer.tier;
@@ -2566,7 +2580,7 @@ function endSeasonProcess(){
   buildEurope(tables);
   aiMarket(46);
   G.season++;G.week=0;G.window='summer';G.seasonEnded=false;
-  G.pre=3;G.preOpp=preOpponents();
+  G.pre=PRE_N;G.preOpp=preOpponents();
   G.objective=objectiveFor(me());G.objective.accepted=false;
   G.leagues.forEach(l=>{l.fixtures=roundRobin(20)});
   SW.fire('onSeasonEndAfter',{pos,hit});
@@ -2581,9 +2595,10 @@ function money(n){
 }
 function preOpponents(){
   const myRep=me().rep;
-  const pool=G.clubs.filter(c=>c.id!==G.me&&Math.abs(c.rep-myRep)<14);
+  const pool=G.clubs.filter(c=>c.id!==G.me&&Math.abs(c.rep-myRep)<16);
   const out=[];const used=new Set();
-  while(out.length<3&&pool.length){
+  let guard=0;
+  while(out.length<PRE_N&&pool.length&&guard++<200){
     const c=pool[Math.floor(rnd()*pool.length)];
     if(used.has(c.id))continue;used.add(c.id);out.push(c.id);
   }
@@ -2595,7 +2610,7 @@ function newGame(clubId){
   G.me=clubId;G.week=0;G.season=2026;G.inbox=[];G.chronicle=[];G.shortlist=[];G.window='summer';
   G.tab='home';G.lastResult=null;G.seasonEnded=false;
   G.objective=objectiveFor(me());G.objective.accepted=false;
-  G.pre=3;G.preOpp=preOpponents();
+  G.pre=PRE_N;G.preOpp=preOpponents();
   G.managerName=window._mgrName||G.managerName||'The Manager';
   G.mod={};
   SW.fire('init');
@@ -2614,7 +2629,7 @@ function packPlayer(p){
     p.trait||0,p.traitKnown?1:0,
     +(p.form||0).toFixed(2),Math.round(p.cond),Math.round(p.morale),p.out,
     p.apps,p.goals,p.assists,p.wage,p.years,p.listed?1:0,p.youth?1:0,
-    p.height||180,p.weight||75,p.foot||'R',p._tier||0];
+    p.height||180,p.weight||75,p.foot||'R',p._tier||0,p.listedBy||''];
 }
 function unpackPlayer(v){
   return {id:v[0],name:v[1],nat:v[2],pos:v[3],age:v[4],
@@ -2624,7 +2639,8 @@ function unpackPlayer(v){
     form:v[20],cond:v[21],morale:v[22],out:v[23],
     apps:v[24],goals:v[25],assists:v[26],wage:v[27],years:v[28],
     listed:!!v[29],youth:!!v[30],
-    height:v[31]||180,weight:v[32]||75,foot:v[33]||'R',_tier:v[34]||0,ratings:[]};
+    height:v[31]||180,weight:v[32]||75,foot:v[33]||'R',_tier:v[34]||0,
+    listedBy:v[35]||null,ratings:[]};
 }
 function save(){try{
   localStorage.setItem(KEY,JSON.stringify({
@@ -3171,7 +3187,7 @@ function viewHub(){
   return `${topbar()}<div class="scroll">
    ${f?`<div class="fixcard">
      <div class="when" ${isEuro?`style="color:${EUROS.find(e=>e.key===f.comp.key).col}"`:''}>
-       ${weekDate(G.week)} · ${esc(f.comp.name)} · ${esc(f.stage)}${f.neutral?' · neutral':''}</div>
+       ${G.pre>0?esc(f.comp.name)+' · '+esc(f.stage):weekDate(G.week)+' · '+esc(f.comp.name)+' · '+esc(f.stage)}${f.neutral?' · neutral':''}</div>
      <div class="vs">
        <div class="side">${crestSVG(G.clubs[f.home],40)}<div class="abbr">${G.clubs[f.home].abbr}</div>
          <div class="tiny">${esc(G.clubs[f.home].name)}</div></div>
@@ -3219,7 +3235,7 @@ function viewHub(){
      <div style="font-size:13px;color:var(--t2)"><b style="color:var(--acc)">◆ Two games this week</b> —
      ${esc(weekFixtures().map(x=>x.comp.name).join(' then '))}. Legs will not recover in between.</div></div>`:''}
    <div class="cta-dock">${G.week<38
-     ?`<button class="btn" onclick="startMatch()">▶ ${G.pre>0?'Pre-season friendly '+(4-G.pre)+' of 3'
+     ?`<button class="btn" onclick="startMatch()">▶ ${G.pre>0?'Pre-season · '+preDate()
         :f?(f.comp.key==='league'?'Play matchday '+(G.week+1):'Play '+f.comp.name):'Advance week'}</button>`
      :`<button class="btn" onclick="doEndSeason()">★ End of season</button>`}</div>
    ${tabbar()}`;
@@ -3764,7 +3780,9 @@ function shortShelf(){
 }
 function toggleShort(id){const i=G.shortlist.indexOf(id);
   if(i<0)G.shortlist.push(id);else G.shortlist.splice(i,1);render()}
-function toggleList(id){const p=me().squad.find(x=>x.id===id);if(p)p.listed=!p.listed;save();render()}
+function toggleList(id){const p=me().squad.find(x=>x.id===id);
+  if(p){ if(p.listed)unlistPlayer(p); else listPlayer(p,'manager'); }
+  save();render()}
 
 /* ============================================================
    CLUB
@@ -4341,7 +4359,7 @@ function finishMatch(){
     const t0=document.querySelector('.take');if(t0)t0.remove();MT=null;
     G.fxIndex=0;G.pre--;
     G.clubs.forEach(recover);
-    if(G.pre===0)note('Pre-season is done','Three friendlies in the legs. The real thing starts now.',
+    if(G.pre===0)note('Pre-season is done',PRE_N+' friendlies in the legs and the window shuts soon. The league starts on '+weekDate(0)+'.',
       typeof vV==='function'?{from:vV('assistant')}:undefined);
     save();showReport();return;
   }
@@ -4474,6 +4492,16 @@ function doEndSeason(){
 let _rsig='';
 function rsig(){return G.tab+'/'+(G.tab==='squad'?G.squadView:G.tab==='market'?G.marketView
   :G.tab==='club'?(G.clubView||''):G.tab==='world'?(G.worldView||''):'')}
+function fitDock(){
+  /* The CTA dock is fixed and its height changes with the label, so a constant
+     bottom padding will always be wrong for some screen. Measure and match. */
+  try{
+    const d=document.querySelector('.cta-dock'),sc=document.querySelector('.scroll');
+    if(!d||!sc)return;
+    const h=d.getBoundingClientRect().height;
+    sc.style.paddingBottom=Math.round(h+78)+'px';
+  }catch(e){}
+}
 function render(){
   closeSheet();
   const sig=rsig();
@@ -4482,6 +4510,7 @@ function render(){
   const v=G.tab==='home'?viewHub():G.tab==='squad'?viewSquad():G.tab==='market'?viewMarket()
     :G.tab==='club'?viewClub():viewWorld();
   app().innerHTML=v;
+  fitDock();
   window.scrollTo(0,keep);
   revealSelected();
 }
@@ -5723,23 +5752,28 @@ SW.register({
 /* ==== module: 25-market.js ==== */
 /* ============================================================
    SILVERWARE — module: market
-   The other direction.
+   The summer, and the other direction.
 
-   The core's aiMarket() explicitly skips the human squad, so in a
-   finished season not one club ever came for one of your players.
-   There was a `listed` flag and a List button and nothing on earth
-   read either of them. This module is the missing half:
+   Two jobs, one file.
 
-     · AI clubs scan your squad every window and bid for it
-     · the transfer list changes who is watching, visibly
-     · an offer arrives as one decision on one sheet, never a loop
-     · selling a man the room rates costs you something
-     · the last week of a window is a flurry, not a new screen
-     · and the board's pot can finally be split between fees and wages
+   THE SUMMER. Pre-season is five friendlies — 5 Jul to 2 Aug — and the
+   core fires no onWeek hook through any of it. So the window used to be
+   a still photograph: one list, one price, nothing moving, nothing at
+   stake. Every friendly is now a market day. Rival clubs do business and
+   you watch them do it. Clubs put men in the shop window and the price
+   on the screen moves because of it. Agents ring. A man you have been
+   looking at for three weeks signs for somebody else. And on 2 Aug the
+   phone does not stop.
 
-   THE RULE THAT PROTECTS LONG SAVES. Every number a club is willing
-   to pay comes out of value() via askingPrice(). Nothing in here ever
-   reads a fee that was paid, ours or anybody's. No ratchet.
+   THE DEAL. A transfer is two negotiations, not one. The club takes the
+   fee; the player takes the wage. You now argue both, and every argument
+   you start comes back and tells you how it went on your very next tap —
+   what you asked for, and what happened. Nothing resolves in silence.
+
+   THE RULE THAT PROTECTS LONG SAVES. Every number any club is willing to
+   pay comes out of value() via askingPrice(). Nothing in here reads a fee
+   that was paid — not ours, not anybody's. A counter-offer is derived from
+   the asking price, never from the bid it answers. No ratchet.
    ============================================================ */
 (function(){
 'use strict';
@@ -5756,8 +5790,17 @@ const DEF={
   breachWk:-9,
   ledger:[],      // outgoing deals, newest first
   inFees:0,
+  outFees:0,
   cool:{},        // pid -> week we last generated an approach
-  seeded:0        // season the summer approaches were seeded for
+  seeded:0,       // season the summer approaches were seeded for
+  day:-1,         // last market day we ran
+  feed:[],        // what is happening out there, newest first
+  pend:[],        // negotiations waiting on an answer
+  queue:[],       // answers waiting to be put in front of the manager
+  appr:[],        // live agent approaches
+  ask:{},         // pid -> asking price at the start of today, for movement
+  tick:0,         // pulses since boot — "next action" is measured in these
+  stats:{}        // rival deals seen, terms done, terms refused, roles set
 };
 function S(){
   const s=SW.state('market');
@@ -5766,9 +5809,42 @@ function S(){
     const d=DEF[k];
     s[k]=Array.isArray(d)?[]:(d&&typeof d==='object')?{}:d;
   }
+  if(!s.stats)s.stats={};
+  const st=s.stats;
+  ['rival','gone','terms','refused','walked','follow','roles','bought'].forEach(k=>{if(!st[k])st[k]=0});
   return s;
 }
 const alive=()=>typeof G!=='undefined'&&G.clubs&&G.me!=null&&me();
+const inMatch=()=>typeof MT!=='undefined'&&MT;
+const last=p=>String(p&&p.name||'').split(' ').pop();
+
+/* ============================================================
+   THE CALENDAR
+   Summer runs across the five friendlies; each one is a market day.
+   January is weeks 19–21. The last day of either is the scramble.
+   ============================================================ */
+const SHUTS='8 Aug';                       // the day after the last friendly
+function preLeft(){return Math.max(0,G.pre|0)}
+function summer(){return G.window==='summer'}
+function dayKey(){
+  if(!alive())return -1;
+  return G.season*1000+(summer()?(typeof PRE_N==='number'?PRE_N-preLeft():0):100+G.week);
+}
+function dayLabel(){
+  if(summer())return preLeft()>0?(typeof preDate==='function'?preDate():'July'):SHUTS;
+  return typeof weekDate==='function'?weekDate(G.week):'This week';
+}
+function isDeadline(){
+  if(G.week>=19&&G.week<=21)return G.week===21;
+  return summer()&&preLeft()<=1;
+}
+function daysLine(){
+  if(!summer())return G.week===21?'Shuts when you continue':'Three weeks, then it shuts';
+  const n=preLeft();
+  if(n<=0)return 'Shuts when you continue';
+  if(n===1)return 'Deadline day is next';
+  return n+' more days of it';
+}
 
 /* ============================================================
    WHO IS WATCHING
@@ -5782,7 +5858,7 @@ function listSig(c){let n=0;for(const p of squadOf(c))if(p.listed)n+=p.id+1;retu
 function scan(){
   const c=alive();if(!c)return null;
   const sig=listSig(c);
-  if(CACHE.intr&&CACHE.wk===G.week&&CACHE.se===G.season&&CACHE.sig===sig)return CACHE;
+  if(CACHE.intr&&CACHE.wk===G.week&&CACHE.se===G.season&&CACHE.sig===sig&&CACHE.pre===preLeft())return CACHE;
   const pos=new Map();
   for(const b of G.clubs){
     if(b.id===G.me)continue;
@@ -5795,7 +5871,7 @@ function scan(){
   if(mo&&mo.unhappy){try{unhappy=new Set(mo.unhappy().map(p=>p.id))}catch(e){}}
   const intr={};
   for(const p of squadOf(c))intr[p.id]=watchers(p,pos,unhappy);
-  CACHE={wk:G.week,se:G.season,sig,pos,intr};
+  CACHE={wk:G.week,se:G.season,sig,pre:preLeft(),pos,intr};
   return CACHE;
 }
 function bust(){CACHE.intr=null}
@@ -5809,7 +5885,6 @@ function moodBump(p,unhappy){
 }
 /* How badly one club wants one of ours. Positive means they are looking. */
 function pairScore(p,b,bp,mood){
-  const c=me();
   const theirs=(bp&&bp[p.pos])||0;
   let s=clamp((CA(p)-(theirs||42))*3.4,-45,48);   // does he improve their side
   if(p.listed)s+=36;                              // the list is the loudest signal
@@ -5853,12 +5928,713 @@ function interestOf(pid){
 }
 
 /* ============================================================
-   THE WINDOW
-   Summer is week 0 only; January is weeks 19–21. The last week of
-   each is deadline week: more clubs, more money, decide now.
+   AGENTS
+   An agent is a fact about a player, never a roll: the same man every
+   time you ring, with the same appetite. Deliberately the same derivation
+   the contracts module uses, so the name on this sheet is the name on his
+   contract screen. If contracts ever publishes agentOf(), delete this.
    ============================================================ */
-function isDeadline(){return (G.window==='summer'&&G.week===0)||G.week===21}
+function ahash(n){let x=(n*2654435761)>>>0;x^=x>>>13;x=(x*1274126177)>>>0;return x>>>0}
+const AGENTS=[
+ {k:'straight',d:'straight, no games',      fee:0.035,greed:1.00,clause:0.10,stub:0.30},
+ {k:'shrewd',  d:'a shrewd operator',       fee:0.065,greed:1.10,clause:0.30,stub:0.55},
+ {k:'shark',   d:'a shark, and he knows it',fee:0.120,greed:1.30,clause:0.55,stub:0.82},
+ {k:'family',  d:'his brother, doing him a favour',fee:0.015,greed:0.90,clause:0.05,stub:0.20}
+];
+const AGMIX=[0,1,0,2,1,3,0,1,2,1];
+const AGNAME=['Vance','Kerrigan','Duplass','Orsini','Beckwith','Ravel','Halloran','Stavros',
+  'Mbeki','Lindqvist','Farrow','Cutler','Reznik','Okonjo','Barbaro','Whitlam'];
+function agentOf(p){
+  const h=ahash(p.id);
+  const a=AGENTS[AGMIX[h%10]];
+  return {k:a.k,d:a.d,fee:a.fee,greed:a.greed,clause:a.clause,stub:a.stub,
+    name:AGNAME[(h>>>5)%AGNAME.length]};
+}
+function agentVoice(p){const a=agentOf(p);return vH(a.name,'agent',p.nat,44)}
 
+/* ============================================================
+   THE FEED — what is happening out there
+   ============================================================ */
+const FK={
+  in  :{i:'⇄',c:'var(--trf)'},
+  gone:{i:'✕',c:'var(--loss)'},
+  price:{i:'£',c:'var(--acc)'},
+  agent:{i:'☎',c:'var(--t2)'},
+  bid :{i:'⇄',c:'var(--trf)'},
+  mine:{i:'★',c:'var(--win)'}
+};
+function feedAdd(k,t){
+  const s=S();
+  if(s.feed.length&&s.feed[0].t===t)return;
+  s.feed.unshift({d:dayLabel(),k,t,se:G.season});
+  if(s.feed.length>44)s.feed.length=44;
+}
+
+/* ============================================================
+   THE MARKET DAY
+   Everything below moves the world exactly once per day. runDay() is
+   only ever reached through pulse(), which fires once per day key.
+   ============================================================ */
+function runDay(){
+  const s=S(),c=alive();if(!c)return;
+  const dl=isDeadline();
+  s.day=dayKey();
+  markPrices();                 // snapshot first, so today's movement is visible
+  bust();
+  rivalDay(dl);
+  shopWindow(dl);
+  targetGone(dl);
+  agentDay(dl);
+  genOffers(dl?5:3,dl);
+  bust();
+  if(dl&&summer()&&preLeft()<=1&&s.dlTold!==G.season){
+    s.dlTold=G.season;
+    note('Deadline. Nobody is sleeping',
+      'Last week of the window. Everybody who has been thinking about it starts ringing, '+
+      'and everything you have not done yet is about to be somebody else\'s problem.',{from:vV('league')});
+  }
+}
+/* Where every price on our screens stood before today's business. */
+function markPrices(){
+  const s=S(),c=alive();if(!c)return;
+  const m={};
+  (G.shortlist||[]).forEach(id=>{
+    const h=findAny(id);
+    if(h&&h.c.id!==G.me)m[id]=askingPrice(h.p,h.c,c);
+  });
+  s.ask=m;
+}
+function findAny(id){
+  for(const c of G.clubs){const f=c.squad&&c.squad.find(x=>x.id===Number(id));if(f)return {p:f,c}}
+  return null;
+}
+/* 1. The rest of the world does its business. aiMarket is the core's own
+      AI-to-AI market and prices itself off askingPrice; every deal it does
+      arrives back here through onTransfer, which is what makes it visible. */
+function rivalDay(dl){
+  if(typeof aiMarket!=='function')return;
+  try{aiMarket(dl?ri(5,8):ri(3,6))}catch(e){}
+}
+/* 2. Clubs put men in the shop window. This is the honest way a price moves:
+      a listed player asks 20% less because askingPrice says he does. We only
+      ever touch other clubs' players here — never one of ours. */
+function shopWindow(dl){
+  const c=alive();if(!c)return;
+  const n=dl?ri(2,4):ri(1,3);
+  for(let i=0;i<n;i++){
+    const b=pick(G.clubs);
+    if(!b||b.id===G.me)continue;
+    const sq=squadOf(b);
+    if(sq.length<19)continue;
+    const byPos={};sq.forEach(p=>byPos[p.pos]=(byPos[p.pos]||0)+1);
+    const cands=sq.filter(p=>!p.listed&&byPos[p.pos]>2&&(p.age>=29||p.years<=1||CA(p)<b.rep-8));
+    if(!cands.length)continue;
+    const p=pick(cands);
+    const why=p.years<=1?'a year left and no new deal on the table'
+      :p.age>=31?'they want the wage off the bill'
+      :'the manager has told him he can go';
+    if(typeof listPlayer==='function')listPlayer(p,'club',why);
+    else {p.listed=true;p.listedBy='club';p.listedWhy=why}
+    feedAdd('price',b.name+' have made '+p.name+' available — '+why+'.');
+  }
+  /* and somebody comes back off the market when nobody rings */
+  if(rnd()<0.45){
+    const cl=pick(G.clubs);
+    if(cl&&cl.id!==G.me){
+      const off=squadOf(cl).filter(p=>p.listed&&(p.listedBy==='club'));
+      if(off.length){
+        const p=pick(off);
+        if(typeof unlistPlayer==='function')unlistPlayer(p);else{p.listed=false;p.listedBy=null}
+        feedAdd('price',cl.name+' have taken '+p.name+' back off the market.');
+      }
+    }
+  }
+}
+/* 3. Dither and he goes. The single most important thing in a window is that
+      it does not wait for you. */
+function targetGone(dl){
+  const c=alive();if(!c)return;
+  const s=S();
+  const targets=(G.shortlist||[]).map(findAny).filter(h=>h&&h.c.id!==G.me);
+  if(!targets.length)return;
+  const h=pick(targets);
+  const p=h.p,seller=h.c;
+  let ch=0.09+clamp((CA(p)-58)/140,0,0.10);
+  if(p.listed)ch+=0.05;
+  if(dl)ch+=0.12;
+  if(rnd()>ch)return;
+  const ask=askingPrice(p,seller,c);
+  const buyers=G.clubs.filter(b=>b.id!==G.me&&b.id!==seller.id&&b.bal>ask*1.6
+    &&costRatio(b)<82&&canCarry(b,p)&&b.rep>=seller.rep-14);
+  if(!buyers.length)return;
+  const b=wpick(buyers,x=>Math.max(1,x.rep-seller.rep+22));
+  doTransfer(p,seller,b,ask,Math.round(p.wage*1.12));   // fee is the asking price, nothing else
+  s.stats.gone++;
+  note(p.name+' has gone to '+b.name,
+    'You had him on your list. '+b.name+' paid '+money(ask)+' and did not ring you first. '+
+    'Somebody was always going to.',{from:vC(b),about:vP(p),rel:'signed'});
+}
+/* 4. Somebody's agent rings. An approach is a door held open for two days:
+      the club will take the asking price, or the player will take the going
+      wage. It never changes what he is worth. */
+function agentDay(dl){
+  const c=alive();if(!c)return;
+  const s=S();
+  s.appr=s.appr.filter(a=>a.until>=dayKey());
+  if(s.appr.length>=2)return;
+  if(rnd()>(dl?0.75:0.5))return;
+  let h=null;
+  const shortl=(G.shortlist||[]).map(findAny).filter(x=>x&&x.c.id!==G.me);
+  if(shortl.length&&rnd()<0.6)h=pick(shortl);
+  else{
+    const weak=weakSpot();
+    const pool=[];
+    for(const cl of G.clubs){
+      if(cl.id===G.me)continue;
+      for(const p of squadOf(cl)){
+        if(weak&&p.pos!==weak)continue;
+        const ask=askingPrice(p,cl,c);
+        if(ask>c.bal*0.85||ask<50000)continue;
+        if(CA(p)<xiFloor()-2)continue;
+        pool.push({p,c:cl});
+      }
+    }
+    if(pool.length)h=pool[Math.floor(rnd()*pool.length)];
+  }
+  if(!h)return;
+  if(s.appr.some(a=>a.pid===h.p.id))return;
+  const ag=agentOf(h.p),kind=rnd()<0.5?'fee':'terms';
+  s.appr.push({pid:h.p.id,cid:h.c.id,kind,until:dayKey()+2,nm:h.p.name,cl:h.c.name});
+  const ask=askingPrice(h.p,h.c,c);
+  note(ag.name+' rang about '+h.p.name,
+    kind==='fee'
+      ?('"'+h.c.name+' will take '+money(ask)+'. Not a penny under, and not for long. '+
+        'Ring me before Friday or I take him somewhere else."')
+      :('"My client likes the sound of you. He will sign for what he is worth, '+
+        'which is more than you are about to offer him. Do not insult us."'),
+    {from:agentVoice(h.p),about:vP(h.p),rel:'represents'});
+  feedAdd('agent',ag.name+' has been touting '+h.p.name+' around. '+h.c.name+' want '+money(ask)+'.');
+}
+function xiFloor(){
+  const c=me();
+  if(!c||!c.xi||!c.xi.length)return 50;
+  return c.xi.reduce((a,x)=>a+CA(x.p,x.slot),0)/c.xi.length;
+}
+function weakSpot(){
+  const c=me();
+  if(!c||!c.xi||!c.xi.length)return null;
+  const w=c.xi.slice().sort((a,b)=>CA(a.p,a.slot)-CA(b.p,b.slot))[0];
+  return w?w.slot:null;
+}
+function approachFor(pid){
+  const s=S();
+  return s.appr.find(a=>a.pid===Number(pid)&&a.until>=dayKey())||null;
+}
+
+/* ============================================================
+   THE PULSE
+   The core gives us no hook during pre-season — a friendly does not
+   advance the week. So the market breathes on the manager's own taps:
+   every render asks whether a new day has started, and every render is
+   where an answer he is owed gets put in front of him.
+   ============================================================ */
+let PULSING=false;
+function pulse(){
+  if(PULSING)return;
+  const c=alive();if(!c||inMatch())return;
+  PULSING=true;
+  try{
+    const s=S();
+    s.tick=(s.tick||0)+1;
+    if(windowOpen()){
+      if(s.day!==dayKey())runDay();
+    }else if(s.pend.length){
+      s.pend.forEach(x=>{if(x.state==='wait')queueUp(x,{k:'shut'})});
+      s.pend=[];
+    }
+    resolvePendings();
+  }catch(e){console.error('[market.pulse]',e)}
+  PULSING=false;
+  deliverSoon();
+}
+
+/* ---------- pending negotiations ----------
+   Everything you start goes in here with the tick it was started on, and
+   is answered on the next one. That is the whole promise: you asked for
+   something, and on your next tap the game tells you how it went. */
+function pendAdd(o){
+  const s=S();
+  o.born=s.tick;o.state='wait';
+  s.pend.push(o);
+  if(s.pend.length>8)s.pend.shift();
+  return o;
+}
+function queueUp(o,res){
+  const s=S();
+  s.queue.push({o,res});
+  if(s.queue.length>6)s.queue.shift();
+}
+function resolvePendings(){
+  const s=S(),c=alive();if(!c)return;
+  for(const o of s.pend){
+    if(o.state!=='wait'||o.born>=s.tick)continue;
+    o.state='done';
+    if(o.k==='bid')queueUp(o,answerBid(o));
+    else if(o.k==='terms')queueUp(o,answerTerms(o));
+    else if(o.k==='counter')queueUp(o,answerCounter(o));
+  }
+  s.pend=s.pend.filter(o=>o.state==='wait');
+}
+function deliverSoon(){
+  const s=S();
+  if(!s.queue.length)return;
+  setTimeout(function(){
+    try{
+      if(!alive()||inMatch())return;
+      if(document.querySelector('.sheetwrap'))return;   // somebody else is talking
+      const st=S(),it=st.queue.shift();
+      if(!it)return;
+      st.stats.follow++;
+      showFollow(it.o,it.res);
+      save();
+    }catch(e){console.error('[market.deliver]',e)}
+  },0);
+}
+
+/* ============================================================
+   BUYING — two negotiations, not one
+   Stage one is the club and the fee. Stage two is the man and his wage,
+   and until now there was no stage two at all: the core rolled
+   playerWillJoin() behind your back and told you he had said no.
+   ============================================================ */
+
+/* What a club says to a bid. The 40% rule: the asking price on its own is a
+   coin-flip, slightly against you. Everything here is derived from
+   askingPrice(); the counter never looks at what you offered. */
+function clubAnswer(p,seller,amount){
+  const c=me(),ask=askingPrice(p,seller,c);
+  const r=amount/Math.max(1,ask);
+  if(r>=1.15)return {k:'yes',ask};
+  if(r<0.85)return {k:'no',ask};
+  return {k:'wait',ask,r};
+}
+function bidOdds(o){
+  const p=findAny(o.pid),c=alive();
+  if(!p||!c)return 0;
+  let ch=clamp(0.40+(o.r-1)*2.6,0.05,0.92);
+  if(isDeadline())ch+=0.12;
+  const ap=approachFor(o.pid);
+  if(ap&&ap.kind==='fee'&&o.r>=0.999)ch=0.97;
+  return clamp(ch,0.03,0.97);
+}
+function answerBid(o){
+  const c=alive(),h=findAny(o.pid);
+  if(!c||!h||h.c.id!==o.cid)return {k:'lost'};
+  const ask=askingPrice(h.p,h.c,c);              // recomputed: the world moved
+  if(rnd()<bidOdds(o))return {k:'yes',fee:o.amt};
+  /* Their number is the asking price plus a bit of pride. It is not, and must
+     never be, a function of what you just bid. */
+  const want=Math.max(50000,Math.round(ask*1.08/50000)*50000);
+  if(want<=c.bal&&rnd()<0.72)return {k:'counter',want};
+  return {k:'no'};
+}
+/* The override. sheetBid() in the core still draws the three fee options; this
+   is what happens when one of them is tapped. */
+window.makeBid=function(id,amount){
+  const c=alive();if(!c)return;
+  const h=findAny(id);if(!h||h.c.id===G.me)return;
+  const p=h.p,seller=h.c;
+  if(amount>c.bal){closeSheet();render();return}
+  if(!windowOpen()){
+    sheet(`<h3>The window is shut</h3><div class="sh-sub">Nobody can register anybody. Wait for January.</div>
+     <button class="btn ghost" onclick="closeSheet();render()">Close</button>`);
+    return;
+  }
+  const a=clubAnswer(p,seller,amount);
+  if(a.k==='no'){
+    sheet(`${speakerBar(vC(seller),vP(p),'for',seller.name+' have answered')}
+     <h3 style="margin-top:12px">Nowhere near it</h3>
+     <div class="sh-sub">${esc(seller.name)} want ${money(a.ask)} for ${esc(p.name)} and you offered
+       ${money(amount)}. They did not take it to anybody.</div>
+     ${a.ask<=c.bal?`<div class="opt rec" onclick="makeBid(${p.id},${a.ask})">
+       <div><div style="font-weight:600">Pay what they are asking</div>
+         <div class="dim" style="font-size:12px">${money(a.ask)} · ${money(c.bal-a.ask)} left after</div></div>
+       <span class="st">Advised</span></div>`:''}
+     <button class="btn ghost" style="margin-top:6px" onclick="closeSheet();render()">Leave it</button>`);
+    return;
+  }
+  if(a.k==='yes'){feeAgreed(p,seller,amount);return}
+  /* They will think about it, and you will find out on your next tap. */
+  pendAdd({k:'bid',pid:p.id,cid:seller.id,nm:p.name,cl:seller.name,amt:amount,ask:a.ask,r:a.r});
+  note('Bid lodged for '+p.name,money(amount)+' to '+seller.name+'. They said they would come back to you.',
+    {from:vC(seller),about:vP(p),rel:'for'});
+  feedAdd('bid','You bid '+money(amount)+' for '+p.name+'. '+seller.name+' are thinking.');
+  save();closeSheet();render();
+};
+
+/* ---------- stage two: the man ----------
+   Deterministic, because a screen that re-rolls his demand every time it
+   redraws is a screen nobody can negotiate against. */
+function terms(p,seller){
+  const c=me(),ag=agentOf(p);
+  const base=typeof wageFor==='function'?wageFor(p,c):p.wage;
+  const floor=Math.max(base,Math.round(p.wage*0.96));
+  let m=1.05;
+  m+=(p.amb-55)/100*0.28;
+  m+=clamp((seller.rep-c.rep)/40,-0.10,0.45);      // coming down costs you
+  m-=clamp((c.rep-seller.rep)/70,0,0.12);          // a step up shaves it
+  if(p.age<=22)m-=0.05;else if(p.age>=32)m-=0.08;
+  m*=ag.greed;
+  const wage=Math.max(1000,Math.round(floor*clamp(m,0.92,1.70)/1000)*1000);
+  const years=p.age>=33?1:p.age>=30?2:p.age<=22?4:3;
+  const wantsCl=(ahash(p.id*7+3)%100)/100<ag.clause;
+  const clause=wantsCl?Math.max(1e6,Math.round(value(p)*(1.45+(ahash(p.id*11+5)%40)/100)/5e5)*5e5):0;
+  return {wage,years,clause,ag,base,floor,fee:Math.round(wage*52*ag.fee)};
+}
+/* One blunt line, or nothing. A man who will not come says why. */
+function refusal(p,seller){
+  const c=me();
+  const gap=seller.rep-c.rep;
+  const lg=typeof myLeague==='function'&&myLeague()?myLeague().name:'this division';
+  if(seller.tier<c.tier&&p.amb>50&&CA(p)>=xiFloor()-2)
+    return 'He is not dropping to '+lg+' for that.';
+  if(gap>19&&p.amb>58)
+    return 'He has bigger clubs than you asking, and his man has told him so.';
+  const ahead=squadOf(c).filter(x=>x.pos===p.pos&&CA(x)>=CA(p)).length;
+  if(ahead>=3&&p.amb>48)
+    return 'He wants to play. You have three ahead of him in that position already.';
+  if(p.age<=23&&p.pa-CA(p)>=14&&gap>10)
+    return 'He is twenty-'+(p.age-20)+' with everything in front of him. He is not spending it here.';
+  return null;
+}
+function feeAgreed(p,seller,fee){
+  const c=alive();if(!c)return;
+  S().stats.bought=S().stats.bought||0;
+  const no=refusal(p,seller);
+  if(no){
+    S().stats.refused++;
+    sheet(`${speakerBar(agentVoice(p),vP(p),'for','His people have answered')}
+     <h3 style="margin-top:12px">He said no</h3>
+     <div class="sh-sub">${esc(seller.name)} took ${money(fee)}. ${esc(p.name)} did not take you.</div>
+     <div class="card" style="margin:10px 0 12px;border-color:var(--loss);background:var(--s1)">
+       <div style="font-size:15px;font-weight:700;line-height:20px">${esc(no)}</div></div>
+     <div style="font-size:13px;color:var(--t3);margin:0 2px 12px">No money on earth was fixing that one.
+       The fee is not spent — nothing has left the account.</div>
+     <button class="btn ghost" onclick="closeSheet();render()">Close</button>`);
+    save();return;
+  }
+  termsSheet(p,seller,fee,null);
+}
+function ratioAfter(extraWage){
+  const c=me();
+  return Math.min(160,Math.round((wageBill(c)+extraWage)*52/revenue(c)*100));
+}
+function termsSheet(p,seller,fee,forced){
+  const c=alive();if(!c)return;
+  const t=forced||terms(p,seller);
+  const ap=approachFor(p.id);
+  if(ap&&ap.kind==='terms'&&!forced)t.wage=Math.max(1000,Math.round(t.wage*0.90/1000)*1000);
+  const r0=costRatio(c),r1=ratioAfter(t.wage),ce=ceilOf();
+  const push=Math.max(1000,Math.round(t.wage*0.88/1000)*1000);
+  const blocked=r1>85;
+  const tight=r1>ce&&!blocked;
+  const adv=blocked?'walk':tight?'push':'meet';
+  const wb=wageBill(c);
+  const topWage=squadOf(c).reduce((s2,x)=>Math.max(s2,x.wage),0);
+  sheet(`${speakerBar(agentVoice(p),vP(p),'for',esc(seller.name)+' have accepted '+money(fee))}
+   <div class="phero" style="margin:10px 0 12px">
+    ${typeof pcard==='function'?pcard(p,{w:120,club:seller,tap:'void 0'}):''}
+    <div class="pht" style="min-width:0">
+      <div class="hk" style="color:var(--acc);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase">Personal terms</div>
+      <h3 style="margin:2px 0 0;font-size:20px;line-height:23px">${esc(p.name)}</h3>
+      <div class="dim" style="font-size:12px;margin-top:3px">${p.pos} · ${p.age} · on ${money(p.wage)}/wk now</div>
+      <div class="disp" style="font-size:27px;font-weight:800;color:var(--acc);line-height:29px;margin-top:8px">${money(t.wage)}<span style="font-size:14px;color:var(--t3)">/wk</span></div>
+      <div class="dim" style="font-size:11px;margin-top:4px">${t.years} year${t.years===1?'':'s'}${t.clause?' · release clause '+money(t.clause):''}</div>
+    </div></div>
+   <div class="card" style="background:var(--s1);margin-bottom:10px">
+     <div style="font-size:13px;color:var(--t2)">${esc(t.ag.name)} is ${esc(t.ag.d)}. He wants
+       ${money(t.fee)} for himself on top${t.clause?', and a clause at '+money(t.clause)+' written into it':''}.</div></div>
+   <div class="card" style="background:var(--s1);margin-bottom:10px">
+    <div class="kv"><span class="k2">Transfer budget</span>
+      <span class="v2">${money(c.bal)} → <b style="color:${fee+t.fee>c.bal?'var(--loss)':'var(--t1)'}">${money(c.bal-fee-t.fee)}</b></span></div>
+    <div class="kv"><span class="k2">Weekly wage bill</span>
+      <span class="v2">${money(wb)} → <b>${money(wb+t.wage)}</b></span></div>
+    <div class="kv"><span class="k2">Squad cost ratio</span>
+      <span class="v2">${r0}% → <b style="color:${r1>85?'var(--loss)':r1>ce?'var(--acc)':'var(--win)'}">${r1}%</b>
+      <span class="dim" style="font-size:11px">of ${ce}% agreed</span></span></div>
+    ${t.wage>topWage*1.35&&topWage?`<div class="kv"><span class="k2">Top earner here</span>
+      <span class="v2" style="color:var(--acc)">${money(topWage)}/wk — he would be past all of them</span></div>`:''}
+   </div>
+   <div class="card" style="background:var(--s1);margin-bottom:12px;border-color:var(--acc)">
+     <div class="row" style="align-items:flex-start;gap:8px"><span style="color:var(--acc)">◆</span>
+     <div style="font-size:13px"><b>Assistant Coach</b> — ${esc(
+       blocked?'That contract puts you through 85% and the league will not register him. Do not sign it.'
+       :tight?('It goes through the '+ce+'% you gave the board. Push him down or find the room first.')
+       :('That is about right for what he is. Sign it before somebody else does.'))}</div></div></div>
+   ${blocked?'':`<div class="opt ${adv==='meet'?'rec':''}" onclick="xferMeet(${p.id},${seller.id},${fee},${t.wage},${t.years},${t.clause},${t.fee})">
+     <div><div style="font-weight:600">Give him his number</div>
+       <div class="dim" style="font-size:12px">${money(t.wage)}/wk over ${t.years} year${t.years===1?'':'s'} — he signs today</div></div>
+     ${adv==='meet'?'<span class="st">Advised</span>':''}</div>`}
+   ${forced?'':`<div class="opt ${adv==='push'?'rec':''}" onclick="xferPush(${p.id},${seller.id},${fee},${push},${t.wage},${t.years},${t.clause})">
+     <div><div style="font-weight:600">Go back at ${money(push)}</div>
+       <div class="dim" style="font-size:12px">He might take it. He might walk. You get the answer when you continue</div></div>
+     ${adv==='push'?'<span class="st">Advised</span>':''}</div>`}
+   <div class="opt ${adv==='walk'?'rec':''}" onclick="xferWalkTerms(${p.id},${seller.id})">
+     <div><div style="font-weight:600">Walk away</div>
+       <div class="dim" style="font-size:12px">The fee is agreed and you do not use it. Nothing leaves the account</div></div>
+     ${adv==='walk'?'<span class="st">Advised</span>':''}</div>`);
+}
+window.xferMeet=function(pid,cid,fee,wage,years,clause,agFee){
+  const c=alive(),h=findAny(pid);
+  if(!c||!h||h.c.id!==cid){closeSheet();render();return}
+  signHim(h.p,h.c,fee,wage,years,clause,agFee);
+};
+window.xferPush=function(pid,cid,fee,offer,dem,years,clause){
+  const c=alive(),h=findAny(pid);
+  if(!c||!h||h.c.id!==cid){closeSheet();render();return}
+  const p=h.p;
+  pendAdd({k:'terms',pid,cid,nm:p.name,cl:h.c.name,fee,offer,dem,years,clause});
+  note('You pushed back on '+last(p),
+    money(offer)+'/wk against the '+money(dem)+' his man asked for. He said he would talk to the player.',
+    {from:agentVoice(p),about:vP(p),rel:'for'});
+  save();closeSheet();render();
+};
+window.xferWalkTerms=function(pid,cid){
+  const h=findAny(pid);
+  if(h)note('You walked away from '+last(h.p),
+    'The fee was agreed. His wages were not, and you were not paying them.',
+    {from:vC(me()),about:vP(h.p),rel:'passed on'});
+  S().stats.walked++;
+  save();closeSheet();render();
+};
+function pushOdds(o){
+  const h=findAny(o.pid);if(!h)return 0;
+  const ag=agentOf(h.p);
+  const r=o.offer/Math.max(1,o.dem);
+  let ch=clamp(0.30+(r-0.88)*3.2,0.05,0.85);
+  ch*=(1.30-ag.stub*0.55);
+  if(me().rep>h.c.rep)ch+=0.10;
+  if(isDeadline())ch+=0.10;
+  return clamp(ch,0.05,0.88);
+}
+function answerTerms(o){
+  const h=findAny(o.pid);
+  if(!h||h.c.id!==o.cid)return {k:'lost'};
+  if(rnd()<pushOdds(o))return {k:'yes'};
+  if(rnd()<0.55){
+    const mid=Math.max(1000,Math.round((o.offer+o.dem)/2/1000)*1000);
+    return {k:'split',mid};
+  }
+  return {k:'no'};
+}
+/* ---------- the signature ---------- */
+function signHim(p,seller,fee,wage,years,clause,agFee){
+  const c=alive();if(!c)return;
+  const cost=fee+(agFee||0);
+  if(cost>c.bal){
+    sheet(`<h3>The money is not there</h3>
+     <div class="sh-sub">${money(cost)} with his agent's cut and you have ${money(c.bal)}. Sell somebody first.</div>
+     <button class="btn ghost" onclick="closeSheet();render()">Close</button>`);
+    return;
+  }
+  if(ratioAfter(wage)>85){
+    sheet(`<h3>You cannot register him</h3>
+     <div class="sh-sub">That deal puts your wage bill at ${ratioAfter(wage)}% of revenue. The league's cap is 85%
+       and it is not negotiable. Get somebody off the bill and come back.</div>
+     <button class="btn ghost" onclick="closeSheet();render()">Close</button>`);
+    return;
+  }
+  const from=seller.name,nm=p.name;
+  doTransfer(p,seller,c,fee,wage);
+  p.years=years||p.years;
+  if(typeof unlistPlayer==='function')unlistPlayer(p);
+  /* Register the deal where contracts keeps them, so his clause and his agent's
+     cut are real and appear on his contract screen rather than only on ours. */
+  let done=false;
+  const ct=SW.get('contracts');
+  if(ct&&ct.renew){
+    try{done=!!ct.renew(p.id,{wage,years,clause:clause||0,fee:agFee||0})}catch(e){}
+  }
+  if(!done&&agFee){c.bal=Math.max(0,c.bal-agFee)}
+  const s=S();
+  s.outFees+=fee;s.stats.bought++;
+  note('Signed '+nm,money(fee)+' from '+from+'. '+money(wage)+'/wk over '+(years||p.years)+' years'+
+    (clause?', with a release clause at '+money(clause):'')+'.',
+    {from:vC(c),about:vP(p),rel:'sign'});
+  chron('Signed '+nm+' from '+from+' for '+money(fee));
+  feedAdd('mine','You signed '+nm+' from '+from+' for '+money(fee)+'.');
+  bust();save();
+  sheet(`<div class="slab" style="margin-bottom:14px"><div class="k">Done deal</div>
+    <div class="v" style="font-size:26px;line-height:29px">${esc(nm)}</div>
+    <div class="d">${money(fee)} from ${esc(from)} · ${money(wage)}/wk</div></div>
+   <div class="reveal" style="display:flex;justify-content:center;margin-bottom:14px">
+     ${pcard(p,{w:172,club:c,tap:'void 0'})}</div>
+   <div class="card" style="background:var(--s1)">
+    <div class="kv"><span class="k2">Transfer budget</span><span class="v2">${money(c.bal)}</span></div>
+    <div class="kv"><span class="k2">Squad cost ratio</span><span class="v2" style="color:${
+      costRatio(c)>ceilOf()?'var(--acc)':'var(--win)'}">${costRatio(c)}%</span></div></div>
+   <button class="btn" style="margin-top:12px" onclick="xferRole(${p.id})">Tell him what he is here for</button>`);
+}
+
+/* ============================================================
+   WHAT HE IS HERE FOR
+   The culture module owns squad roles and judges every promise in May.
+   We do not reimplement any of that — we say the sentence out loud on the
+   day he signs and write it into their ledger as a promise like any other.
+   ============================================================ */
+const RSAY={
+  key :{t:'A key player',   d:'He plays when he is fit.',                 p:'he was a key player here',   m:9},
+  rot :{t:'In and out',     d:'Twenty-odd starts. Some weeks he watches.',p:'he was in and out of the side here',m:2},
+  back:{t:'One for the bench',d:'Cover. Cup ties and the last twenty minutes.',p:'he was a backup here',  m:-7}
+};
+function roleAdvice(p){
+  const c=me();
+  const order=squadOf(c).slice().sort((a,b)=>CA(b)-CA(a));
+  const rank=order.findIndex(x=>x.id===p.id);
+  return rank<5?'key':rank<12?'rot':'back';
+}
+window.xferRole=function(pid){
+  const c=alive();if(!c)return;
+  const p=c.squad.find(x=>x.id===Number(pid));
+  if(!p){closeSheet();render();return}
+  const adv=roleAdvice(p);
+  const cu=SW.get('culture');
+  sheet(`${speakerBar(vC(c),vP(p),'to','His first morning in')}
+   <h3 style="margin-top:12px">Where he stands</h3>
+   <div class="sh-sub">Say it now, on the day he signs, and he has no excuse in March.
+     Say nothing and he will decide for himself what you meant.</div>
+   ${['key','rot','back'].map(k=>`<div class="opt ${adv===k?'rec':''}" onclick="xferRoleSet(${p.id},'${k}')">
+     <div><div style="font-weight:600">${RSAY[k].t}</div>
+       <div class="dim" style="font-size:12px">${RSAY[k].d}</div></div>
+     ${adv===k?'<span class="st">Advised</span>':''}</div>`).join('')}
+   <div style="font-size:12px;color:var(--t3);margin:10px 2px 0">
+     Whatever you tell him is a promise. It is written down${cu?' and it is read back to you in May':''}.</div>`);
+};
+window.xferRoleSet=function(pid,k){
+  const c=alive();if(!c)return;
+  const p=c.squad.find(x=>x.id===Number(pid));
+  if(!p||!RSAY[k]){closeSheet();render();return}
+  const R=RSAY[k],weeks=Math.max(6,37-G.week);
+  const cu=SW.get('culture');
+  if(cu&&cu.promise){try{cu.promise(p.id,R.p,weeks,'role')}catch(e){}}
+  const mo=SW.get('morale');
+  if(mo&&mo.adjust){try{mo.adjust(p.id,R.m,'told on his first day he was '+R.t.toLowerCase())}catch(e){}}
+  S().stats.roles++;
+  note('You told '+last(p)+' where he stands',
+    R.t+'. '+R.d+' He has it from you, in writing, on day one — which means he will hold you to it.',
+    {from:vC(c),about:vP(p),rel:'told'});
+  const canSet=!!(cu&&cu.setRoles);
+  sheet(`<div class="card" style="border-color:var(--acc);background:var(--accw);margin-bottom:12px">
+     <div style="font-size:14px;font-weight:700">${esc(p.name)} — ${esc(R.t.toLowerCase())}</div>
+     <div style="font-size:13px;color:var(--t2);margin-top:4px">${esc(R.d)} That is the promise. Keep it.</div></div>
+   ${canSet?`<button class="btn ghost" style="margin-bottom:8px" onclick="closeSheet();try{SW.get('culture').setRoles()}catch(e){render()}">
+     Do the same for the rest of them</button>`:''}
+   <button class="btn" onclick="closeSheet();render()">Continue</button>`);
+  save();
+};
+
+/* ============================================================
+   FOLLOW-UPS — this is what you asked for, and this is how it went
+   ============================================================ */
+function askedLine(o){
+  if(o.k==='bid')return 'You bid '+money(o.amt)+' for '+o.nm+'.';
+  if(o.k==='terms')return 'You went back at '+money(o.offer)+'/wk for '+o.nm+', against the '+money(o.dem)+' he asked for.';
+  if(o.k==='counter')return 'You told '+o.cl+' that '+o.nm+' costs '+money(o.dem)+'.';
+  return 'You had something on the table.';
+}
+function showFollow(o,res){
+  const c=alive();if(!c)return;
+  const h=findAny(o.pid);
+  const p=h?h.p:null;
+  const club=G.clubs[o.cid];
+  const from=o.k==='terms'&&p?agentVoice(p):(club?vC(club):vV('staff'));
+  const head=`${speakerBar(from,p?vP(p):null,o.k==='terms'?'for':'on','They have come back to you')}
+   <div class="card" style="background:var(--s1);margin:10px 0 10px">
+     <div class="dim" style="font-size:10px;letter-spacing:.06em;text-transform:uppercase">What you asked for</div>
+     <div style="font-size:14px;margin-top:4px">${esc(askedLine(o))}</div></div>`;
+  const body=(t,col,opts)=>sheet(head+
+    `<div class="card" style="background:var(--s1);margin-bottom:12px;border-color:${col}">
+      <div class="dim" style="font-size:10px;letter-spacing:.06em;text-transform:uppercase">How it went</div>
+      <div style="font-size:15px;font-weight:700;line-height:20px;margin-top:4px;color:${col}">${esc(t)}</div></div>`+opts);
+
+  if(res.k==='lost'||res.k==='shut'){
+    body(res.k==='shut'?'The window shut with that still on the table. It is off it.'
+      :'He is not there any more. Somebody else got to him while you were waiting.','var(--loss)',
+      `<button class="btn ghost" onclick="closeSheet();render()">Close</button>`);
+    return;
+  }
+  if(o.k==='bid'){
+    if(res.k==='yes'){
+      body(esc(o.cl)+' will take '+money(o.amt)+'. Now go and talk to him.','var(--win)',
+        `<div class="opt rec" onclick="xferFeeGo(${o.pid},${o.cid},${o.amt})">
+          <div><div style="font-weight:600">Talk to his people</div>
+            <div class="dim" style="font-size:12px">The club is done. The player is not</div></div>
+          <span class="st">Advised</span></div>
+         <button class="btn ghost" style="margin-top:6px" onclick="closeSheet();render()">Leave it</button>`);
+      return;
+    }
+    if(res.k==='counter'){
+      body(esc(o.cl)+' want '+money(res.want)+' and will not move again.','var(--acc)',
+        `${res.want<=c.bal?`<div class="opt rec" onclick="makeBid(${o.pid},${res.want})">
+          <div><div style="font-weight:600">Pay it</div>
+            <div class="dim" style="font-size:12px">${money(res.want)} · ${money(c.bal-res.want)} left after</div></div>
+          <span class="st">Advised</span></div>`
+         :`<div class="card" style="margin-bottom:8px"><div style="font-size:13px;color:var(--loss)">
+            ${money(res.want-c.bal)} more than you have.</div></div>`}
+         <button class="btn ghost" style="margin-top:6px" onclick="closeSheet();render()">Walk away</button>`);
+      return;
+    }
+    body(esc(o.cl)+' said no and took him off the table.','var(--loss)',
+      `<button class="btn ghost" onclick="closeSheet();render()">Close</button>`);
+    return;
+  }
+  if(o.k==='terms'){
+    if(res.k==='yes'){
+      body('He will sign for '+money(o.offer)+'/wk. You just saved '+money((o.dem-o.offer)*52)+' a year.','var(--win)',
+        `<div class="opt rec" onclick="xferMeet(${o.pid},${o.cid},${o.fee},${o.offer},${o.years},${o.clause},${Math.round(o.offer*52*agentOf(p||{id:o.pid}).fee)})">
+          <div><div style="font-weight:600">Get it signed</div>
+            <div class="dim" style="font-size:12px">${money(o.offer)}/wk over ${o.years} year${o.years===1?'':'s'}</div></div>
+          <span class="st">Advised</span></div>
+         <button class="btn ghost" style="margin-top:6px" onclick="closeSheet();render()">Leave it</button>`);
+      return;
+    }
+    if(res.k==='split'){
+      body('His man will meet you at '+money(res.mid)+'/wk. That is the last number he says out loud.','var(--acc)',
+        `<div class="opt rec" onclick="xferMeet(${o.pid},${o.cid},${o.fee},${res.mid},${o.years},${o.clause},${Math.round(res.mid*52*agentOf(p||{id:o.pid}).fee)})">
+          <div><div style="font-weight:600">Take it</div>
+            <div class="dim" style="font-size:12px">${money(res.mid)}/wk · bill goes to ${ratioAfter(res.mid)}% of revenue</div></div>
+          <span class="st">Advised</span></div>
+         <button class="btn ghost" style="margin-top:6px" onclick="xferWalkTerms(${o.pid},${o.cid})">Walk away</button>`);
+      return;
+    }
+    S().stats.walked++;
+    body('He walked. You knew what he was asking and you offered less.','var(--loss)',
+      `<button class="btn ghost" onclick="closeSheet();render()">Close</button>`);
+    return;
+  }
+  if(o.k==='counter'){
+    if(res.k==='yes'){
+      body(esc(o.cl)+' paid '+money(o.dem)+' without blinking.','var(--win)',
+        `<div class="card" style="background:var(--s1);margin-bottom:10px">
+          <div class="kv"><span class="k2">Transfer budget</span><span class="v2">${money(c.bal)}</span></div>
+          <div class="kv"><span class="k2">Squad cost ratio</span><span class="v2">${costRatio(c)}%</span></div></div>
+         <button class="btn" onclick="closeSheet();render()">Continue</button>`);
+      return;
+    }
+    body(esc(o.cl)+' are not going there. He stays, and they will not ring again this window.','var(--loss)',
+      `<button class="btn ghost" onclick="closeSheet();render()">Close</button>`);
+    return;
+  }
+}
+window.xferFeeGo=function(pid,cid,fee){
+  const h=findAny(pid);
+  if(!h||h.c.id!==cid){closeSheet();render();return}
+  feeAgreed(h.p,h.c,fee);
+};
+
+/* ============================================================
+   THEY COME FOR YOURS
+   ============================================================ */
 function wpick(list,wf){
   let t=0;const w=list.map(x=>{const v=Math.max(0.01,wf(x));t+=v;return v});
   let r=rnd()*t;
@@ -5873,9 +6649,15 @@ function sellable(p,c){
   if(p.pos==='GK'&&samePos<=2)return false;
   return samePos>1;
 }
+/* Why they are ringing. Never blame the manager for a listing he did not make. */
 function reasons(p,b){
   const out=[];
-  if(p.listed)out.push('He is on the list');
+  if(p.listed){
+    const mine=typeof listedByManager==='function'?listedByManager(p):((p.listedBy||'manager')==='manager');
+    out.push(mine?'You have put him on the list'
+      :p.listedBy==='player'?'He asked to be listed'
+      :'He is on the list'+(p.listedWhy?' — '+p.listedWhy:''));
+  }
   if(p.years<=1)out.push('A year left on his deal');
   const mo=SW.get('morale');
   if(mo&&mo.unhappy){try{if(mo.unhappy().some(x=>x.id===p.id))out.push('He has been agitating')}catch(e){}}
@@ -5897,7 +6679,8 @@ function genOffers(attempts,dl){
       if(!r||!r.n)return false;
       if(tried.has(p.id))return false;
       if(s.offers.some(o=>o.pid===p.id))return false;
-      if((s.cool[p.id]||-99)>G.week-3)return false;
+      if(s.pend.some(o=>o.pid===p.id))return false;
+      if((s.cool[p.id]||-99)>dayKey()-2)return false;
       return sellable(p,c);
     });
     if(!cands.length)break;
@@ -5909,7 +6692,7 @@ function genOffers(attempts,dl){
     if(rnd()>chance)continue;
     /* Only a real approach cools him. A club that thought about it and did not
        ring must not block everybody else for the rest of the window. */
-    s.cool[p.id]=G.week;
+    s.cool[p.id]=dayKey();
     const b=G.clubs[pick(r.top)];
     if(!b)continue;
     /* THE CEILING. Derived from value() through askingPrice() and from
@@ -5922,16 +6705,32 @@ function genOffers(attempts,dl){
     fee=Math.min(fee,Math.round(value(p)*2.2/50000)*50000,Math.round(b.bal*0.9/50000)*50000);
     fee=Math.max(50000,fee);
     s.offers.push({id:s.oid++,pid:p.id,nm:p.name,pos:p.pos,b:b.id,fee,ask,
-      wk:G.week,exp:dl?G.week:G.week+1,st:'open',dem:0,dl:!!dl,why:reasons(p,b)});
+      wk:G.week,day:dayKey(),exp:dayKey()+(dl?0:1),st:'open',dem:0,dl:!!dl,why:reasons(p,b)});
+    feedAdd('bid',b.name+' have bid '+money(fee)+' for '+p.name+'.');
   }
 }
-
-/* ============================================================
-   RESOLUTION — one counter round, settled on the next Continue
-   ============================================================ */
 function headroom(p,b,ask){
   return Math.min(value(p)*2.2,b.bal*0.9,ask*1.35);
 }
+function answerCounter(o){
+  const c=alive();if(!c)return {k:'no'};
+  const b=G.clubs[o.cid],p=c.squad.find(x=>x.id===o.pid);
+  if(!b||!p)return {k:'lost'};
+  const ask=askingPrice(p,c,b);
+  const head=headroom(p,b,ask);
+  let ch=o.dem<=head?clamp(0.88-0.62*(o.dem/head),0.12,0.80):0.04;
+  if(o.dl)ch+=0.18;
+  if(rnd()<ch){
+    const off=S().offers.find(x=>x.id===o.oid);
+    if(off)complete(off,o.dem);
+    S().offers=S().offers.filter(x=>x.id!==o.oid);
+    return {k:'yes'};
+  }
+  S().offers=S().offers.filter(x=>x.id!==o.oid);
+  S().cool[o.pid]=dayKey();
+  return {k:'no'};
+}
+/* Legacy: anything left in the old counter state resolves the old way. */
 function resolveCounters(){
   const s=S(),c=alive();if(!c)return;
   for(const o of s.offers){
@@ -5941,14 +6740,8 @@ function resolveCounters(){
     const head=headroom(p,b,o.ask);
     let ch=o.dem<=head?clamp(0.88-0.62*(o.dem/head),0.12,0.80):0.04;
     if(o.dl)ch+=0.18;
-    if(rnd()<ch){
-      const nm=p.name,bn=b.name;
-      complete(o,o.dem);
-      note(bn+' paid it','You asked '+money(o.dem)+' for '+nm+'. They did not blink.',{from:vC(b),about:vP(p),rel:'bought'});
-    }else{
-      note(b.name+' walked','You wanted '+money(o.dem)+' for '+p.name+'. They are not going there.',{from:vC(b),about:vP(p),rel:'for'});
-      o.st='done';
-    }
+    if(rnd()<ch)complete(o,o.dem);
+    else o.st='done';
   }
   s.offers=s.offers.filter(o=>o.st!=='done');
 }
@@ -5965,7 +6758,8 @@ function snapshot(c,p){
     try{if(cu.captain)cap=cu.captain()===p.id}catch(e){}
   }
   return {rank:order.findIndex(x=>x.id===p.id),tr,cap,val:value(p),
-          ratio:costRatio(c),listed:!!p.listed,wage:p.wage};
+          ratio:costRatio(c),listed:!!p.listed,
+          mine:typeof listedByManager==='function'?listedByManager(p):false,wage:p.wage};
 }
 function complete(o,fee){
   const s=S(),c=alive();if(!c)return null;
@@ -5979,6 +6773,7 @@ function complete(o,fee){
   o.st='done';
   fallout(p,pre,fee,b);
   chron('Sold '+p.name+' to '+b.name+' for '+money(fee));
+  feedAdd('mine','You sold '+p.name+' to '+b.name+' for '+money(fee)+'.');
   return {p,b,fee,pre};
 }
 function fallout(p,pre,fee,b){
@@ -5988,7 +6783,7 @@ function fallout(p,pre,fee,b){
   if(pre.cap)room-=8;
   if(pre.tr>=45)room-=4;
   if(over>=1.35)room+=5;
-  if(pre.listed)room+=4;
+  if(pre.mine)room+=4;                       // they knew he was for sale
   room=clamp(Math.round(room),-24,8);
   if(mo&&mo.adjust&&room!==0){
     const why=room<0
@@ -6011,11 +6806,6 @@ function fallout(p,pre,fee,b){
 
 /* ============================================================
    THE POT — one control, two jobs
-   Transfer budget is c.bal. The wage side is the ceiling we agreed
-   with the board, expressed as a % of revenue. Moving cash into wages
-   lifts the ceiling; selling wage room back returns 80p in the pound,
-   which is what stops it being a money printer. The league's own 85%
-   cap is enforced by the core and is not ours to move.
    ============================================================ */
 function initCeil(c){return clamp(Math.round(costRatio(c))+10,55,85)}
 function ceilOf(){const s=S(),c=alive();if(!c)return 85;if(!s.ceil)s.ceil=initCeil(c);return s.ceil}
@@ -6023,7 +6813,6 @@ function wageAt(pct){const c=me();return revenue(c)*pct/100/52}
 function roomLeft(){const c=me();return Math.max(0,wageAt(ceilOf())-wageBill(c))}
 const UNIT=()=>{const s=S();return Math.max(1e6,Math.round(Math.max(s.potBase,4e6)*0.08/1e5)*1e5)};
 function ptsFor(cash){return cash/revenue(me())*100}
-function cashFor(pts){return pts/100*revenue(me())}
 
 function shiftOpts(){
   const s=S(),c=alive();if(!c)return [];
@@ -6119,7 +6908,7 @@ window.xferOpen=function(id){
      ${adv.r==='accept'?'<span class="st">Advised</span>':''}</div>
    <div class="opt ${adv.r==='demand'?'rec':''}" onclick="xferDemand(${o.id})">
      <div><div style="font-weight:600">Ask ${money(dem)}</div>
-       <div class="dim" style="font-size:12px">One go. If they pay it, he goes — you get the answer when you continue</div></div>
+       <div class="dim" style="font-size:12px">One go. You get their answer the moment you continue</div></div>
      ${adv.r==='demand'?'<span class="st">Advised</span>':''}</div>
    <div class="opt ${adv.r==='reject'?'rec':''}" onclick="xferReject(${o.id},0)">
      <div><div style="font-weight:600">He is not for sale</div>
@@ -6155,10 +6944,11 @@ window.xferAccept=function(id){
 window.xferDemand=function(id){
   const o=offerById(id);if(!o||o.st!=='open')return;
   const p=findMine(o.pid);if(!p){closeSheet();render();return}
-  o.dem=demandFor(o,p);o.st='counter';
+  o.dem=demandFor(o,p);o.st='asked';
   const b=G.clubs[o.b];
-  note('You named your price',money(o.dem)+' for '+p.name+'. '+b.name+' are thinking about it.',{from:vC(b),about:vP(p),rel:'want'});
-  S().cool[p.id]=G.week;
+  pendAdd({k:'counter',oid:o.id,pid:p.id,cid:o.b,nm:p.name,cl:b.name,dem:o.dem,dl:!!o.dl});
+  note('You named your price',money(o.dem)+' for '+p.name+'. '+b.name+' are thinking about it.',
+    {from:vC(b),about:vP(p),rel:'want'});
   save();closeSheet();render();
 };
 window.xferReject=function(id,promised){
@@ -6172,12 +6962,92 @@ window.xferReject=function(id,promised){
   }else if(p&&b){
     note('Turned down',b.name+' offered '+money(o.fee)+' for '+p.name+'. You said no.',{from:vC(b),about:vP(p),rel:'wanted'});
   }
-  if(p)S().cool[p.id]=G.week;          // they do not ring again next week
+  if(p)S().cool[p.id]=dayKey();          // they do not ring again tomorrow
   save();closeSheet();render();
 };
 
+/* ---------- the Window screen: what is happening, and what it costs you ---------- */
+function windowView(){
+  pulse();
+  const c=alive();if(!c)return '<div class="card">No club.</div>';
+  const s=S(),dl=isDeadline(),open=windowOpen();
+  const offers=s.offers.filter(o=>o.st==='open');
+  const waiting=s.pend.filter(o=>o.state==='wait');
+  const appr=s.appr.filter(a=>a.until>=dayKey());
+  /* prices, honestly: today's asking price against where it stood this morning */
+  const shortl=(G.shortlist||[]).map(findAny).filter(h=>h&&h.c.id!==G.me).map(h=>{
+    const now=askingPrice(h.p,h.c,c);
+    const was=s.ask[h.p.id];
+    return {h,now,d:was?now-was:0};
+  });
+  const feed=s.feed.slice(0,18);
+  const days={};const order=[];
+  feed.forEach(f=>{if(!days[f.d]){days[f.d]=[];order.push(f.d)}days[f.d].push(f)});
+  return `<div class="card" style="margin-bottom:10px;${dl?'border-color:var(--acc);background:var(--accw)':''}">
+    <div class="row" style="align-items:flex-start;gap:14px">
+      <div><div class="dim" style="font-size:10px;letter-spacing:.06em;text-transform:uppercase">${
+        open?'The window':'Window shut'}</div>
+        <div class="disp" style="font-size:24px;font-weight:800;color:${dl?'var(--acc)':'var(--t1)'}">${esc(dayLabel())}</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:2px">${esc(open?daysLine():'Reopens in January')}</div></div>
+      <div class="spacer"></div>
+      <div style="text-align:right"><div class="dim" style="font-size:10px;letter-spacing:.06em;text-transform:uppercase">To spend</div>
+        <div class="disp" style="font-size:24px;font-weight:800;color:var(--acc)">${money(c.bal)}</div>
+        <div class="dim" style="font-size:11px">${money(roomLeft())}/wk of wage room</div></div></div>
+    ${dl?`<div style="font-size:13px;font-weight:700;color:var(--acc);margin-top:10px">
+      Everything you have not done yet is about to be somebody else's.</div>`:''}</div>
+
+   ${offers.length?`<div class="sechead">On the table<span class="n">${offers.length}</span></div>
+    ${offers.map(o=>{const b=G.clubs[o.b];return `<div class="act" onclick="xferOpen(${o.id})">
+      <div class="ic" style="background:#0E2340;color:var(--trf)">⇄</div>
+      <div class="tx"><div class="a">${esc(b?b.name:'A club')} — ${money(o.fee)}</div>
+        <div class="b">${esc(o.nm)}${o.dl?' · gone when you continue':''}</div></div>
+      <div class="ch">›</div></div>`}).join('')}`:''}
+
+   ${waiting.length?`<div class="sechead">Waiting on an answer</div>
+    <div class="card">${waiting.map(o=>`<div style="font-size:13px;color:var(--t2);padding:4px 0">
+      · ${esc(askedLine(o))} <span class="dim">You will hear the moment you continue.</span></div>`).join('')}</div>`:''}
+
+   ${appr.length?`<div class="sechead">Agents<span class="n">${appr.length}</span></div>
+    ${appr.map(a=>{const h=findAny(a.pid);if(!h)return '';
+      const ask=askingPrice(h.p,h.c,c);
+      return `<div class="act" onclick="showPlayer(${a.pid})">
+       <div class="ic" style="background:#232A33;color:var(--t2)">☎</div>
+       <div class="tx"><div class="a">${esc(h.p.name)} · ${esc(h.c.name)}</div>
+         <div class="b">${esc(a.kind==='fee'?'They will take '+money(ask)+' and no haggling'
+           :'His man says he will sign for the going rate')}</div></div>
+       <div class="ch">›</div></div>`}).join('')}`:''}
+
+   ${shortl.length?`<div class="sechead">Your list<span class="n">${shortl.length}</span></div>
+    <div class="card">${shortl.slice(0,8).map(x=>`<div class="kv">
+      <span class="k2">${esc(x.h.p.name)} · ${esc(x.h.c.abbr)}</span>
+      <span class="v2">${money(x.now)} ${x.d?`<b style="color:${x.d>0?'var(--loss)':'var(--win)'}">${
+        x.d>0?'▲ +':'▼ −'}${money(Math.abs(x.d)).replace('£','£')}</b>`:'<span class="dim">—</span>'}</span></div>`).join('')}
+      <div style="font-size:12px;color:var(--t3);margin-top:8px">Movement since this morning. A price falls when a club
+        makes him available and rises when the man in front of him leaves.</div></div>`
+    :`<div class="card" style="margin-bottom:10px"><div style="font-size:13px;color:var(--t2)">
+      Star a player in Scout and he shows up here with his price, every day, until somebody signs him.</div></div>`}
+
+   <div class="sechead">Around the leagues</div>
+   ${order.length?order.map(d=>`<div class="card" style="margin-bottom:8px">
+     <div class="dim" style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">${esc(d)}</div>
+     ${days[d].map(f=>`<div class="row" style="align-items:flex-start;gap:8px;padding:3px 0">
+       <span style="color:${(FK[f.k]||FK.in).c};width:14px;flex:0 0 14px">${(FK[f.k]||FK.in).i}</span>
+       <span style="font-size:13px;color:var(--t2);line-height:18px">${esc(f.t)}</span></div>`).join('')}</div>`).join('')
+    :'<div class="card"><div class="dim" style="padding:14px 0">Quiet so far. It will not stay quiet.</div></div>'}`;
+}
+
 /* ---------- the Sell screen ---------- */
+function listLine(p){
+  if(!p.listed)return 'Listing him tells every club he is available — more offers, smaller ones.';
+  const mine=typeof listedByManager==='function'?listedByManager(p):((p.listedBy||'manager')==='manager');
+  if(mine)return 'You put him on the list. Everybody knows, including him.';
+  if(p.listedBy==='player')return 'He asked to be listed. That was not your doing.';
+  if(p.listedBy==='role')return 'He went on the list when he was told he was surplus.'+
+    (p.listedWhy?' ('+p.listedWhy+')':'');
+  return 'He is on the list.'+(p.listedWhy?' '+p.listedWhy:'');
+}
 function sellView(){
+  pulse();
   const c=alive();if(!c)return '<div class="card">No club.</div>';
   const s=S(),sc=scan();
   const list=squadOf(c).sort((a,b)=>{
@@ -6185,11 +7055,10 @@ function sellView(){
     return d||CA(b)-CA(a);
   });
   const open=s.offers.filter(o=>o.st==='open');
-  const pend=s.offers.filter(o=>o.st==='counter');
   return `<div class="card" style="margin-bottom:10px">
     <div style="font-size:13px;color:var(--t2)"><b style="color:var(--t1)">What listing does.</b>
     Every club in the world is told he is available. Far more of them come in, and they come in lower —
-    you are advertising that you want him gone. His wages leave the bill the day he does.
+    the list says out loud that he can be had. His wages leave the bill the day he does.
     ${windowOpen()?'':'Nobody can bid until the window opens.'}</div></div>
    ${open.length?`<div class="sechead">On the table<span class="n">${open.length}</span></div>
     ${open.map(o=>{const b=G.clubs[o.b];return `<div class="act" onclick="xferOpen(${o.id})">
@@ -6197,21 +7066,19 @@ function sellView(){
       <div class="tx"><div class="a">${esc(b?b.name:'A club')} — ${money(o.fee)}</div>
         <div class="b">${esc(o.nm)}${o.dl?' · gone when you continue':''}</div></div>
       <div class="ch">›</div></div>`}).join('')}`:''}
-   ${pend.length?`<div class="sechead">Waiting on them</div>
-    ${pend.map(o=>`<div class="card" style="margin-bottom:8px"><div style="font-size:13px;color:var(--t2)">
-      You asked ${money(o.dem)} for ${esc(o.nm)}. They answer when you continue.</div></div>`).join('')}`:''}
    <div class="sechead">Your squad<span class="n">${list.length}</span></div>
    <div class="pcgrid">
    ${list.map(p=>{
      const r=sc?sc.intr[p.id]:{n:0};
      const L=LEVELS[level(r.n)];
      const w=pcw(2,11);
+     const mine=typeof listedByManager==='function'?listedByManager(p):((p.listedBy||'manager')==='manager');
      return `<div class="pccell" style="width:${w}px">
       ${pcard(p,{w,club:c,fee:value(p)})}
       <div style="font-size:10px;font-weight:700;letter-spacing:.04em;color:${L.c};text-align:center;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${L.k} ${esc(L.t)}</div>
       <button class="btn ${p.listed?'':'ghost'} xs" style="min-height:34px"
-        onclick="event.stopPropagation();xferList(${p.id})">${p.listed?'Listed':'List'}</button></div>`}).join('')}</div>
+        onclick="event.stopPropagation();xferList(${p.id})">${p.listed?(mine?'Listed':'On the list'):'List'}</button></div>`}).join('')}</div>
    ${s.ledger.length?`<div class="sechead">Sold</div><div class="card">
      ${s.ledger.slice(0,8).map(d=>`<div class="kv"><span class="k2">${esc(d.nm)} → ${esc(d.club)}</span>
        <span class="v2" style="color:var(--win)">${money(d.fee)}</span></div>`).join('')}
@@ -6222,7 +7089,21 @@ window.xferList=function(pid){
   const c=alive();if(!c)return;
   const p=c.squad.find(x=>x.id===pid);if(!p)return;
   const s=S();
-  if(!p.listed&&!s.told){
+  if(p.listed){
+    const mine=typeof listedByManager==='function'?listedByManager(p):((p.listedBy||'manager')==='manager');
+    if(!mine){
+      /* He did not get here by your hand. Say so before you touch it. */
+      sheet(`<h3>Take ${esc(p.name)} off the list?</h3>
+       <div class="sh-sub">${esc(listLine(p))} Pull him back and the clubs watching him stop watching.</div>
+       <div class="opt rec" onclick="xferUnlist(${pid})"><div><div style="font-weight:600">Take him off it</div>
+         <div class="dim" style="font-size:12px">He is not for sale after all</div></div><span class="st">Advised</span></div>
+       <button class="btn ghost" style="margin-top:6px" onclick="closeSheet()">Leave him on it</button>`);
+      return;
+    }
+    if(typeof unlistPlayer==='function')unlistPlayer(p);else{p.listed=false;p.listedBy=null}
+    bust();save();render();return;
+  }
+  if(!s.told){
     sheet(`<h3>Put ${esc(p.name)} on the list?</h3>
      <div class="sh-sub">It is not a quiet thing. Every club is told he is available, so far more of them
        ring — and every one of them knows you want him gone, so they ring with less. He hears about it too.</div>
@@ -6232,12 +7113,21 @@ window.xferList=function(pid){
      <button class="btn ghost" style="margin-top:6px" onclick="closeSheet()">Leave him alone</button>`);
     return;
   }
-  p.listed=!p.listed;bust();save();render();
+  if(typeof listPlayer==='function')listPlayer(p,'manager');else{p.listed=true;p.listedBy='manager'}
+  bust();save();render();
+};
+window.xferUnlist=function(pid){
+  const c=alive();if(!c)return;
+  const p=c.squad.find(x=>x.id===pid);if(!p)return;
+  if(typeof unlistPlayer==='function')unlistPlayer(p);else{p.listed=false;p.listedBy=null}
+  bust();closeSheet();save();render();
 };
 window.xferListGo=function(pid){
   const c=alive();if(!c)return;
   const p=c.squad.find(x=>x.id===pid);if(!p)return;
-  S().told=true;p.listed=true;bust();closeSheet();save();render();
+  S().told=true;
+  if(typeof listPlayer==='function')listPlayer(p,'manager');else{p.listed=true;p.listedBy='manager'}
+  bust();closeSheet();save();render();
 };
 
 /* ---------- the pot ---------- */
@@ -6315,8 +7205,7 @@ SW.register({
     const st=S(),c=alive();
     if(c){st.potBase=c.bal;st.ceil=initCeil(c)}
     bust();
-    /* The first window a new manager sees must not be silent. */
-    if(c&&windowOpen()){st.seeded=G.season;genOffers(4,true)}
+    st.day=-1;st.seeded=G.season;      // the first render opens the window for real
   },
   onLoad(){S();bust()},
 
@@ -6329,87 +7218,149 @@ SW.register({
         s.offers=[];
         note('The window is shut','Whatever was on the table is off it.',{from:vV('league')});
       }
+      s.appr=[];
       return;
     }
-    const gone=s.offers.filter(o=>o.st==='open'&&w>o.exp);
+    const gone=s.offers.filter(o=>o.st==='open'&&dayKey()>o.exp);
     if(gone.length){
-      s.offers=s.offers.filter(o=>!(o.st==='open'&&w>o.exp));
+      s.offers=s.offers.filter(o=>!(o.st==='open'&&dayKey()>o.exp));
       note('They moved on',gone.map(o=>o.nm).join(', ')+' — nobody waits for ever.',{from:vV('staff')});
     }
-    const dl=isDeadline();
-    if(dl){
-      note('Deadline week','Last chance for everybody. The phone will not stop.',{from:vV('league')});
-      aiMarket(6);                       // the rest of the world panics too
-    }
-    genOffers(dl?5:3,dl);            // the core saves for us straight after this hook
+    if(isDeadline())note('Deadline week','Last chance for everybody. The phone will not stop.',{from:vV('league')});
+    if(s.day!==dayKey())runDay();      // January days are weeks
   },
 
-  /* Enforce the ceiling where we actually can: the moment a signing puts
-     us through the number we gave the board. */
-  onTransfer(p,seller,buyer){
-    if(!buyer||buyer.id!==G.me)return;
+  /* Every completed transfer in the world comes through here. Two jobs: keep
+     the ceiling honest when we are the buyer, and make the rest of the market
+     something the manager can actually see happening. */
+  onTransfer(p,seller,buyer,fee){
+    /* The core clears p.listed on a transfer but not who listed him. Left alone,
+       a man listed by somebody else stays blamed on the manager for ever. */
+    if(p&&p.listedBy&&typeof unlistPlayer==='function'){try{unlistPlayer(p)}catch(e){}}
+    if(!seller||!buyer)return;
     bust();
     const s=S(),c=alive();if(!c)return;
-    const r=costRatio(c);
-    if(r>ceilOf()&&G.week-s.breachWk>3){
-      s.breachWk=G.week;
-      const bd=SW.get('board');
-      if(bd&&bd.adjust){try{bd.adjust(-4,'took the wage bill through the ceiling you agreed')}catch(e){}}
-      note('Through the ceiling','Wages are '+r+'% of revenue. You told them '+ceilOf()+'%. They have it written down.',{from:vV('board')});
+    if(buyer.id===G.me){
+      const r=costRatio(c);
+      if(r>ceilOf()&&G.week-s.breachWk>3){
+        s.breachWk=G.week;
+        const bd=SW.get('board');
+        if(bd&&bd.adjust){try{bd.adjust(-4,'took the wage bill through the ceiling you agreed')}catch(e){}}
+        note('Through the ceiling','Wages are '+r+'% of revenue. You told them '+ceilOf()+'%. They have it written down.',{from:vV('board')});
+      }
+      return;
+    }
+    if(seller.id===G.me)return;                 // our own sales are reported by fallout()
+    const watched=(G.shortlist||[]).indexOf(p.id)>=0;
+    const ml=typeof myLeague==='function'?myLeague():null;
+    const near=ml&&(leagueOf(buyer.id)===ml||leagueOf(seller.id)===ml);
+    if(!watched&&!near&&fee<3e6)return;         // only what a manager would actually hear
+    s.stats.rival++;
+    feedAdd('in',buyer.name+' have signed '+p.name+' from '+seller.name+' for '+money(fee)+'.');
+    if(watched&&s.gone!==p.id){
+      s.gone=p.id;
+      note(buyer.name+' have taken '+p.name,
+        'He was on your list. '+money(fee)+', done, and nobody rang you about it.',
+        {from:vC(buyer),about:vP(p),rel:'signed'});
     }
   },
 
   onSeasonEndAfter(){
     const s=S(),c=alive();if(!c)return;
-    s.offers=[];s.cool={};s.moves=0;s.cashOut=0;
+    s.offers=[];s.cool={};s.moves=0;s.cashOut=0;s.pend=[];s.queue=[];s.appr=[];s.ask={};
     s.potBase=c.bal;s.ceil=initCeil(c);
+    s.day=-1;s.dlTold=0;
+    /* The core reshuffles the world before a new season. Keep the loudest of it
+       as the back page the manager reads on his first morning of pre-season. */
+    s.feed=s.feed.filter(f=>f.se===G.season-1).slice(0,6).map(f=>({d:'Close season',k:f.k,t:f.t,se:G.season}));
     bust();
-    if(s.seeded!==G.season){s.seeded=G.season;genOffers(5,true)}
   },
 
   hubCards(){
+    pulse();
     const s=S(),c=alive();if(!c)return [];
+    const out=[];
     const open=s.offers.filter(o=>o.st==='open').sort((a,b)=>b.fee-a.fee);
-    if(!open.length)return [];
-    const o=open[0],b=G.clubs[o.b];
-    const more=open.length-1;
-    return [{ic:'⇄',bg:'#0E2340',col:'var(--trf)',priority:o.dl?78:68,
-      a:(b?b.name:'A club')+' want '+o.nm,
-      b:money(o.fee)+' — '+(o.dl?'gone when you continue':'they want an answer')+(more?' · '+more+' more on the table':''),
-      fn:'xferOpen('+o.id+')'}];
+    if(open.length){
+      const o=open[0],b=G.clubs[o.b];
+      const more=open.length-1;
+      out.push({ic:'⇄',bg:'#0E2340',col:'var(--trf)',priority:o.dl?78:68,
+        a:(b?b.name:'A club')+' want '+o.nm,
+        b:money(o.fee)+' — '+(o.dl?'gone when you continue':'they want an answer')+(more?' · '+more+' more on the table':''),
+        fn:'xferOpen('+o.id+')'});
+    }
+    if(windowOpen()){
+      const dl=isDeadline(),f=s.feed[0];
+      out.push({ic:dl?'⏳':'⇄',bg:dl?'#3A2E10':'#0E2340',col:dl?'var(--acc)':'var(--trf)',
+        priority:dl?74:52,
+        a:dl?'Deadline · '+dayLabel():'The window · '+dayLabel(),
+        b:f?f.t:(money(c.bal)+' to spend · '+daysLine()),
+        fn:"G.marketView='window';go('market')"});
+    }
+    return out;
   },
 
-  marketViews(){return [{key:'sell',label:'Sell',render:sellView}]},
+  marketViews(){return [{key:'window',label:'Window',render:windowView},
+                        {key:'sell',label:'Sell',render:sellView}]},
 
-  clubBlocks(){const h=potBlock();return h?[h]:[]},
+  clubBlocks(){pulse();const h=potBlock();return h?[h]:[]},
+
+  reportBlocks(){pulse();return []},
 
   playerBlocks(p,club){
-    if(!club||club.id!==G.me||p.youth)return [];
+    if(!club||p.youth)return [];
+    /* Somebody else's player: what he would cost you in wages, and whether he
+       would even come. Better he tells you now than after you have bid. */
+    if(club.id!==G.me){
+      if(!windowOpen())return [];
+      const c=alive();if(!c)return [];
+      const t=terms(p,club),no=refusal(p,club),r1=ratioAfter(t.wage);
+      const ap=approachFor(p.id);
+      return [`<div class="card" style="margin-top:10px;background:var(--s1)">
+        <div class="row"><span class="dim" style="font-size:10px;letter-spacing:.06em;
+          text-transform:uppercase">Personal terms</span><span class="spacer"></span>
+          <span style="font-weight:700;font-size:13px;color:${no?'var(--loss)':'var(--acc)'}">${
+            no?'He would not come':money(t.wage)+'/wk'}</span></div>
+        <div style="font-size:13px;color:var(--t2);margin-top:7px">${esc(no
+          ?no:(t.years+' years, '+(t.clause?'a release clause at '+money(t.clause)+', ':'')+
+              'and '+t.ag.name+' — '+t.ag.d+' — takes '+money(t.fee)+' on top.'))}</div>
+        ${no?'':`<div style="font-size:12px;color:${r1>85?'var(--loss)':'var(--t3)'};margin-top:6px">
+          That contract takes your wage bill to ${r1}% of revenue${r1>85?' — over the cap. He cannot be registered.':'.'}</div>`}
+        ${ap?`<div style="font-size:12px;color:var(--acc);margin-top:6px">${esc(t.ag.name)} has been on the phone.
+          ${esc(ap.kind==='fee'?'The club will take the asking price this week.':'He will sign for the going rate this week.')}</div>`:''}
+      </div>`];
+    }
+    if(p.youth)return [];
     const r=interestOf(p.id),L=LEVELS[level(r.n)];
     const o=S().offers.find(x=>x.pid===p.id);
+    const w=S().pend.find(x=>x.pid===p.id&&x.state==='wait');
+    const mine=typeof listedByManager==='function'?listedByManager(p):((p.listedBy||'manager')==='manager');
     return [`<div class="card" style="margin-top:10px;background:var(--s1)">
       <div class="row"><span class="dim" style="font-size:10px;letter-spacing:.06em;
         text-transform:uppercase">Who is watching</span><span class="spacer"></span>
         <span style="font-weight:700;font-size:13px;color:${L.c}">${L.k} ${esc(L.t)}</span></div>
-      ${o?`<div style="font-size:13px;color:var(--trf);margin-top:7px">
-        ${o.st==='counter'?'You have asked '+money(o.dem)+'. They answer when you continue.'
-          :esc((G.clubs[o.b]||{}).name||'A club')+' have bid '+money(o.fee)+'.'}</div>`:''}
-      <div style="font-size:13px;color:var(--t2);margin-top:7px">
-        ${p.listed?'He is on the transfer list. Everybody knows, including him.'
-          :'Listing him tells every club he is available — more offers, smaller ones.'}</div>
+      ${w?`<div style="font-size:13px;color:var(--trf);margin-top:7px">${esc(askedLine(w))} They answer when you continue.</div>`
+        :o?`<div style="font-size:13px;color:var(--trf);margin-top:7px">
+        ${esc((G.clubs[o.b]||{}).name||'A club')} have bid ${money(o.fee)}.</div>`:''}
+      <div style="font-size:13px;color:var(--t2);margin-top:7px">${esc(listLine(p))}</div>
       ${o&&o.st==='open'?`<button class="btn sm" style="margin-top:10px" onclick="closeSheet();xferOpen(${o.id})">See the offer</button>`
         :`<button class="btn ${p.listed?'':'ghost'} sm" style="margin-top:10px"
-          onclick="xferList(${p.id})">${p.listed?'Take him off the list':'Put him on the list'}</button>`}</div>`];
+          onclick="xferList(${p.id})">${p.listed?(mine?'Take him off the list':'Take him off it'):'Put him on the list'}</button>`}</div>`];
   },
 
   /* ---- published interface ---- */
   interest(pid){const r=interestOf(Number(pid));return {clubs:r.n,level:level(r.n),label:LEVELS[level(r.n)].t}},
   offers(){return S().offers.map(o=>({id:o.id,player:o.pid,club:o.b,fee:o.fee,stage:o.st}))},
+  pending(){return S().pend.filter(o=>o.state==='wait').length},
+  windowDay(){return {label:dayLabel(),deadline:isDeadline(),open:windowOpen()}},
   wageCeiling(){return ceilOf()},
   wageRoom(){return alive()?roomLeft():0},
   listed(pid,on){const c=alive();if(!c)return false;
     const p=c.squad.find(x=>x.id===Number(pid));if(!p)return false;
-    p.listed=on===undefined?!p.listed:!!on;bust();return p.listed}
+    const want=on===undefined?!p.listed:!!on;
+    if(want){if(typeof listPlayer==='function')listPlayer(p,'manager');else{p.listed=true;p.listedBy='manager'}}
+    else {if(typeof unlistPlayer==='function')unlistPlayer(p);else{p.listed=false;p.listedBy=null}}
+    bust();return p.listed}
 });
 })();
 
@@ -7410,7 +8361,9 @@ function resultHeadline(c){
 function Q(){ return [
 
 /* ---------- heavy defeat ---------- */
-{id:'heavy_when', tag:'heavy', rec:'blame',
+{id:'heavy_when',
+ pre:c=>c.res==='L'&&c.heavy,
+ tag:'heavy', rec:'blame',
  q:[c=>c.gf+'-'+c.ga+'. When did you know it was gone?',
     c=>'Be honest. At what point today did you stop believing?',
     c=>c.ga+' conceded. Talk us through the moment it broke.'],
@@ -7422,7 +8375,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask the officials. The second goal was three yards off."',
    d:'The governing body reads the papers too', f:c=>{refCharge();return 'REF ROW: BOSS FACES A CHARGE'}}
  ]},
-{id:'heavy_worst', tag:'heavy', rec:'blame',
+{id:'heavy_worst',
+ pre:c=>c.res==='L'&&c.heavy&&c.margin>=2,
+ tag:'heavy', rec:'blame',
  q:[c=>'Is that the worst you have been since you walked in?',
     c=>'Where does that rank among the bad days? Because there is competition.',
     c=>'Your predecessor never lost by '+c.margin+' here. Does that sting?'],
@@ -7434,7 +8389,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask the people upstairs what they funded. Then ask me again."',
    d:'That will be read out in the boardroom', f:c=>{bAdj(-9,'blamed the board in public');punditAdj(3);return '"BACK ME OR SACK ME" — BOSS TURNS ON HIS BOARD'}}
  ]},
-{id:'heavy_home', tag:'heavy', needs:'home', rec:'back',
+{id:'heavy_home',
+ pre:c=>c.res==='L'&&c.heavy&&c.home===1,
+ tag:'heavy', needs:'home', rec:'back',
  q:[c=>'They paid to watch that. What do you say to the ones who stayed to the end?',
     c=>'Your own end was emptying before the hour. Did you notice?'],
  a:[
@@ -7447,7 +8404,9 @@ function Q(){ return [
  ]},
 
 /* ---------- the derby ---------- */
-{id:'derby_song', tag:'derby', rec:'dig',
+{id:'derby_song',
+ pre:c=>c.derby&&c.res!=='W',
+ tag:'derby', rec:'dig',
  q:[c=>'Their end were singing your name at the end. Not kindly.',
     c=>'You will have heard what their fans called you today. Any reply?'],
  a:[
@@ -7458,7 +8417,9 @@ function Q(){ return [
   {k:'dig', t:'"They will sing at anything. It is the only thing they win."',
    d:'This one runs for a week', f:c=>{punditAdj(-2);return 'DERBY BLAST: "IT IS THE ONLY THING THEY WIN"'}}
  ]},
-{id:'derby_since', tag:'derby', needs:'neverBeaten', rec:'back',
+{id:'derby_since',
+ pre:c=>c.derby&&c.res!=='W'&&c.neverBeaten===1,
+ tag:'derby', needs:'neverBeaten', rec:'back',
  q:[c=>'You have not beaten '+c.oppName+' yet. Does that eat at you?',
     c=>'Still no derby win under you. They have noticed across the city.'],
  a:[
@@ -7469,9 +8430,12 @@ function Q(){ return [
   {k:'dig', t:'"They have spent four times what we have. Congratulations to them."',
    d:'The dig lands. It always does', f:c=>{c.xi.forEach(id=>mAdj(id,5,'you took the heat off them'));punditAdj(-3);return 'MONEY TALK: BOSS TAKES AIM ACROSS THE CITY'}}
  ]},
-{id:'derby_won', tag:'derby', needs:'resW', rec:'back',
+{id:'derby_won',
+ pre:c=>c.derby&&c.res==='W',
+ tag:'derby', needs:'resW', rec:'back',
  q:[c=>'A derby win. Half this city is yours tonight. Enjoy it, or bank it?',
-    c=>'You beat '+c.oppName+' in front of their own. Tell us what that room was like.'],
+    c=>(c.home?'You beat '+c.oppName+' in your own place and the ground has not emptied yet.'
+              :'You beat '+c.oppName+' in front of their own.')+' Tell us what that room was like.'],
  a:[
   {k:'back', t:'"Those players understood what today was. You could see it from the first whistle."',
    d:'The city will chant their names', f:c=>{c.xi.forEach(id=>mAdj(id,10,'you gave them the derby'));punditAdj(4);return 'THEY UNDERSTOOD THE DAY: '+UP(c.myName)+' TAKE THE CITY'}},
@@ -7480,9 +8444,50 @@ function Q(){ return [
   {k:'dig', t:'"Tell them the parade goes past their ground. Slowly."',
    d:'That line will be on flags', f:c=>{c.xi.forEach(id=>mAdj(id,6,'you rubbed it in for them'));punditAdj(-3);bAdj(-2,'poured petrol on a rivalry');return '"SLOWLY" — BOSS TWISTS THE DERBY KNIFE'}}
  ]},
+{id:'derby_again',
+ pre:c=>c.derby&&c.res==='W'&&c.derbyRepeat===1,
+ tag:'derby', needs:'derbyRepeat', rec:'back',
+ q:[c=>'That is '+c.vsW+' derbies you have taken off them now. Is this becoming your fixture?',
+    c=>'They have not laid a glove on you in this one since you arrived. Do they know it?'],
+ a:[
+  {k:'back', t:'"It is their fixture too. My players just keep turning up for it."',
+   d:'Said flat. It travels further that way', f:c=>{c.xi.forEach(id=>mAdj(id,9,'you made the derby record theirs'));punditAdj(3);return UP(c.myName)+' OWN THIS FIXTURE NOW'}},
+  {k:'blame', t:'"Records go the second you talk about them. Ask me again in April."',
+   d:'Superstition, dressed as discipline', f:c=>{bAdj(2,'refused to gloat');return null}},
+  {k:'dig', t:'"They can have the next one. I have run out of room on the wall."',
+   d:'Across the city, that gets pinned up', f:c=>{c.xi.forEach(id=>mAdj(id,5,'you enjoyed it on their behalf'));punditAdj(-4);bAdj(-2,'goaded the neighbours');return '"NO ROOM LEFT ON THE WALL" — DERBY TAUNT'}}
+ ]},
+{id:'derby_draw',
+ pre:c=>c.derby&&c.res==='D',
+ tag:'derby', needs:'resD', rec:'blame',
+ q:[c=>'A derby nobody won. Does a point in this fixture count for anything?',
+    c=>c.gf+'-'+c.ga+', and both ends went home arguing. Were you the better side?'],
+ a:[
+  {k:'back', t:'"They gave me everything in a game that takes everything. I will not price that at one point."',
+   d:'Warm. Slightly evasive', f:c=>{c.xi.forEach(id=>mAdj(id,6,'you valued the derby effort'));return null}},
+  {k:'blame', t:'"We were there to win it and I did not find a way. That is my afternoon."',
+   d:'No hiding place', f:c=>{bAdj(1,'took a flat derby on the chin');punditAdj(4);return null}},
+  {k:'dig', t:'"They came for a point and they got one. They can celebrate that if they like."',
+   d:'A cheap shot. A satisfying one', f:c=>{punditAdj(-3);return 'THEY CAME FOR A POINT: DERBY JIBE FROM '+mgrUp()}}
+ ]},
+{id:'derby_lost',
+ pre:c=>c.derby&&c.res==='L',
+ tag:'derby', needs:'resL', rec:'blame',
+ q:[c=>'Beaten in the derby. That is the one they do not forgive. What do you say tonight?',
+    c=>'Their supporters have a year of this now. Did your players understand what was at stake?'],
+ a:[
+  {k:'back', t:'"They understood. They were beaten by a better side on the day, not by a smaller one."',
+   d:'A shield, held steady', f:c=>{c.xi.forEach(id=>mAdj(id,7,'you carried the derby defeat for them'));bAdj(-2,'softened a derby defeat');return null}},
+  {k:'blame', t:'"They understood it. I did not prepare them for it. That is the difference and it is mine."',
+   d:'The hardest one to say out loud', f:c=>{c.xi.forEach(id=>mAdj(id,5,'you took the derby loss yourself'));bAdj(-1,'owned the derby');punditAdj(6);S().line=punditLine('backed');return '"I DID NOT PREPARE THEM" — '+mgrUp()+' ON DERBY DEFEAT'}},
+  {k:'dig', t:'"Let them enjoy it. They have had little enough to enjoy and we go there in March."',
+   d:'You have just made the return fixture bigger', f:c=>{c.xi.forEach(id=>mAdj(id,-4,'you promised revenge they now have to deliver'));punditAdj(-3);return 'SEE YOU IN MARCH: BOSS REFUSES TO BOW'}}
+ ]},
 
 /* ---------- runs, droughts, streaks ---------- */
-{id:'winless_crisis', tag:'winless', rec:'blame',
+{id:'winless_crisis',
+ pre:c=>c.res!=='W'&&c.winlessRun>=3,
+ tag:'winless', rec:'blame',
  q:[c=>c.winlessRun+' without a win. How long before this is a crisis?',
     c=>'Winless in '+c.winlessRun+'. What word would you use, if not crisis?',
     c=>c.winlessRun+' games now. The people who set your objective are counting too.'],
@@ -7494,7 +8499,9 @@ function Q(){ return [
   {k:'dig', t:'"Crisis. Great word. Sells papers, wins nothing."',
    d:'He will remember that on Sunday', f:c=>{punditAdj(-10);S().line=punditLine('slapped');return 'BOSS TURNS ON THE PRESS: "SELLS PAPERS, WINS NOTHING"'}}
  ]},
-{id:'winless_fans', tag:'winless', needs:'home', rec:'back',
+{id:'winless_fans',
+ pre:c=>c.res!=='W'&&c.winlessRun>=3&&c.home===1,
+ tag:'winless', needs:'home', rec:'back',
  q:[c=>'That is '+c.winlessRun+' now, and today they turned. You heard it. What do you do with that?',
     c=>'Your own supporters were on the players\' backs today. Do they deserve it?'],
  a:[
@@ -7505,7 +8512,9 @@ function Q(){ return [
   {k:'dig', t:'"Where were they when we were winning? Louder then, I hope."',
    d:'Never fight the crowd. Never.', f:c=>{bAdj(-8,'insulted the paying support');punditAdj(-6);S().line=punditLine('slapped');return 'BOSS BLASTS OWN FANS. IT WILL NOT BE FORGOTTEN.'}}
  ]},
-{id:'streak_end', tag:'streak', rec:'back',
+{id:'streak_end',
+ pre:c=>c.res==='W'&&c.winRun>=4,
+ tag:'streak', rec:'back',
  q:[c=>c.winRun+' wins on the spin. Go on — say the word "momentum".',
     c=>'That is '+c.winRun+' straight now. Are you allowed to enjoy this yet?'],
  a:[
@@ -7516,7 +8525,9 @@ function Q(){ return [
   {k:'dig', t:'"Three weeks ago you had us in a crisis. Keep the word ready, you will want it back."',
    d:'He keeps receipts. So do you, apparently', f:c=>{punditAdj(-7);S().line=punditLine('slapped');return 'BOSS TO PRESS: "KEEP THE WORD READY"'}}
  ]},
-{id:'clean_run', tag:'clean', rec:'back',
+{id:'clean_run',
+ pre:c=>c.ga===0&&c.cleanRun>=3,
+ tag:'clean', rec:'back',
  q:[c=>c.cleanRun+' clean sheets in a row. Where has that come from?',
     c=>'Nobody has scored past you in '+c.cleanRun+' games. Boring, or beautiful?'],
  a:[
@@ -7527,7 +8538,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask the strikers we keep facing. Some of them should try a different trade."',
    d:'Every forward in the league just circled you', f:c=>{punditAdj(-3);bAdj(-1,'goaded the rest of the league');return '"TRY A DIFFERENT TRADE" — BOSS MOCKS THE LEAGUE\'S STRIKERS'}}
  ]},
-{id:'drought', tag:'blank', rec:'blame',
+{id:'drought',
+ pre:c=>c.gf===0&&c.blankRun>=3,
+ tag:'blank', rec:'blame',
  q:[c=>c.blankRun+' games without a goal from your side. Where are they hiding?',
     c=>'No goals in '+c.blankRun+'. Do you watch the shooting drills through your fingers?'],
  a:[
@@ -7540,7 +8553,9 @@ function Q(){ return [
  ]},
 
 /* ---------- upsets and statements ---------- */
-{id:'upset_win', tag:'upsetWin', rec:'back',
+{id:'upset_win',
+ pre:c=>c.res==='W'&&c.upsetWin,
+ tag:'upsetWin', rec:'back',
  q:[c=>'Nobody gave you a prayer. Best night of your career?',
     c=>'The bookies had you buried. What did you know that they did not?'],
  a:[
@@ -7551,7 +8566,9 @@ function Q(){ return [
   {k:'dig', t:'"Nobody gave us a prayer because nobody watches us. Their loss."',
    d:'Quotable. Cheap. Enjoyable', f:c=>{punditAdj(-4);return '"NOBODY WATCHES US" — AND NOW EVERYBODY IS'}}
  ]},
-{id:'upset_loss', tag:'upsetLoss', rec:'blame',
+{id:'upset_loss',
+ pre:c=>c.res==='L'&&c.upsetLoss,
+ tag:'upsetLoss', rec:'blame',
  q:[c=>'You were the better side on paper by a distance. Explain that.',
     c=>'They are '+(c.oppPos?ord(c.oppPos)+' in the table':'half the club you are')+'. How does that happen to your team?'],
  a:[
@@ -7562,7 +8579,9 @@ function Q(){ return [
   {k:'dig', t:'"Some of them fancied a day off. They will not get another."',
    d:'This one goes through the dressing-room wall', f:c=>{c.xi.forEach(id=>mAdj(id,-14,'you called them out in public'));c.xi.forEach(shock);punditAdj(2);return '"THEY FANCIED A DAY OFF" — MANAGER BLASTS OWN PLAYERS'}}
  ]},
-{id:'thrash_message', tag:'thrash', rec:'back',
+{id:'thrash_message',
+ pre:c=>c.res==='W'&&c.margin>=4,
+ tag:'thrash', rec:'back',
  q:[c=>c.gf+' scored. Was that a message to the rest of them?',
     c=>'That was a demolition. Who was it aimed at?'],
  a:[
@@ -7573,7 +8592,9 @@ function Q(){ return [
   {k:'dig', t:'"If the rest of them need a message, they should watch more football."',
    d:'That will be pinned up somewhere', f:c=>{punditAdj(-3);return '"THEY SHOULD WATCH MORE FOOTBALL"'}}
  ]},
-{id:'comeback', tag:'comeback', rec:'back',
+{id:'comeback',
+ pre:c=>c.res==='W'&&c.maxDef>=2,
+ tag:'comeback', rec:'back',
  q:[c=>c.maxDef+' down and you came back. What was said at half-time?',
     c=>'Most teams die at '+c.maxDef+' behind. Yours did not. Why?'],
  a:[
@@ -7584,7 +8605,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask their bench what was said. They were the ones celebrating at half-time."',
    d:'A wound for their manager to carry', f:c=>{punditAdj(-2);return 'CELEBRATING AT HALF-TIME. OH DEAR.'}}
  ]},
-{id:'late_winner', tag:'late', rec:'back',
+{id:'late_winner',
+ pre:c=>c.res==='W'&&c.late,
+ tag:'late', rec:'back',
  q:[c=>'Won it in the last minute. Character, or a let-off?',
     c=>(c.scorer?surname(c.scorer):'Your man')+' in the '+(c.lateMin||90)+'th. Do you coach that or pray for it?'],
  a:[
@@ -7595,7 +8618,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask them why it took ninety minutes. I have."',
    d:'Now they know the row was real', f:c=>{c.xi.forEach(id=>mAdj(id,-9,'you aired the dressing-room row'));c.xi.forEach(shock);return null}}
  ]},
-{id:'late_loss', tag:'lateLoss', rec:'blame',
+{id:'late_loss',
+ pre:c=>c.res==='L'&&c.lateLoss,
+ tag:'lateLoss', rec:'blame',
  q:[c=>'Ninety minutes of work undone in the last one. How do you pick them up from that?',
     c=>'Losing like that, at the death — is that bad luck or bad habits?'],
  a:[
@@ -7608,7 +8633,9 @@ function Q(){ return [
  ]},
 
 /* ---------- the table, the objective, the scrap ---------- */
-{id:'title_weight', tag:'title', rec:'back',
+{id:'title_weight',
+ pre:c=>c.title&&c.res==='W',
+ tag:'title', rec:'back',
  q:[c=>'Keep this up and it is yours to lose. Do you feel the weight?',
     c=>'Everyone above you has stumbled. It is there for you now. Say it.'],
  a:[
@@ -7619,7 +8646,9 @@ function Q(){ return [
   {k:'dig', t:'"Weight? Ask the clubs who were meant to be here instead of us."',
    d:'Half the division just got a fixture circled', f:c=>{punditAdj(-3);return 'SHOTS FIRED FROM THE TOP OF THE TABLE'}}
  ]},
-{id:'title_bottle', tag:'title', needs:'dropped', rec:'blame',
+{id:'title_bottle',
+ pre:c=>c.title&&c.res!=='W',
+ tag:'title', needs:'dropped', rec:'blame',
  q:[c=>'Points dropped at the wrong end of the season. The word people use is "bottle".',
     c=>'That result keeps the race alive for everyone else. Did the occasion get to them?'],
  a:[
@@ -7630,7 +8659,9 @@ function Q(){ return [
   {k:'dig', t:'"Bottle. Write it. Then be at the ground in May when we are holding the thing."',
    d:'Either a famous quote or a famous epitaph', f:c=>{punditAdj(-6);bAdj(-2,'dared the press in a title race');S().line=punditLine('slapped');return '"BE THERE IN MAY" — BOSS DARES THE DOUBTERS'}}
  ]},
-{id:'scrap_bottom', tag:'scrap', rec:'blame',
+{id:'scrap_bottom',
+ pre:c=>c.compKey==='league'&&c.week>=25&&c.pos>=17,
+ tag:'scrap', rec:'blame',
  q:[c=>ord(c.pos)+' with the run-in coming. Do you say the word "relegation" in that dressing room?',
     c=>'The table says you go down from here. What does your gut say?'],
  a:[
@@ -7641,7 +8672,9 @@ function Q(){ return [
   {k:'dig', t:'"Three of the clubs down there have spent double what I was given. Look it up."',
    d:'True, and no one will care if you go down', f:c=>{bAdj(-7,'made the budget everyone\'s business');punditAdj(2);return 'BOSS: "LOOK UP WHAT I WAS GIVEN"'}}
  ]},
-{id:'promoted_slip', tag:'promoted', rec:'blame',
+{id:'promoted_slip',
+ pre:c=>c.promotedOpp&&c.res!=='W',
+ tag:'promoted', rec:'blame',
  q:[c=>c.oppName+' came up from the division below and just took points off you. Explain it.',
     c=>'Everyone circles the promoted clubs as points in the bank. They did not read the script today.'],
  a:[
@@ -7654,9 +8687,11 @@ function Q(){ return [
  ]},
 
 /* ---------- reunions, red cards, individuals ---------- */
-{id:'return_club', tag:'returning', rec:'blame',
- q:[c=>'Back at '+c.oppName+'. Any part of you that did not want to win?',
-    c=>'They used to sing your name here. What was today like from the away dugout?'],
+{id:'return_club',
+ pre:c=>c.returning,
+ tag:'returning', rec:'blame',
+ q:[c=>(c.home?'Your old club in your new house. ':'Back at '+c.oppName+'. ')+'Any part of you that did not want to win?',
+    c=>'They used to sing your name at that club. What was today like'+(c.home?', looking across at them?':' from the away dugout?')],
  a:[
   {k:'back', t:'"Not one part. My players deserved better than sentiment."',
    d:'Cold. They will like cold', f:c=>{c.xi.forEach(id=>mAdj(id,7,'you put them before your old club'));return null}},
@@ -7665,7 +8700,9 @@ function Q(){ return [
   {k:'dig', t:'"They know why I left. So do the people who made me."',
    d:'Old wounds, opened live on air', f:c=>{punditAdj(-4);return 'OLD WOUNDS REOPENED: "THEY KNOW WHY I LEFT"'}}
  ]},
-{id:'red_card', tag:'red', rec:'blame',
+{id:'red_card',
+ pre:c=>!!c.red,
+ tag:'red', rec:'blame',
  q:[c=>'You finished with ten. Was the sending-off a sending-off?',
     c=>'The red card changed everything. Your honest view of it, on the record.'],
  a:[
@@ -7676,7 +8713,9 @@ function Q(){ return [
   {k:'dig', t:'"He has given three of those against us this season. Three."',
    d:'That is a charge waiting to be typed', f:c=>{refCharge();return 'REF ROW: "THREE OF THOSE AGAINST US"'}}
  ]},
-{id:'hat_trick', tag:'hat', rec:'back',
+{id:'hat_trick',
+ pre:c=>!!c.hat&&c.res!=='L',
+ tag:'hat', rec:'back',
  q:[c=>'Three for '+surname(c.hat)+'. How far can he go?',
     c=>surname(c.hat)+' took the ball home today. What do you say to a man in that form?'],
  a:[
@@ -7687,7 +8726,9 @@ function Q(){ return [
   {k:'dig', t:'"Further than this board will ever let him."',
    d:'That will be on the desk within the hour', f:c=>{bAdj(-9,'told the world the club is too small');punditAdj(5);return '"FURTHER THAN THIS BOARD WILL LET HIM"'}}
  ]},
-{id:'first_win', tag:'firstWin', rec:'back',
+{id:'first_win',
+ pre:c=>c.res==='W'&&c.prevWinless>=3,
+ tag:'firstWin', rec:'back',
  q:[c=>'First win in '+(c.prevWinless+1)+'. Relief, or were you never worried?',
     c=>'The run is over. Between us — how close was it to breaking you?'],
  a:[
@@ -7700,7 +8741,9 @@ function Q(){ return [
  ]},
 
 /* ---------- the cup ---------- */
-{id:'cup_out', tag:'cupOut', rec:'blame',
+{id:'cup_out',
+ pre:c=>c.isCup&&c.res==='L',
+ tag:'cupOut', rec:'blame',
  q:[c=>'Out of the cup. For a club like this, is that a season lost or a distraction gone?',
     c=>'The cup was the shortest road to silver. It just closed. How much does that hurt?'],
  a:[
@@ -7711,9 +8754,11 @@ function Q(){ return [
   {k:'dig', t:'"Ask the league what a replay would have done to our week. Somebody somewhere is relieved."',
    d:'Cynical. The cup romantics will hate you', f:c=>{punditAdj(-6);bAdj(2,'quietly prioritised the league');return 'BOSS SHRUGS AT CUP EXIT — ROMANTICS FUME'}}
  ]},
-{id:'cup_on', tag:'cupOn', rec:'back',
+{id:'cup_on',
+ pre:c=>c.isCup&&c.res==='W'&&!c.cupFinal,
+ tag:'cupOn', rec:'back',
  q:[c=>'Through again. The cup — do you dare say the word "final" yet?',
-    c=>'A quarter-final is where seasons get remembered. How seriously are you taking this?'],
+    c=>'Rounds like that are where seasons get remembered. How seriously are you taking this one?'],
  a:[
   {k:'back', t:'"These players have earned the right to dream. I am not taking it off them."',
    d:'Now the town starts booking coaches', f:c=>{c.xi.forEach(id=>mAdj(id,8,'you let them dream about the cup'));punditAdj(2);return 'DREAM ON: '+UP(c.myName)+' MARCH IN THE CUP'}},
@@ -7722,7 +8767,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask the big clubs if they fancy the draw. They avoided us twice already, in spirit."',
    d:'A wink at the balls in the bowl', f:c=>{punditAdj(-2);return '"NOBODY WANTS US" — CUP RUN GETS A VOICE'}}
  ]},
-{id:'cup_shock', tag:'cupShock', rec:'back',
+{id:'cup_shock',
+ pre:c=>c.isCup&&c.res==='W'&&c.upsetWin,
+ tag:'cupShock', rec:'back',
  q:[c=>'You have just put '+c.oppName+' out of the cup. Tell us that is not the story of the round.',
     c=>'A cup shock with your name on it. Where does that rank for you?'],
  a:[
@@ -7733,7 +8780,9 @@ function Q(){ return [
   {k:'dig', t:'"They turned up thinking the badge would win it. Badges do not tackle."',
    d:'Their dressing room will frame that', f:c=>{punditAdj(-3);return '"BADGES DO NOT TACKLE" — THE QUOTE OF THE ROUND'}}
  ]},
-{id:'cup_final_win', tag:'cupWon', rec:'back',
+{id:'cup_final_win',
+ pre:c=>c.isCup&&c.cupFinal&&c.res==='W',
+ tag:'cupWon', rec:'back',
  q:[c=>'You have won the cup. Whatever else happens, that is forever. What do you do with a day like this?',
     c=>'Silverware. The thing they hired you for. Who gets this one?'],
  a:[
@@ -7746,7 +8795,9 @@ function Q(){ return [
  ]},
 
 /* ---------- Europe ---------- */
-{id:'euro_win', tag:'euroWin', rec:'back',
+{id:'euro_win',
+ pre:c=>c.isEuro&&c.res==='W',
+ tag:'euroWin', rec:'back',
  q:[c=>'A win in the '+c.comp+'. These nights — do they change how the world sees this club?',
     c=>'European football, and you looked like you belonged. Did that surprise you?'],
  a:[
@@ -7757,7 +8808,9 @@ function Q(){ return [
   {k:'dig', t:'"The world can see us fine. It is our own league that keeps looking away."',
    d:'A jab at home from abroad', f:c=>{punditAdj(-3);return 'BOSS: "OUR OWN LEAGUE KEEPS LOOKING AWAY"'}}
  ]},
-{id:'euro_loss', tag:'euroLoss', rec:'blame',
+{id:'euro_loss',
+ pre:c=>c.isEuro&&c.res==='L',
+ tag:'euroLoss', rec:'blame',
  q:[c=>'Beaten in Europe. Is the gap to that level bigger than you thought?',
     c=>'That is what continental football does to you. What did your players learn tonight?'],
  a:[
@@ -7768,7 +8821,9 @@ function Q(){ return [
   {k:'dig', t:'"Their theatrics bought every whistle going. That is the level, apparently."',
    d:'UEFA-adjacent bodies also read papers', f:c=>{refCharge();return 'BOSS BLASTS "THEATRICS" ON EURO NIGHT'}}
  ]},
-{id:'euro_deep', tag:'euroDeep', rec:'back',
+{id:'euro_deep',
+ pre:c=>c.isEuro&&c.euroSemiUp&&c.res!=='L',
+ tag:'euroDeep', rec:'back',
  q:[c=>'The last four of the '+c.comp+'. Did you believe that in August?',
     c=>'This club, this deep in Europe. What is the ceiling now?'],
  a:[
@@ -7781,7 +8836,9 @@ function Q(){ return [
  ]},
 
 /* ---------- wildcards: the squad, the window, the club ---------- */
-{id:'player_struggle', tag:'*', needs:'strugglerId', rec:'back',
+{id:'player_struggle',
+ pre:c=>!!c.strugglerId&&c.strugglerReal===1,
+ tag:'*', needs:'strugglerId', rec:'back',
  q:[c=>c.strugglerName+' has had a rough few weeks. Is he still your man?',
     c=>'Every side has a man out of form. Right now yours is '+c.strugglerName+'. True or unfair?'],
  a:[
@@ -7792,7 +8849,9 @@ function Q(){ return [
   {k:'dig', t:'"He knows he has been nowhere near it. Everybody in there knows."',
    d:'Brutal. It might even work', f:c=>{mAdj(c.strugglerId,-30,'you named him in public');c.xi.forEach(id=>{if(id!==c.strugglerId)mAdj(id,-5,'you named a team-mate in public')});shock(c.strugglerId);return UP(surname(c.strugglerName))+' HUNG OUT TO DRY'}}
  ]},
-{id:'pundit_said', tag:'*', needs:'punditQuote', rec:'blame',
+{id:'pundit_said',
+ pre:c=>!!c.punditQuote&&c.punditCritical===1,
+ tag:'*', needs:'punditQuote', rec:'blame',
  q:[c=>c.punditName+' said, and I quote, "'+c.punditQuote+'"',
     c=>'You will have seen what '+c.punditName+' has been saying about you. Care to respond?'],
  a:[
@@ -7803,7 +8862,9 @@ function Q(){ return [
   {k:'dig', t:'"He was a coward as a player and he is a coward with a microphone."',
    d:'You have made an enemy for the season', f:c=>{punditAdj(-22);S().line=punditLine('slapped');bAdj(-3,'started a public feud');return 'WAR OF WORDS: BOSS CALLS PUNDIT A COWARD'}}
  ]},
-{id:'board_backing', tag:'*', rec:'back',
+{id:'board_backing',
+ pre:c=>true,
+ tag:'*', rec:'back',
  q:[c=>'Do you have everything you need from the people above you?',
     c=>'When did you last sit down with the owners, and did you leave that room happy?'],
  a:[
@@ -7814,7 +8875,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask them. They are very good at answering questions in private."',
    d:'Satisfying. It will cost you', f:c=>{bAdj(-11,'took a public swing at the board');punditAdj(4);return 'OPEN WARFARE: "ASK THEM. THEY ANSWER IN PRIVATE."'}}
  ]},
-{id:'crowd_mood', tag:'*', needs:'home', rec:'back',
+{id:'crowd_mood',
+ pre:c=>c.home===1&&c.crowdRestless===1,
+ tag:'*', needs:'home', rec:'back',
  q:[c=>'Some of your own were leaving early again. Does that get to you?',
     c=>'The atmosphere in that ground has changed this season. Have you felt it from the dugout?'],
  a:[
@@ -7825,7 +8888,9 @@ function Q(){ return [
   {k:'dig', t:'"They paid what this club charges them. Ask upstairs about that."',
    d:'Ticket prices. In public. Brave', f:c=>{bAdj(-7,'raised ticket prices in a press conference');punditAdj(4);return 'BOSS RAISES TICKET PRICES — IN PUBLIC'}}
  ]},
-{id:'next_one', tag:'*', rec:'back',
+{id:'next_one',
+ pre:c=>true,
+ tag:'*', rec:'back',
  q:[c=>'What does this squad need before the next one?',
     c=>'If you could change one thing about this team by Saturday, what would it be?'],
  a:[
@@ -7836,7 +8901,9 @@ function Q(){ return [
   {k:'dig', t:'"Two players and a chairman who returns a phone call."',
    d:'The room upstairs went very quiet', f:c=>{bAdj(-8,'asked for a chairman who answers the phone');punditAdj(5);return '"TWO PLAYERS AND A CHAIRMAN WHO ANSWERS"'}}
  ]},
-{id:'unhappy_man', tag:'*', needs:'unhappyName', rec:'back',
+{id:'unhappy_man',
+ pre:c=>!!c.unhappyName,
+ tag:'*', needs:'unhappyName', rec:'back',
  q:[c=>'Word is '+c.unhappyName+' is not a happy man. Anything in it?',
     c=>c.unhappyName+'\'s people have been talking to anyone who will listen. Is he staying?'],
  a:[
@@ -7847,7 +8914,9 @@ function Q(){ return [
   {k:'dig', t:'"Nobody is bigger than this club. If he wants the door, it opens both ways."',
    d:'The whole squad just heard the rules', f:c=>{mAdj(c.unhappyId,-18,'you showed him the door in public');c.xi.forEach(shock);punditAdj(3);return UP(surname(c.unhappyName))+' TOLD: THE DOOR OPENS BOTH WAYS'}}
  ]},
-{id:'identity_quote', tag:'*', needs:'identLine', rec:'blame',
+{id:'identity_quote',
+ pre:c=>!!c.identLine,
+ tag:'*', needs:'identLine', rec:'blame',
  q:[c=>'People who know that dressing room say this: "'+c.identLine+'" Fair?',
     c=>'A description of your team doing the rounds: "'+c.identLine+'" Do you recognise it?'],
  a:[
@@ -7858,7 +8927,9 @@ function Q(){ return [
   {k:'dig', t:'"Somebody in my building is talking to you lot. When I find them, you lose a source."',
    d:'The mole hunt is now official', f:c=>{c.xi.forEach(id=>mAdj(id,-5,'the manager is hunting the leak'));punditAdj(-4);return 'MOLE HUNT: BOSS TURNS ON THE LEAK'}}
  ]},
-{id:'deadline_day', tag:'*', needs:'deadline', once:true, rec:'blame',
+{id:'deadline_day',
+ pre:c=>!!c.deadline,
+ tag:'*', needs:'deadline', once:true, rec:'blame',
  q:[c=>'The window shuts in days. Done, or is there one more call in you?',
     c=>'Deadline is coming. Every agent in the country has your number this week. Anything happening?'],
  a:[
@@ -7869,7 +8940,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask me after deadline. If nothing arrives, ask the people who count the money."',
    d:'A hostage note to your own board', f:c=>{bAdj(-6,'held the board hostage over deadline');punditAdj(3);return 'DEADLINE JAB: "ASK THE PEOPLE WHO COUNT THE MONEY"'}}
  ]},
-{id:'big_signing', tag:'*', needs:'signingName', rec:'back',
+{id:'big_signing',
+ pre:c=>!!c.signingName&&c.signingFee>0,
+ tag:'*', needs:'signingName', rec:'back',
  q:[c=>c.signingName+', for '+money(c.signingFee)+'. That is real money for this club. Where does he fit?',
     c=>'Your new man '+c.signingName+' — the fee raised eyebrows. Sell him to the doubters.'],
  a:[
@@ -7880,7 +8953,9 @@ function Q(){ return [
   {k:'dig', t:'"Half of you priced him at double when he was at a fashionable club. Funny, that."',
    d:'The press pack does not enjoy mirrors', f:c=>{punditAdj(-5);S().line=punditLine('slapped');return 'BOSS ACCUSES PRESS OF POSTCODE PRICING'}}
  ]},
-{id:'big_sale', tag:'*', needs:'saleName', rec:'blame',
+{id:'big_sale',
+ pre:c=>!!c.saleName&&c.saleFee>0,
+ tag:'*', needs:'saleName', rec:'blame',
  q:[c=>c.saleName+' has gone for '+money(c.saleFee)+'. Fans call it selling the family silver. Do they have a point?',
     c=>'You let '+c.saleName+' leave. Explain that to the people who sing his song.'],
  a:[
@@ -7891,7 +8966,9 @@ function Q(){ return [
   {k:'dig', t:'"Every family sells the silver when the roof leaks. Ask who let the roof leak."',
    d:'The metaphor lands upstairs, hard', f:c=>{bAdj(-9,'blamed the board for the sale');punditAdj(4);return '"ASK WHO LET THE ROOF LEAK"'}}
  ]},
-{id:'offer_talk', tag:'*', needs:'offerName', rec:'back',
+{id:'offer_talk',
+ pre:c=>!!c.offerName,
+ tag:'*', needs:'offerName', rec:'back',
  q:[c=>'There is a bid on the table for '+c.offerName+'. Is he for sale?',
     c=>(c.offerClub||'A club')+' want '+c.offerName+'. One sentence: does he stay?'],
  a:[
@@ -7902,7 +8979,9 @@ function Q(){ return [
   {k:'dig', t:'"Tell them to add a one to the front of it and stop wasting my fax machine."',
    d:'The fee just went up in print', f:c=>{if(c.offerId)mAdj(c.offerId,4,'you priced him like a crown jewel');punditAdj(2);return 'ADD A ONE TO THE FRONT: BOSS TAUNTS BIDDERS'}}
  ]},
-{id:'top_scorer', tag:'*', needs:'topScorerName', rec:'back',
+{id:'top_scorer',
+ pre:c=>!!c.topScorerName&&c.topScorerGoals>=10,
+ tag:'*', needs:'topScorerName', rec:'back',
  q:[c=>c.topScorerGoals+' goals now for '+c.topScorerName+'. Is he the best you have worked with?',
     c=>'Where would this team be without '+c.topScorerName+'\'s goals? Honestly.'],
  a:[
@@ -7913,7 +8992,9 @@ function Q(){ return [
   {k:'dig', t:'"He is the best paid-by-others player in the league. Every big club is welcome to be disappointed."',
    d:'A no-sale wrapped in a wink', f:c=>{if(c.topScorerId)mAdj(c.topScorerId,5,'you warned the vultures off');punditAdj(2);return 'HANDS OFF: BOSS WARNS THE VULTURES'}}
  ]},
-{id:'young_star', tag:'*', needs:'youngName', rec:'back',
+{id:'young_star',
+ pre:c=>!!c.youngName&&c.youngAge<=20,
+ tag:'*', needs:'youngName', rec:'back',
  q:[c=>c.youngName+' is '+c.youngAge+'. You keep picking him when you do not have to. Why?',
     c=>'The kid, '+c.youngName+' — supporters love him already. How do you protect a boy from that?'],
  a:[
@@ -7924,7 +9005,9 @@ function Q(){ return [
   {k:'dig', t:'"Protect him? From you lot, mostly. Leave the boy alone until he is twenty-three."',
    d:'The pack does not like being the story', f:c=>{if(c.youngId)mAdj(c.youngId,9,'you stood between him and the press');punditAdj(-4);return 'LEAVE THE BOY ALONE, PRESS TOLD'}}
  ]},
-{id:'old_legs', tag:'*', needs:'vetName', rec:'back',
+{id:'old_legs',
+ pre:c=>!!c.vetName&&c.vetAge>=33,
+ tag:'*', needs:'vetName', rec:'back',
  q:[c=>c.vetName+' is '+c.vetAge+' and still starting. Sentiment, or does he really get in on merit?',
     c=>'How many more seasons do those legs have? '+c.vetName+' would want you to say ten.'],
  a:[
@@ -7935,7 +9018,9 @@ function Q(){ return [
   {k:'dig', t:'"He has more football in him than half the wingers you lot rave about."',
    d:'A generation just got dismissed', f:c=>{if(c.vetId)mAdj(c.vetId,9,'you defended his legs in public');punditAdj(-3);return 'OLD GOLD: BOSS DEFENDS HIS VETERAN'}}
  ]},
-{id:'job_pressure', tag:'*', needs:'confLow', rec:'blame',
+{id:'job_pressure',
+ pre:c=>!!c.confLow,
+ tag:'*', needs:'confLow', rec:'blame',
  q:[c=>'People upstairs have gone quiet on you. Have you had assurances about your position?',
     c=>'Betting has you gone by the end of the season. Do you feel supported, '+(c.mgrSur||'boss')+'?'],
  a:[
@@ -7946,7 +9031,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask the bookies who they had winning the league. Clowns, the lot of them."',
    d:'The odds shortened as you spoke', f:c=>{punditAdj(-5);bAdj(-2,'laughed at the noose');return 'BOSS LAUGHS AT THE ODDS. THE ODDS SHORTEN.'}}
  ]},
-{id:'above_obj', tag:'*', needs:'aboveObj', rec:'blame',
+{id:'above_obj',
+ pre:c=>c.compKey==='league'&&!!c.aboveObj,
+ tag:'*', needs:'aboveObj', rec:'blame',
  q:[c=>'The board asked for "'+c.objText+'". You are '+ord(c.pos)+'. Time to raise the target?',
     c=>ord(c.pos)+', ahead of everything they asked of you. Are you overachieving, or were they under-asking?'],
  a:[
@@ -7957,7 +9044,9 @@ function Q(){ return [
   {k:'dig', t:'"They under-asked. Write that down before somebody upstairs rewrites the summer."',
    d:'A little history war has started', f:c=>{bAdj(-6,'accused the board of small dreams');punditAdj(3);return '"THEY UNDER-ASKED" — BOSS REWRITES THE SUMMER'}}
  ]},
-{id:'below_obj', tag:'*', needs:'belowObj', rec:'blame',
+{id:'below_obj',
+ pre:c=>c.compKey==='league'&&!!c.belowObj,
+ tag:'*', needs:'belowObj', rec:'blame',
  q:[c=>'"'+c.objText+'" — their words in August. It is not happening, is it?',
     c=>'You are '+ord(c.pos)+' and the objective says otherwise. What do you tell the people who set it?'],
  a:[
@@ -7968,7 +9057,9 @@ function Q(){ return [
   {k:'dig', t:'"Objectives written in August do not survive the injuries of November. They know that."',
    d:'Excuses age worse than defeats', f:c=>{bAdj(-5,'renegotiated the objective through the press');punditAdj(-2);return 'BOSS BLAMES THE FIXTURE GODS'}}
  ]},
-{id:'rival_sacked', tag:'*', needs:'vacancyClub', once:true, rec:'blame',
+{id:'rival_sacked',
+ pre:c=>!!c.vacancyClub,
+ tag:'*', needs:'vacancyClub', once:true, rec:'blame',
  q:[c=>'The '+c.vacancyClub+' job is coming open, everyone says so. Your name is in the conversation.',
     c=>'A dugout in this division will be vacant soon, and your name came up before the seat was cold. Flattered?'],
  a:[
@@ -7979,7 +9070,9 @@ function Q(){ return [
   {k:'dig', t:'"Flattered that a struggling club would want me? Think about what you just asked."',
    d:'The reporter went slightly red', f:c=>{punditAdj(-4);return 'BOSS SWATS THE VACANCY QUESTION'}}
  ]},
-{id:'cup_league', tag:'*', needs:'cupAliveDeep', rec:'blame',
+{id:'cup_league',
+ pre:c=>!!c.cupAliveDeep,
+ tag:'*', needs:'cupAliveDeep', rec:'blame',
  q:[c=>'A cup '+(c.cupRound||'run')+' still alive and a league season to protect. Which one gets your best eleven?',
     c=>'Managers say they take the cup seriously right up until they make seven changes. What will you do?'],
  a:[
@@ -7990,7 +9083,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask the schedulers who put four games in eleven days. Then ask them to carry the kit."',
    d:'The fixture computer has no feelings. Its owners do', f:c=>{punditAdj(2);bAdj(-2,'moaned at the calendar');return 'BOSS v THE FIXTURE COMPUTER'}}
  ]},
-{id:'presser_century', tag:'*', needs:'pressMile', once:true, rec:'blame',
+{id:'presser_century',
+ pre:c=>!!c.pressMile,
+ tag:'*', needs:'pressMile', once:true, rec:'blame',
  q:[c=>'By our count this is your '+c.pressMile+'th time in that chair for this club. Learned anything about us yet?',
     c=>c.pressMile+' press conferences here. Go on — which of us do you actually rate?'],
  a:[
@@ -8049,7 +9144,7 @@ function buildContext(m){
     myName:c.name, oppName:opp.name, oppId:opp.id, home:m.hi===G.me?1:0,
     gf:gf, ga:ga, margin:Math.abs(gf-ga), res:res, comp:m.f.comp.name,
     compKey:key, isCup:isCup, isEuro:isEuro, stage:stage,
-    resW:res==='W'?1:0, dropped:res!=='W'?1:0,
+    resW:res==='W'?1:0, resD:res==='D'?1:0, resL:res==='L'?1:0, dropped:res!=='W'?1:0,
     city:city, derby:!!city||near, returning:st.clubs.indexOf(opp.id)>=0&&opp.id!==c.id,
     upsetWin:res==='W'&&gap<=-13, upsetLoss:res==='L'&&gap>=13,
     title:key==='league'&&G.week>=22&&myPosNow<=3&&(oppPos&&oppPos<=4),
@@ -8075,10 +9170,13 @@ function buildContext(m){
   ctx.winless=ctx.res!=='W'&&ctx.winlessRun>=3;
   ctx.firstWin=ctx.res==='W'&&prevWinless>=3;
 
-  // head to head under you
+  // head to head under you — folded in before we read it, so "never beaten them"
+  // means never beaten them including today
   if(!st.vs[opp.id])st.vs[opp.id]={w:0,d:0,l:0};
   st.vs[opp.id][res==='W'?'w':res==='D'?'d':'l']++;
   ctx.neverBeaten=st.vs[opp.id].w===0?1:0;
+  ctx.vsW=st.vs[opp.id].w;
+  ctx.derbyRepeat=(ctx.derby&&res==='W'&&st.vs[opp.id].w>=2)?1:0;
   return ctx;
 }
 /* how badly does a reporter want this one? 0 = leave it alone */
@@ -8118,7 +9216,23 @@ function weigh(c){
 /* ---------- everything else the press might know this week ----------
    All of it read through SW.get() and guarded: any module may be absent. */
 function fillExtras(c,st){
-  // the struggler: worst of your starters, or the unhappiest
+  /* the table moved after the whistle — the rest of the round is played in
+     advanceWeek, and the press conference happens after that. Read the
+     standings now, not at full time, or the questions quote a stale position. */
+  try{
+    const l=leagueOf(me().id);
+    if(l){
+      const t=leagueTable(l);
+      const mp=t.findIndex(x=>x.id===me().id)+1;
+      if(mp>0)c.pos=mp;
+      const op=t.findIndex(x=>x.id===c.oppId)+1;
+      if(op>0)c.oppPos=op;
+      c.title=(c.compKey==='league'&&c.week>=22&&c.pos<=3&&c.oppPos&&c.oppPos<=4)?1:0;
+    }
+  }catch(e){}
+
+  // the struggler: worst of your starters — but only a story if he is genuinely
+  // in a rut. A man who was quiet in a 4-0 win is not "having a rough few weeks".
   let str=null,worst=99;
   try{
     me().xi.forEach(({p})=>{
@@ -8127,8 +9241,23 @@ function fillExtras(c,st){
       if(score<worst){worst=score;str=p}
     });
   }catch(e){}
-  if(str){c.strugglerId=str.id;c.strugglerName=str.name}
+  if(str){
+    c.strugglerId=str.id;c.strugglerName=str.name;
+    const rr=(str.ratings||[]).slice(-3);
+    const mean=rr.length?rr.reduce((a,b)=>a+b,0)/rr.length:6.5;
+    const last=rr.length?rr[rr.length-1]:6.5;
+    c.strugglerReal=(rr.length>=3&&mean<=6.35&&last<=6.55&&str.name!==c.hat)?1:0;
+  }
   c.punditName=st.pundit.name; c.punditQuote=st.line;
+  /* only ask a manager to answer his critic when the critic has actually
+     criticised him. Quoting a compliment back and asking for a reply is nonsense. */
+  c.punditCritical=(st.view<=-15)?1:0;
+
+  /* an emptying ground is a claim about the crowd, so it has to be earned:
+     a home day that was not a win, on top of a run or a beating or a bad table.
+     Never after a win — that is the bug the owner hit. */
+  c.crowdRestless=(c.home===1&&c.res!=='W'&&
+    (c.winlessRun>=2||c.heavy||c.margin>=2||c.pos>=17))?1:0;
 
   // an unhappy man, if the dressing room has one (and he is not today's struggler)
   try{
@@ -8289,6 +9418,7 @@ onMatchEnd(m){
 /* takes over after the match report, only when there is a conference to run */
 afterReport(){
   const st=ensure();
+  if(AUDITING)return;                 // the self-check runs the room itself, headless
   if(!st.pending)return;
   const P=st.pending; st.pending=null;
   const qs=chooseQuestions(P.c,P.w);
@@ -8359,6 +9489,21 @@ headline(){ const st=ensure(); return st.head?st.head.t:null },
 pundit(){ const st=ensure(); return st.pundit?{name:st.pundit.name, line:st.line}:null }
 });
 
+/* ---------- the premise contract ----------
+   Every question in the bank asserts something: that you lost heavily, that
+   the ground was emptying, that his critic has been critical. `pre` is that
+   assertion written down. A question whose premise is false is not a question,
+   it is the game calling the player a liar about a match he just watched, so
+   it never reaches the pad — not as a lead, not as filler, not as a fallback.
+   `GATE` exists only so the self-check can replay the old, ungated behaviour
+   and count what it used to get wrong. Leave it alone in play. */
+let GATE=true, AUDITING=false;
+function truePremise(q,c){
+  if(!GATE)return true;
+  if(!q.pre)return false;                 // undeclared premise = untrusted question
+  try{return !!q.pre(c)}catch(e){return false}
+}
+
 /* ---------- picking the questions ----------
    A question situation sleeps for COOL weeks after it is asked, and the
    season's memory steers the pick toward situations not yet used this year.
@@ -8371,8 +9516,9 @@ function chooseQuestions(c,w){
 
   const ok=q=>{
     if(used[q.id])return false;
-    if(q.once&&st.seasonAsked[q.id])return false;
-    const at=st.askedAt[q.id];
+    if(!truePremise(q,c))return false;            // never before the cooldown check:
+    if(q.once&&st.seasonAsked[q.id])return false; // a question that would lie is not
+    const at=st.askedAt[q.id];                    // "on cooldown", it is not a question
     if(at!==undefined&&NOW()-at<COOL)return false;
     if(q.needs&&!c[q.needs])return false;
     return true;
@@ -8394,10 +9540,13 @@ function chooseQuestions(c,w){
   // then whatever else is on his pad
   while(out.length<want){
     const pool=bank.filter(q=>ok(q)&&(q.tag==='*'||c.tags.indexOf(q.tag)>=0));
-    if(!pool.length)break;
-    take(pick(preferUnasked(pool)));
-  }
-  return out.slice(0,3);
+    if(!pool.length)break;                        // nothing true left to ask.
+    take(pick(preferUnasked(pool)));               // there is no random fallback here,
+  }                                                // and there must never be one:
+  /* last gate before anyone hears it. If the pad has emptied, he goes home —
+     an empty list means no press conference at all, which is the correct
+     outcome. Silence beats a question that contradicts the scoreline. */
+  return out.filter(q=>truePremise(q,c)).slice(0,3);
 }
 function qtext(q,c){
   const st=S();
@@ -8410,9 +9559,20 @@ function qtext(q,c){
 function renderPress(){
   const st=S(), L=st.live;
   if(!L){render();return}
-  const bank=Q(), q=bank.find(x=>x.id===L.ids[L.i]);
+  const bank=Q();
+  /* answering one question moves morale, the board and the pundit, so the
+     premise of the next one is re-checked here rather than trusted from
+     selection. Anything that has stopped being true is skipped, silently. */
+  let q=null;
+  while(L.i<L.ids.length){
+    const cand=bank.find(x=>x.id===L.ids[L.i]);
+    if(cand&&truePremise(cand,L.c)){q=cand;break}
+    L.i++;
+  }
   if(!q){finishPress();return}
-  const c=L.c, n=L.ids.length;
+  const c=L.c;
+  const live=L.ids.map(id=>bank.find(y=>y.id===id)).filter(x=>x&&truePremise(x,c));
+  const n=live.length, num=live.indexOf(q)+1;
   const hint = q.rec==='blame' ? 'Take it yourself. They are fishing for a row.'
     : q.rec==='back' ? 'Get behind them. They will hear about it before you are back.'
     : 'Give them something. Just watch what it costs.';
@@ -8431,9 +9591,9 @@ function renderPress(){
       : null;
   sheet(`<h3>The press room</h3>
    <div class="sh-sub">${esc(c.myName)} ${c.gf}&ndash;${c.ga} ${esc(c.oppName)} &middot; ${esc(c.comp)}
-     &middot; question ${L.i+1} of ${n}</div>
+     &middot; question ${num} of ${n}</div>
    ${speakerBar(asker,subj,subj&&subj.k==='c'?'vs':'about',
-      q.needs==='punditQuote'?S().pundit.role:'Question '+(L.i+1)+' of '+n)}
+      q.needs==='punditQuote'?S().pundit.role:'Question '+num+' of '+n)}
    <div class="qcard">
      <span class="qmark">&ldquo;</span>
      <div style="font-size:15.5px;font-weight:600;line-height:22px">${esc(qtext(q,c))}</div>
@@ -8487,8 +9647,72 @@ window.SWmedia={
      <div class="card" style="background:var(--s1);margin-top:-4px">
        <div style="font-size:13.5px;color:var(--t1);line-height:19px">&ldquo;${esc(st.line)}&rdquo;</div></div>
      <button class="btn" style="margin-top:12px" onclick="closeSheet()">Close</button>`);
-  }
+  },
+  audit(seasons,gate,clubIdx){ return runAudit(seasons,gate,clubIdx) }
 };
+
+/* ============================================================
+   THE SELF-CHECK
+   Plays whole seasons and holds every question that actually fires against
+   its own written premise. A question that asserts something untrue about a
+   match the player just watched is a bug, so this counts them instead of
+   trusting a read-through.
+
+     SWmedia.audit(2)          two seasons, premises enforced   -> expect 0
+     SWmedia.audit(2,false)    the same two seasons, ungated    -> the old bug
+
+   It answers every question the way the assistant advises, so morale, the
+   board and the pundit move exactly as they would in play and the cooldown
+   machinery is exercised for real.
+   ============================================================ */
+function auditPress(rep){
+  const st=S();
+  if(!st.pending){rep.silent++;return}
+  const P=st.pending; st.pending=null;
+  const c=P.c;
+  const qs=chooseQuestions(c,P.w);
+  if(!qs.length){st.pressedLast=false;st.sincePress++;rep.silent++;return}
+  st.pressedLast=true; st.sincePress=0; st.pressCount++;
+  st.lastQ=qs.map(q=>q.id);
+  rep.confs++;
+  qs.forEach(q=>{
+    rep.fired++;
+    const scoreline=c.myName+' '+c.gf+'-'+c.ga+' '+c.oppName+
+      ' ('+c.res+', '+(c.home?'home':'away')+(c.derby?', derby':'')+', '+c.comp+')';
+    const row={id:q.id, res:c.res, derby:!!c.derby, home:!!c.home,
+               line:scoreline, q:qtext(q,c)};
+    /* the assertion: does the premise this question is built on actually hold? */
+    let held=false;
+    try{held=q.pre?!!q.pre(c):false}catch(e){held=false}
+    if(held){ if(rep.ok.length<600)rep.ok.push(row) }
+    else rep.viol.push(row);
+    const a=q.a.find(x=>x.k===q.rec)||q.a[0];
+    try{a.f(c)}catch(e){rep.err.push(q.id+': '+e.message)}
+  });
+}
+function runAudit(seasons,gate,clubIdx){
+  seasons=Math.max(1,seasons||2);
+  const wasGate=GATE, wasSpeed=G.speed;
+  GATE=(gate!==false); AUDITING=true;
+  const rep={seasons:seasons, gated:GATE, confs:0, silent:0, fired:0,
+             viol:[], ok:[], err:[]};
+  try{
+    newGame(G.leagues[0].clubs[clubIdx===undefined?5:clubIdx]);
+    G.objective.accepted=true; G.speed='instant';
+    for(let s=0;s<seasons;s++){
+      let guard=0;
+      while(G.week<38&&guard++<600){
+        if(weekFixtures().length){ startMatch(); auditPress(rep); }
+        else advanceWeek();
+        closeSheet();
+      }
+      endSeasonProcess(); closeSheet();
+    }
+  }catch(e){ rep.err.push('sim: '+(e&&e.message||e)) }
+  GATE=wasGate; AUDITING=false; G.speed=wasSpeed;
+  rep.violations=rep.viol.length;
+  return rep;
+}
 
 function finishPress(){
   const st=S(), L=st.live;
@@ -8864,7 +10088,9 @@ function requests(c){
     const t=trk(p.id);
     if(t.req||p.youth)return;
     if(t.deep>=3&&get(p)<=-58){
-      t.req=G.week; p.listed=true;
+      t.req=G.week;
+      if(typeof listPlayer==='function')listPlayer(p,'player','he asked to leave');
+      else {p.listed=true;p.listedBy='player'}
       const why=drivers(c,p).find(x=>x.neg);
       note(p.name+' has asked to leave',
         (why?why.txt+'. ':'')+'He wants away. He is on the list until you change his mind or someone takes him.',{from:vP(p)});
@@ -10031,7 +11257,9 @@ function tellThem(){
 
     if(hurt){
       m=-(30+rnd()*12); t=-10; why='told him he was finished here when he plainly is not';
-      p.listed=true; wronged++;
+      if(typeof listPlayer==='function')listPlayer(p,'role','you told him he was finished here');
+      else {p.listed=true;p.listedBy='role'}
+      wronged++;
       sq.forEach(x=>{if(x.id!==p.id)
         moveTrust(x.id,-4*(caresOf(x)==='backed'?1.7:1),'told '+surn(p)+' he was finished, and he is not')});
     } else if(gap>0){
@@ -10610,12 +11838,22 @@ SW.register({
    reactive deviation has to be ARGUED: a named reason, an honest account
    of what abandoning your football costs, and the manager free to say no.
 
-   So: Plan A / B / C live in Squad → Plans. The core's assistantAdvice
-   hook is claimed here. Most weeks the assistant backs Plan A and says
-   why it fits THIS opponent. When the opposition genuinely warrants it
-   (big rep gap, their pace against your high line, your back line gutted)
-   he puts a case on your desk — and the case names its reasons, names
-   its cost, and arrives with "Stick to Plan A" as the pre-selected answer.
+   Two things the owner corrected after playing more seasons:
+
+   1. A PLAN CARRIES ITS TEAM SHEET. A plan without eleven names is not a
+      plan, it is a formation. So every plan stores its XI — player id plus
+      slot plus the surname, so a sold man can still be named. On apply the
+      sheet is REPAIRED, never trusted: anyone sold, injured or otherwise
+      unavailable is replaced by the best available for that slot, and the
+      manager is told in words a coach would use. A sale rewrites the plan
+      for good; an injury is a loan of the shirt, so the first-choice man
+      gets it back the week he is fit. A stale id can never throw.
+
+   2. THE ASSISTANT KNOWS WHAT IS ALREADY ON THE BOARD. He does not tell you
+      to play 4-4-2 while you are playing 4-4-2. If your plan already suits
+      the opponent he says so in one line and gets out of the way — no hub
+      card, no "advice". He only speaks properly when he wants a CHANGE, and
+      then the why is compulsory: the named threat, and what the change costs.
    ============================================================ */
 (function(){
 
@@ -10632,17 +11870,20 @@ const LW=['Very deep','Deep','Mid block','High press','Very high line'];
 const MW=['Contain','Cautious','Balanced','Attacking','All-out'];
 const KEYS=['A','B','C'];
 
-function surn(p){return String(p.name).split(' ').pop()}
+function surn(p){return String(p&&p.name||'').split(' ').pop()||'?'}
 function words(p){return TW[p.tempo+2]+' · '+LW[p.line+2]+' · '+MW[p.ment+2]}
 function planMatches(p,c){
   return !!(p&&c&&p.formation===c.formation&&p.tempo===c.tempo&&p.line===c.line&&p.ment===c.ment);
 }
 function fkey(f){return G.season+':'+G.week+':'+f.home+':'+f.away}
+function shapeOf(f){return SHAPE[f]||SHAPE['4-4-2']}
+function inUseKey(c){const s=S(); if(!c||!s.plans)return null;
+  for(const k of KEYS)if(planMatches(s.plans[k],c))return k; return null}
 
-/* The manager's chosen standards, read defensively. Culture does not publish
-   a standards() getter (noted as a gap) — read-only peek, never written to. */
+/* culture publishes these now — still guarded, any module may be absent */
 function standardsOf(){
-  try{ if(SW.get('culture'))return (SW.state('culture').standards||[]).slice() }catch(e){}
+  try{ const cu=SW.get('culture');
+    if(cu&&typeof cu.standards==='function')return cu.standards()||[] }catch(e){}
   return [];
 }
 function identityLines(){
@@ -10650,7 +11891,127 @@ function identityLines(){
   return [];
 }
 
-/* ---------- seeding: three plans, all of them yours ---------- */
+/* ============================================================
+   TEAM SHEETS
+   A plan's sheet is [[slot, playerId, surname], …] in SHAPE order.
+   The surname is stored so a man who has been sold can still be named
+   in the sentence that explains why he is not in the side any more.
+   ============================================================ */
+function bestFor(c,slot,used,prefer){
+  let best=null,bs=-1;
+  c.squad.forEach(p=>{ if(used.has(p.id)||p.out>0||p.youth)return;
+    let v=CA(p,slot); if(prefer&&prefer.has(p.id))v+=5;
+    if(v>bs){bs=v;best=p} });
+  if(!best)c.squad.forEach(p=>{ if(used.has(p.id)||p.out>0)return;      // a kid beats a hole
+    const v=CA(p,slot)*0.9; if(v>bs){bs=v;best=p} });
+  if(!best)c.squad.forEach(p=>{ if(used.has(p.id))return;               // last resort: crisis
+    const v=CA(p,slot)*0.5; if(v>bs){bs=v;best=p} });
+  return best;
+}
+function bestSheet(c,formation,prefer){
+  const used=new Set(),out=[];
+  shapeOf(formation).forEach(slot=>{
+    const p=bestFor(c,slot,used,prefer);
+    if(p){used.add(p.id);out.push([slot,p.id,surn(p)])}
+  });
+  return out;
+}
+function captureSheet(c){
+  if(!c||!Array.isArray(c.xi))return [];
+  return c.xi.filter(x=>x&&x.p).map(x=>[x.slot,x.p.id,surn(x.p)]);
+}
+function sheetIds(plan){
+  const out=new Set();
+  (Array.isArray(plan&&plan.xi)?plan.xi:[]).forEach(e=>{if(e&&e[1]!=null)out.add(e[1])});
+  return out;
+}
+/* where a shirt actually is on the grass — the core's own pitch layout, so
+   "left-back" means the man on the left, not the second FB in an array */
+function slotPhrase(formation,i,slot){
+  let x=50;
+  try{ if(typeof layout==='function'){const L=layout(formation); if(L&&L[i])x=L[i].x} }catch(e){}
+  const l=x<=42,r=x>=58;
+  switch(slot){
+    case 'GK': return 'in goal';
+    case 'FB': return l?'at left-back':r?'at right-back':'at full-back';
+    case 'CB': return 'at centre-half';
+    case 'DM': return 'in front of the back four';
+    case 'CM': return l?'on the left of midfield':r?'on the right of midfield':'in central midfield';
+    case 'AM': return 'in the hole';
+    case 'W':  return l?'on the left wing':r?'on the right wing':'wide';
+    case 'ST': return 'up top';
+  }
+  return 'in the side';
+}
+/* Never trust a stored id. Build the XI the plan asks for, replace anyone who
+   cannot play, and hand back a plain account of every change. */
+function resolveSheet(c,plan){
+  const shape=shapeOf(plan.formation);
+  const stored=Array.isArray(plan.xi)?plan.xi:[];
+  const byId={}; c.squad.forEach(p=>byId[p.id]=p);
+  const used=new Set(),xi=[],holes=[],rep=[];
+  shape.forEach((slot,i)=>{
+    const e=stored[i], pid=(e&&e[1]!=null)?e[1]:null, p=(pid!=null)?byId[pid]:null;
+    let bad=null;
+    if(pid==null)bad='none';
+    else if(!p)bad='gone';
+    else if(p.out>0)bad='out';
+    else if(used.has(p.id))bad='dupe';
+    if(bad){ xi.push({slot,p:null}); holes.push({i,slot,bad,e,p}) }
+    else { used.add(p.id); xi.push({slot,p}) }
+  });
+  holes.forEach(h=>{
+    const inP=bestFor(c,h.slot,used,null);
+    if(!inP)return;
+    used.add(inP.id); xi[h.i].p=inP;
+    if(h.bad==='none')return;                       // nothing was stored: not a repair
+    rep.push({i:h.i,slot:h.slot,why:h.bad,
+      outName:(h.e&&h.e[2])||(h.p?surn(h.p):'that shirt'),
+      inName:surn(inP),inId:inP.id,
+      perm:(h.bad==='gone'||h.bad==='dupe')});      // sold is for good; injured is a loan
+  });
+  return {xi:xi.every(x=>x&&x.p)?xi:null, rep:rep};
+}
+function repairLine(r,k,formation){
+  const where=slotPhrase(formation,r.i,r.slot);
+  if(r.why==='gone')
+    return 'Plan '+k+' had '+r.outName+' '+where+'. He is gone, so '+r.inName+' takes the shirt for good.';
+  if(r.why==='out')
+    return 'Plan '+k+' had '+r.outName+' '+where+'. He is out, so '+r.inName+' comes in until he is fit.';
+  return 'Plan '+k+' had '+r.outName+' down twice. '+r.inName+' takes the second shirt '+where+'.';
+}
+/* Put a plan's sheet on the pitch. Returns the repair lines (possibly none).
+   The plan heals itself: permanent losses are written back, an injury is not,
+   because the first-choice man is coming back and the plan should remember him. */
+function applySheet(c,plan,k){
+  let r=null;
+  try{ r=resolveSheet(c,plan) }catch(e){ console.error('[plans.sheet]',e) }
+  if(!r||!r.xi){ try{autoXI(c)}catch(e){} if(c.xi&&c.xi.length===11)plan.xi=captureSheet(c); return [] }
+  c.xi=r.xi;
+  const keep=Array.isArray(plan.xi)?plan.xi:[];
+  plan.xi=c.xi.map((x,i)=>{
+    const hit=r.rep.find(z=>z.i===i);
+    if(hit&&!hit.perm&&keep[i])return keep[i];      // he is only injured — hold his shirt
+    return [x.slot,x.p.id,surn(x.p)];
+  });
+  const lines=r.rep.map(z=>repairLine(z,k,plan.formation));
+  plan.fixed=lines.slice(0,3);
+  plan.fixedAt=G.season+':'+G.week;
+  return lines;
+}
+function tellRepair(k,plan,lines,how){
+  if(!lines||!lines.length)return;
+  const body=lines.join(' ')+' '+(how||'The rest of the sheet is exactly as you left it.');
+  note('Plan '+k+' patched',body,{from:vV('assist')});
+}
+/* has the manager left the plan's sheet alone since he applied it? */
+function sheetUntouched(c,plan){
+  const st=Array.isArray(plan.xi)?plan.xi:[];
+  if(!c.xi||c.xi.length!==st.length||!st.length)return false;
+  return c.xi.every((x,i)=>st[i]&&x.p&&x.p.id===st[i][1]);
+}
+
+/* ---------- seeding: three plans, all of them yours, all with an XI ---------- */
 const ALT={'4-4-2':'4-3-3','4-2-3-1':'4-3-3','4-3-3':'4-2-3-1',
            '5-3-2':'3-5-2','4-5-1':'4-2-3-1','3-5-2':'4-4-2'};
 function seedPlans(){
@@ -10669,9 +12030,21 @@ function seedPlans(){
   else
     C={name:'Shut the gate',formation:'4-5-1',
        tempo:c.tempo,line:clamp(c.line-1,-2,2),ment:clamp(c.ment-1,-2,2)};
+  /* Plan A inherits the side he is picking today; B and C get the best XI for
+     their shape, weighted towards the men he already trusts. */
+  A.xi=(c.xi&&c.xi.length===11&&c.formation===A.formation)?captureSheet(c):bestSheet(c,A.formation,null);
+  const trust=new Set(A.xi.map(e=>e[1]));
+  B.xi=bestSheet(c,B.formation,trust);
+  C.xi=bestSheet(c,C.formation,trust);
   s.plans={A:A,B:B,C:C}; s.set=true;
 }
-function ensure(){const s=S(); if(!s.set||!s.plans.A)seedPlans(); return s}
+function ensure(){const s=S(); if(!s.set||!s.plans.A)seedPlans();
+  /* an old save, or a plan whose shape was changed before sheets existed */
+  const c=me();
+  if(c&&s.plans)KEYS.forEach(k=>{const p=s.plans[k];
+    if(p&&(!Array.isArray(p.xi)||p.xi.length!==shapeOf(p.formation).length))
+      p.xi=bestSheet(c,p.formation,sheetIds(p));});
+  return s}
 
 /* ============================================================
    THE CASE — deterministic, no rnd(): this runs in render paths.
@@ -10726,52 +12099,94 @@ function costLine(){
     return 'This squad has been built on you going first. Set up scared and they will remember whose idea it was.';
   return 'Every week you set up to survive is a week they learn that is who we are. It adds up.';
 }
-function backLine(x,A){
-  if(x.bestOut)return 'Their best player is not even in the squad. There is nothing here to sit off for.';
-  if(x.gap<=-12)return 'We are the better side and both dugouts know it. Front foot, early, and it is done by sixty.';
-  if(A.line>=1&&x.quick&&x.quick.a[0]<74)return 'Nobody in their front line can run, so your line is safe. Squeeze them.';
-  if(x.home)return 'Our place, our plan. Make them solve us — they will not.';
-  return 'Nothing about this lot changes who we are.';
+/* the price of moving off Plan A onto one of the manager's own plans —
+   smaller than the price of the assistant's bus, but never nothing */
+function switchCost(from,to){
+  if(to.ment<from.ment&&to.line<from.line)
+    return 'It costs us the front foot for ninety minutes, and the crowd will hear it inside ten.';
+  if(to.ment<from.ment)
+    return 'It costs us a striker in the box, so we will have to take our one chance.';
+  if(to.formation!==from.formation)
+    return 'It costs us the shape they have trained all week, and one of them plays out of position.';
+  return 'It costs us a little of what we are, for one night.';
+}
+/* one clause about THIS opponent, in the manager's current shape */
+function readOfThem(x,p){
+  if(x.bestOut)return 'their best player is not even in the squad';
+  if(x.gap<=-12)return 'we are the better side and both dugouts know it';
+  if(x.gap>=14)return 'they are the better side, so nothing tonight is free';
+  if(x.quick&&x.quick.a[0]>=82&&p.line<=0)return surn(x.quick)+' is quick, and you are already dropped off him';
+  if(x.quick&&x.quick.a[0]<74&&p.line>=1)return 'nobody in their front line can run at that line';
+  if((x.o.form||[]).slice(-5).filter(r=>r==='W').length>=4)return 'they are in form, so we will need the first goal';
+  if(x.home)return 'it is our place and they have to come and solve us';
+  return 'there is nothing in this lot that our shape does not cover';
 }
 
-/* the assistant's full read — plans, argument, the lot */
-function advFor(f){
+/* ============================================================
+   THE ASSISTANT'S READ
+   Two modes, and the difference matters more than the words:
+     quiet — the board is already right. One line of confirmation, no card,
+             never phrased as a suggestion, never a thing to act on.
+     speak — he wants a CHANGE. The named threat and what it costs, always.
+   He is never allowed to recommend the setup that is already on the board.
+   ============================================================ */
+function read(f){
   const s=ensure(); if(!s.plans.A)return null;
-  const c=me(),A=s.plans.A;
+  const c=me(); if(!c)return null;
   const x=caseFor(f); if(!x)return null;
-  const dealt=s.dealt[fkey(f)];
+  const A=s.plans.A, dealt=s.dealt[fkey(f)], cur=inUseKey(c);
 
-  if(dealt==='his'){
-    return {plan:x.prop,why:'His way, this once. Compact, off them, hit them on the break. Monday we go back to being us.',
-      same:planMatches(x.prop,c),opp:x.o,home:x.home,kind:'his',x:x};
-  }
-  if(dealt==='stick'){
-    return {plan:A,why:'He made his case, you kept the plan. Plan A — no apologies, no surprises.',
-      same:planMatches(A,c),opp:x.o,home:x.home,kind:'stick',x:x};
-  }
+  const out=(plan,key,why,kind,quiet)=>({plan:plan,why:why,same:planMatches(plan,c),
+    quiet:!!quiet,opp:x.o,home:x.home,kind:kind,key:key,x:x});
+  const quiet=(plan,key,why,kind)=>out(plan,key,why,kind||'quiet',true);
+  /* the guard the owner asked for: if the thing he was about to suggest is
+     already up on the board, it is not a suggestion, it is agreement */
+  const speak=(plan,key,why,kind)=>planMatches(plan,c)
+    ?quiet(plan,key,'You are already set up for this — Plan '+key+', '+plan.formation+
+       '. '+cap(readOfThem(x,plan))+'. Nothing else from me.','agree')
+    :out(plan,key,why,kind,false);
+
+  if(dealt==='his')
+    return quiet(x.prop,null,'His way tonight, and you signed it off. Compact, off them, hit them on the break. Monday we go back to being us.','his');
+  if(dealt==='stick')
+    return quiet(A,'A','Settled. You heard him out and kept Plan A — '+A.name+'. Nothing more from me before kick-off.','stick');
+
   if(x.strong){
-    return {plan:A,why:x.reasons[0]+' I would sit off for this one — my case is on your desk. Plan A stands unless you say otherwise.',
-      same:planMatches(A,c),opp:x.o,home:x.home,kind:'case',x:x};
+    if(planMatches(x.prop,c))
+      return quiet(x.prop,null,'You have set up the way I was going to ask you to. '+
+        x.reasons[0]+' There is nothing left for me to argue.','pre');
+    return out(A,'A',x.reasons[0]+' I want us to sit off for this one — my case is on your desk, '+
+      'and it costs us plenty. Plan A stands until you say otherwise.','case',false);
   }
+
   if(x.moderate){
     /* a manager's own careful plan beats an invented reactive one */
     let alt=null,ak=null;
     KEYS.forEach(k=>{const p=s.plans[k];
       if(k!=='A'&&p&&(p.line+p.ment)<=(A.line+A.ment)-2&&(!alt||(p.line+p.ment)<(alt.line+alt.ment))){alt=p;ak=k}});
-    if(alt)return {plan:alt,why:'A Plan '+ak+' night. '+x.reasons[0]+' Still our football — the careful version of it.',
-      same:planMatches(alt,c),opp:x.o,home:x.home,kind:'plan'+ak,x:x};
-    return {plan:A,why:x.reasons[0]+' Plan A anyway. Bin the plan for this lot and you will end up binning it every week.',
-      same:planMatches(A,c),opp:x.o,home:x.home,kind:'backA',x:x};
+    if(alt)
+      return speak(alt,ak,'Plan '+ak+' tonight — '+alt.name+'. '+x.reasons[0]+' '+
+        switchCost(A,alt)+' Still our football, the careful version of it.','plan'+ak);
+    if(cur)
+      return quiet(s.plans[cur],cur,'Plan '+cur+' and no change. '+x.reasons[0]+
+        ' Bin your football for this lot and you end up binning it every week.','hold');
+    return out(A,'A','You are not on any of your three. '+x.reasons[0]+
+      ' Put Plan A back up — '+A.name+' — and make them beat it.','drift',false);
   }
-  return {plan:A,why:'Plan A — '+A.name+'. '+backLine(x,A),
-    same:planMatches(A,c),opp:x.o,home:x.home,kind:'backA',x:x};
+
+  if(cur)
+    return quiet(s.plans[cur],cur,'Nothing from me. Plan '+cur+' — '+s.plans[cur].name+
+      ' — is on the board and it holds up here: '+readOfThem(x,s.plans[cur])+'.','calm');
+  return out(A,'A','You are off your own plans — this is not A, B or C. Plan A is '+A.name+', '+
+    A.formation+', and '+readOfThem(x,A)+'.','drift',false);
 }
+function cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s}
 
 /* ---------- the argued sheet: his case, its cost, your call ---------- */
 window.swPlanCase=function(){
   const f=nextFixture(); if(!f)return;
-  const s=ensure(),x=caseFor(f);
-  if(!x||!x.strong||s.dealt[fkey(f)]){closeSheet();render();return}
+  const s=ensure(),x=caseFor(f),c=me();
+  if(!x||!x.strong||s.dealt[fkey(f)]||planMatches(x.prop,c)){closeSheet();render();return}
   const A=s.plans.A;
   sheet(`${speakerBar(vV('assist'),vC(x.o),'on','He wants an answer')}
    <h3>His case for sitting off</h3>
@@ -10785,46 +12200,70 @@ window.swPlanCase=function(){
      <b style="color:var(--inj)">What it costs</b> — ${esc(costLine())}</div></div>
    <div class="opt rec" onclick="swPlanStick()">
      <div><div style="font-weight:600">Stick to Plan A — ${esc(A.name)}</div>
-       <div class="dim" style="font-size:12px">${esc(A.formation)} · ${esc(words(A))}. Who we are, against anyone.</div></div>
+       <div class="dim" style="font-size:12px">${esc(A.formation)} · ${esc(words(A))}. Your XI, your football, against anyone.</div></div>
      <span class="st">Yours</span></div>
    <div class="opt" onclick="swPlanHis()">
      <div><div style="font-weight:600">Set up his way</div>
-       <div class="dim" style="font-size:12px">${esc(x.prop.formation)} · sit off, stay compact, hit them on the break. One game only.</div></div></div>`);
+       <div class="dim" style="font-size:12px">${esc(x.prop.formation)} · sit off, stay compact, hit them on the break.
+         He picks the eleven that fits it. One game only.</div></div></div>`);
 };
 window.swPlanStick=function(){
   const f=nextFixture(); if(!f){closeSheet();return}
   const s=ensure(),c=me(),A=s.plans.A;
-  c.formation=A.formation;c.tempo=A.tempo;c.line=A.line;c.ment=A.ment;autoXI(c);
+  c.formation=A.formation;c.tempo=A.tempo;c.line=A.line;c.ment=A.ment;
+  const fixed=applySheet(c,A,'A');
   s.dealt[fkey(f)]='stick';
   note('The plan stands','You heard him out and kept Plan A. Right or wrong, that is a manager who knows what he is about. The ninety minutes get the last word.',{from:vV('assist')});
+  tellRepair('A',A,fixed);
   closeSheet();save();render();
 };
 window.swPlanHis=function(){
   const f=nextFixture(); if(!f){closeSheet();return}
   const s=ensure(),c=me(),x=caseFor(f); if(!x){closeSheet();return}
-  c.formation=x.prop.formation;c.tempo=x.prop.tempo;c.line=x.prop.line;c.ment=x.prop.ment;autoXI(c);
+  c.formation=x.prop.formation;c.tempo=x.prop.tempo;c.line=x.prop.line;c.ment=x.prop.ment;
+  /* his shape, but he picks it out of the men you already trust */
+  const trust=sheetIds(s.plans.A);
+  const tmp={formation:x.prop.formation,xi:bestSheet(c,x.prop.formation,trust)};
+  applySheet(c,tmp,'A');
   s.dealt[fkey(f)]='his';
-  note('You sat off for this one','His plan, your name on the teamsheet. If it works nobody will ask. If it does not, they will ask why we stopped being us.',{from:vV('assist'),about:vC(x.o),rel:'on'});
+  note('You sat off for this one','His plan, his eleven, your name on the teamsheet. If it works nobody will ask. If it does not, they will ask why we stopped being us.',{from:vV('assist'),about:vC(x.o),rel:'on'});
   closeSheet();save();render();
 };
 
-/* ---------- applying and editing plans ---------- */
+/* ---------- applying, saving and editing plans ---------- */
 window.swPlanUse=function(k){
   const s=ensure(),p=s.plans[k]; if(!p)return;
-  const c=me();
+  const c=me(); if(!c)return;
   c.formation=p.formation;c.tempo=p.tempo;c.line=p.line;c.ment=p.ment;
-  autoXI(c);save();render();
+  const fixed=applySheet(c,p,k);
+  tellRepair(k,p,fixed);
+  save();render();
+};
+window.swPlanSave=function(k){
+  const s=ensure(),p=s.plans[k],c=me(); if(!p||!c)return;
+  p.formation=c.formation;p.tempo=c.tempo;p.line=c.line;p.ment=c.ment;
+  p.xi=captureSheet(c);
+  p.fixed=null;p.fixedAt=null;
+  note('Plan '+k+' is your eleven now','Shape, style and the eleven names — saved as Plan '+k+'. Call it up any week and that is the side that walks out.',{from:vV('assist')});
+  save();render();
 };
 window.swPlanSet=function(k,key,v){
-  const s=ensure(); if(!s.plans[k])return;
-  s.plans[k][key]=v; save(); swPlanEdit(k);
+  const s=ensure(); const p=s.plans[k]; if(!p)return;
+  const c=me();
+  p[key]=v;
+  if(key==='formation'&&c){
+    /* new shape, same men wherever they still fit */
+    p.xi=bestSheet(c,v,sheetIds(p)); p.fixed=null;
+    if(planMatches(p,c))applySheet(c,p,k);
+  }
+  save(); swPlanEdit(k);
 };
 window.swPlanName=function(k,i){
   const s=ensure(); if(!s.plans[k]||!NAMES[i])return;
   s.plans[k].name=NAMES[i]; save(); swPlanEdit(k);
 };
 window.swPlanEdit=function(k){
-  const s=ensure(),p=s.plans[k]; if(!p)return;
+  const s=ensure(),p=s.plans[k],c=me(); if(!p)return;
   const seg=(lbl,key,lo,hi)=>{const v=p[key];
     return `<div style="margin-bottom:16px"><div class="row" style="margin-bottom:7px">
       <span style="font-weight:600;font-size:14px">${lbl}</span><span class="spacer"></span>
@@ -10847,37 +12286,98 @@ window.swPlanEdit=function(k){
       color:${p.formation===f2?'var(--tinv)':'var(--t2)'};font-family:var(--disp);font-weight:700;font-size:14px">${f2}</button>`).join('')}</div>
    <div class="sechead">Style</div><div class="card">
    ${seg('Tempo','tempo','Patient','Direct')}${seg('Defensive line','line','Deep','High press')}${seg('Mentality','ment','Contain','Attack')}</div>
+   <div class="sechead">The eleven</div>
+   ${c?`<div class="card">${sheetHTML(c,p)}
+     <div class="dim" style="font-size:12px;line-height:18px;margin-top:9px;border-top:1px solid var(--hair);padding-top:9px">
+       ${planMatches(p,c)
+         ?'This plan is on the pitch now. Change the side on the Lineup screen, then tap Save this XI on the plan.'
+         :'Tap Use this plan, pick the side you want on the Lineup screen, then tap Save this XI.'}
+       Anyone sold or injured is replaced when you call the plan up, and I will tell you who.</div></div>`:''}
    <button class="btn" style="margin-top:10px" onclick="closeSheet();render()">Done</button>`);
 };
 
+/* ---------- the sheet, drawn small enough to read at a glance ---------- */
+function bandLabels(formation){
+  const n=formation.split('-').length;
+  return n>=4?['Back','Middle','Behind','Front']:['Back','Middle','Front'];
+}
+function sheetHTML(c,plan){
+  const shape=shapeOf(plan.formation);
+  const st=Array.isArray(plan.xi)?plan.xi:[];
+  const byId={}; c.squad.forEach(p=>byId[p.id]=p);
+  const bands=plan.formation.split('-').map(Number),labels=bandLabels(plan.formation);
+  const rows=[['GK',[0]]];
+  let i=1;
+  bands.forEach((n,b)=>{const idx=[];for(let j=0;j<n;j++){idx.push(i);i++}rows.push([labels[b]||'',idx])});
+  const chip=(j)=>{
+    const e=st[j],slot=shape[j]||'',p=(e&&e[1]!=null)?byId[e[1]]:null;
+    const gone=!p, outNow=!!(p&&p.out>0);
+    const nm=p?surn(p):((e&&e[2])||'—');
+    const col=gone?'var(--t3)':outNow?'var(--inj)':'var(--t1)';
+    const mark=gone?' ✗':outNow?' ✚':'';
+    const off=p&&slot&&p.pos!==slot;
+    return `<span style="display:inline-flex;align-items:baseline;gap:4px;margin:0 9px 3px 0;font-size:12.5px;color:${col}">
+      <b style="font-weight:600">${esc(nm)}${mark}</b>
+      <i style="font-style:normal;font-size:10px;color:${off?'var(--inj)':'var(--t3)'}">${esc(slot)}</i></span>`;
+  };
+  return rows.map(([lbl,idx])=>
+    `<div class="row" style="align-items:flex-start;gap:9px;padding:3px 0">
+      <span style="flex:0 0 42px;font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);padding-top:3px">${lbl}</span>
+      <span style="flex:1;min-width:0">${idx.map(chip).join('')}</span></div>`).join('');
+}
+function sheetTrouble(c,plan){
+  const st=Array.isArray(plan.xi)?plan.xi:[];
+  const byId={}; c.squad.forEach(p=>byId[p.id]=p);
+  let gone=0,out=0;
+  st.forEach(e=>{const p=(e&&e[1]!=null)?byId[e[1]]:null;
+    if(!p)gone++; else if(p.out>0)out++});
+  return {gone,out};
+}
+
 /* ---------- the Plans screen (Squad tab segment) ---------- */
 function plansView(){
-  const s=ensure(),c=me(); if(!s.plans.A)return '<div class="card"><div class="dim">No club yet.</div></div>';
-  const f=nextFixture(),a=f?advFor(f):null;
+  const s=ensure(),c=me(); if(!s.plans.A||!c)return '<div class="card"><div class="dim">No club yet.</div></div>';
+  const f=nextFixture();
+  let a=null; try{a=f?read(f):null}catch(e){console.error('[plans.view]',e)}
   const openCase=!!(a&&a.kind==='case');
-  return `${a?`<div class="card" style="margin-bottom:10px">
-     <div style="font-size:13px;color:var(--t2);line-height:19px">
-       <b style="color:var(--acc)">◆ Assistant Coach</b> — ${esc(a.why)}</div>
-     <div class="row" style="margin-top:11px;gap:8px">
-       ${a.same?'<div class="pill acc" style="padding:8px 11px">✓ Set up this way</div>'
-        :`<button class="btn xs" style="flex:1" onclick="applyPlan()">${openCase?'Stick to Plan A':'Set it up'} (${esc(a.plan.formation)})</button>`}
-       ${openCase?`<button class="btn ghost xs" onclick="swPlanCase()">His case for sitting off</button>`:''}
-     </div></div>`:''}
+  const head=a?(a.quiet
+    /* quiet: one line, no plate, no button, nothing to act on */
+    ?`<div class="row" style="gap:8px;align-items:flex-start;margin:2px 2px 12px">
+       <span style="color:var(--t3);font-size:12px;margin-top:1px">◇</span>
+       <div class="dim" style="font-size:12px;line-height:18px">${esc(a.why)}</div></div>`
+    /* speaking: he wants a change, so the why and the cost are the card */
+    :`<div class="card" style="margin-bottom:10px;border-color:var(--acc)">
+       <div style="font-size:13px;color:var(--t2);line-height:19px">
+         <b style="color:var(--acc)">◆ Assistant Coach</b> — ${esc(a.why)}</div>
+       <div class="row" style="margin-top:11px;gap:8px">
+         <button class="btn xs" style="flex:1" onclick="${openCase?'swPlanStick()':"swPlanUse('"+a.key+"')"}">${
+           openCase?'Keep Plan A':'Go with Plan '+a.key+' ('+esc(a.plan.formation)+')'}</button>
+         ${openCase?`<button class="btn ghost xs" onclick="swPlanCase()">Hear his case</button>`:''}
+       </div></div>`):'';
+  return `${head}
    <div class="sechead">Your game plans</div>
    ${KEYS.map(k=>{
-     const p=s.plans[k],inUse=planMatches(p,c);
+     const p=s.plans[k],inUse=planMatches(p,c),t=sheetTrouble(c,p);
      return `<div class="card" style="margin-bottom:9px${inUse?';border-color:var(--acc)':''}">
       <div class="row"><span class="pill acc" style="font-family:var(--disp);font-weight:800">${k}</span>
         <span style="font-weight:700;font-size:14px">${esc(p.name)}</span>
+        ${inUse?'<span class="pill acc">✓ In use</span>':''}
         <span class="spacer"></span><span class="pill">${esc(p.formation)}</span></div>
       <div class="dim" style="font-size:12px;margin-top:6px">${esc(words(p))}</div>
+      <div style="margin-top:9px;border-top:1px solid var(--hair);padding-top:7px">${sheetHTML(c,p)}</div>
+      ${(t.gone||t.out)?`<div style="font-size:11.5px;color:var(--inj);margin-top:6px">
+        ${t.gone?t.gone+' gone (✗)':''}${t.gone&&t.out?' · ':''}${t.out?t.out+' unavailable (✚)':''} —
+        ${inUse?'already covered':'covered when you call it up'}</div>`:''}
+      ${(p.fixed&&p.fixed.length)?`<div style="font-size:11.5px;color:var(--t3);line-height:17px;margin-top:6px">
+        ${p.fixed.map(l=>esc(l)).join(' ')}</div>`:''}
       <div class="row" style="margin-top:10px;gap:8px">
-        ${inUse?'<div class="pill acc" style="padding:8px 11px">✓ In use</div>'
+        ${inUse?`<button class="btn xs" style="flex:1" onclick="swPlanSave('${k}')">Save this XI</button>`
           :`<button class="btn xs" style="flex:1" onclick="swPlanUse('${k}')">Use this plan</button>`}
         <button class="btn ghost xs" onclick="swPlanEdit('${k}')">Adjust</button></div></div>`}).join('')}
    <div class="card" style="margin-top:2px"><div style="font-size:12px;color:var(--t3);line-height:18px">
-     Three ways of playing, all of them yours. The assistant backs them by default —
-     when he wants you to deviate for an opponent, he has to make the case to your face.</div></div>`;
+     Three ways of playing and three teamsheets, all of them yours. Call one up and that eleven
+     walks out — anyone sold or injured is replaced by the best man for the shirt and you get told who.
+     The assistant only speaks when he wants something changed.</div></div>`;
 }
 
 /* ============================================================
@@ -10887,18 +12387,60 @@ SW.register({
   id:'plans',
   init(){const s=SW.state('plans');for(const k in DEF)delete s[k];S();},
   onLoad(){S()},
-  onSeasonEndAfter(){const s=S(); s.dealt={};},
+  onSeasonEndAfter(){const s=S(); s.dealt={};
+    /* new season, new squad numbers: heal every sheet before he opens the tab */
+    const c=me(); if(!c||!s.plans)return;
+    KEYS.forEach(k=>{const p=s.plans[k]; if(!p)return;
+      try{ const r=resolveSheet(c,p),old=Array.isArray(p.xi)?p.xi:[];
+        if(r.xi)p.xi=r.xi.map((x,i)=>{const hit=r.rep.find(z=>z.i===i);
+          return (hit&&!hit.perm&&old[i])?old[i]:[x.slot,x.p.id,surn(x.p)]});
+        p.fixed=null;
+      }catch(e){console.error('[plans.season]',e)} });
+  },
+
+  /* A plan that still names a man who has been sold is a lie on the screen.
+     Heal it the moment he leaves — silently, because the sale already spoke. */
+  onTransfer(p,seller,buyer){
+    try{
+      const c=me(); if(!c||!p||!seller||seller.id!==G.me)return;
+      const s=S(); if(!s.set||!s.plans)return;
+      KEYS.forEach(k=>{const pl=s.plans[k]; if(!pl||!Array.isArray(pl.xi))return;
+        const i=pl.xi.findIndex(e=>e&&e[1]===p.id); if(i<0)return;
+        const used=new Set(pl.xi.map(e=>e&&e[1]));used.delete(p.id);
+        const inP=bestFor(c,pl.xi[i][0],used,null);
+        if(inP)pl.xi[i]=[pl.xi[i][0],inP.id,surn(inP)];
+      });
+    }catch(e){console.error('[plans.transfer]',e)}
+  },
+
+  /* If the plan on the pitch is untouched and one of its eleven cannot play,
+     repair it now and say so — not silently at kick-off. */
+  onWeek(){
+    try{
+      const c=me(); if(!c)return;
+      const s=S(); if(!s.set||!s.plans)return;
+      const k=inUseKey(c); if(!k)return;
+      const p=s.plans[k];
+      if(!sheetUntouched(c,p))return;              // he has picked his own side — leave it
+      const t=sheetTrouble(c,p); if(!t.gone&&!t.out)return;
+      const fixed=applySheet(c,p,k);
+      tellRepair(k,p,fixed,'Plan '+k+' is still the plan; that is the only change.');
+    }catch(e){console.error('[plans.week]',e)}
+  },
 
   /* the core's assistant defers to this entirely */
   assistantAdvice(f){
-    try{ return advFor(f) }catch(e){ console.error('[plans.advice]',e); return null }
+    try{ return read(f) }catch(e){ console.error('[plans.advice]',e); return null }
   },
 
   hubCards(){
     const f=nextFixture(); if(!f)return [];
     const s=ensure(); if(!s.plans.A)return [];
     let x=null; try{x=caseFor(f)}catch(e){}
-    if(!x||!x.strong||s.dealt[fkey(f)])return [];
+    const c=me();
+    /* a card is for a decision he has not made. If the plan already suits,
+       or he has already set up that way, or he has answered — no card. */
+    if(!x||!x.strong||s.dealt[fkey(f)]||!c||planMatches(x.prop,c))return [];
     return [{ic:'⚑',bg:'#0E2340',col:'var(--trf)',priority:62,
       a:'He wants to sit off v '+x.o.abbr,
       b:'His case, what it costs, your call',
@@ -10921,14 +12463,19 @@ SW.register({
   },
 
   /* published interface */
-  plan(k){const s=S();return (s.plans&&s.plans[k])?JSON.parse(JSON.stringify(s.plans[k])):null},
-  inUse(){const s=S(),c=me();if(!c||!s.plans)return null;
-    for(const k of KEYS)if(planMatches(s.plans[k],c))return k; return null},
-  apply(k){swPlanUse(k)}
+  plan(k){const s=me()?ensure():S();return (s.plans&&s.plans[k])?JSON.parse(JSON.stringify(s.plans[k])):null},
+  inUse(){if(me())ensure();return inUseKey(me())},
+  apply(k){swPlanUse(k)},
+  /* the eleven a plan would actually put out right now, repaired, no side effects */
+  sheetFor(k){const c=me(); if(!c)return null; const s=ensure(),p=s.plans&&s.plans[k]; if(!p)return null;
+    try{const r=resolveSheet(c,p); return r.xi?r.xi.map(x=>({slot:x.slot,id:x.p.id,name:x.p.name})):null}
+    catch(e){return null}}
 });
 
 /* switching mid-match: pause via the matchday module's own controls, apply,
-   resume — all in one tick so the tactics sheet never actually shows. */
+   resume — all in one tick so the tactics sheet never actually shows.
+   Shape and style only: you do not get eleven fresh men at 60 minutes, you
+   get three substitutions, and those belong to matchday. */
 window.swPlanLive=function(k){
   const s=S(),p=s.plans&&s.plans[k]; if(!p)return;
   if(typeof MT==='undefined'||!MT||!MT.S)return;

@@ -333,7 +333,9 @@ function resultHeadline(c){
 function Q(){ return [
 
 /* ---------- heavy defeat ---------- */
-{id:'heavy_when', tag:'heavy', rec:'blame',
+{id:'heavy_when',
+ pre:c=>c.res==='L'&&c.heavy,
+ tag:'heavy', rec:'blame',
  q:[c=>c.gf+'-'+c.ga+'. When did you know it was gone?',
     c=>'Be honest. At what point today did you stop believing?',
     c=>c.ga+' conceded. Talk us through the moment it broke.'],
@@ -345,7 +347,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask the officials. The second goal was three yards off."',
    d:'The governing body reads the papers too', f:c=>{refCharge();return 'REF ROW: BOSS FACES A CHARGE'}}
  ]},
-{id:'heavy_worst', tag:'heavy', rec:'blame',
+{id:'heavy_worst',
+ pre:c=>c.res==='L'&&c.heavy&&c.margin>=2,
+ tag:'heavy', rec:'blame',
  q:[c=>'Is that the worst you have been since you walked in?',
     c=>'Where does that rank among the bad days? Because there is competition.',
     c=>'Your predecessor never lost by '+c.margin+' here. Does that sting?'],
@@ -357,7 +361,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask the people upstairs what they funded. Then ask me again."',
    d:'That will be read out in the boardroom', f:c=>{bAdj(-9,'blamed the board in public');punditAdj(3);return '"BACK ME OR SACK ME" — BOSS TURNS ON HIS BOARD'}}
  ]},
-{id:'heavy_home', tag:'heavy', needs:'home', rec:'back',
+{id:'heavy_home',
+ pre:c=>c.res==='L'&&c.heavy&&c.home===1,
+ tag:'heavy', needs:'home', rec:'back',
  q:[c=>'They paid to watch that. What do you say to the ones who stayed to the end?',
     c=>'Your own end was emptying before the hour. Did you notice?'],
  a:[
@@ -370,7 +376,9 @@ function Q(){ return [
  ]},
 
 /* ---------- the derby ---------- */
-{id:'derby_song', tag:'derby', rec:'dig',
+{id:'derby_song',
+ pre:c=>c.derby&&c.res!=='W',
+ tag:'derby', rec:'dig',
  q:[c=>'Their end were singing your name at the end. Not kindly.',
     c=>'You will have heard what their fans called you today. Any reply?'],
  a:[
@@ -381,7 +389,9 @@ function Q(){ return [
   {k:'dig', t:'"They will sing at anything. It is the only thing they win."',
    d:'This one runs for a week', f:c=>{punditAdj(-2);return 'DERBY BLAST: "IT IS THE ONLY THING THEY WIN"'}}
  ]},
-{id:'derby_since', tag:'derby', needs:'neverBeaten', rec:'back',
+{id:'derby_since',
+ pre:c=>c.derby&&c.res!=='W'&&c.neverBeaten===1,
+ tag:'derby', needs:'neverBeaten', rec:'back',
  q:[c=>'You have not beaten '+c.oppName+' yet. Does that eat at you?',
     c=>'Still no derby win under you. They have noticed across the city.'],
  a:[
@@ -392,9 +402,12 @@ function Q(){ return [
   {k:'dig', t:'"They have spent four times what we have. Congratulations to them."',
    d:'The dig lands. It always does', f:c=>{c.xi.forEach(id=>mAdj(id,5,'you took the heat off them'));punditAdj(-3);return 'MONEY TALK: BOSS TAKES AIM ACROSS THE CITY'}}
  ]},
-{id:'derby_won', tag:'derby', needs:'resW', rec:'back',
+{id:'derby_won',
+ pre:c=>c.derby&&c.res==='W',
+ tag:'derby', needs:'resW', rec:'back',
  q:[c=>'A derby win. Half this city is yours tonight. Enjoy it, or bank it?',
-    c=>'You beat '+c.oppName+' in front of their own. Tell us what that room was like.'],
+    c=>(c.home?'You beat '+c.oppName+' in your own place and the ground has not emptied yet.'
+              :'You beat '+c.oppName+' in front of their own.')+' Tell us what that room was like.'],
  a:[
   {k:'back', t:'"Those players understood what today was. You could see it from the first whistle."',
    d:'The city will chant their names', f:c=>{c.xi.forEach(id=>mAdj(id,10,'you gave them the derby'));punditAdj(4);return 'THEY UNDERSTOOD THE DAY: '+UP(c.myName)+' TAKE THE CITY'}},
@@ -403,9 +416,50 @@ function Q(){ return [
   {k:'dig', t:'"Tell them the parade goes past their ground. Slowly."',
    d:'That line will be on flags', f:c=>{c.xi.forEach(id=>mAdj(id,6,'you rubbed it in for them'));punditAdj(-3);bAdj(-2,'poured petrol on a rivalry');return '"SLOWLY" — BOSS TWISTS THE DERBY KNIFE'}}
  ]},
+{id:'derby_again',
+ pre:c=>c.derby&&c.res==='W'&&c.derbyRepeat===1,
+ tag:'derby', needs:'derbyRepeat', rec:'back',
+ q:[c=>'That is '+c.vsW+' derbies you have taken off them now. Is this becoming your fixture?',
+    c=>'They have not laid a glove on you in this one since you arrived. Do they know it?'],
+ a:[
+  {k:'back', t:'"It is their fixture too. My players just keep turning up for it."',
+   d:'Said flat. It travels further that way', f:c=>{c.xi.forEach(id=>mAdj(id,9,'you made the derby record theirs'));punditAdj(3);return UP(c.myName)+' OWN THIS FIXTURE NOW'}},
+  {k:'blame', t:'"Records go the second you talk about them. Ask me again in April."',
+   d:'Superstition, dressed as discipline', f:c=>{bAdj(2,'refused to gloat');return null}},
+  {k:'dig', t:'"They can have the next one. I have run out of room on the wall."',
+   d:'Across the city, that gets pinned up', f:c=>{c.xi.forEach(id=>mAdj(id,5,'you enjoyed it on their behalf'));punditAdj(-4);bAdj(-2,'goaded the neighbours');return '"NO ROOM LEFT ON THE WALL" — DERBY TAUNT'}}
+ ]},
+{id:'derby_draw',
+ pre:c=>c.derby&&c.res==='D',
+ tag:'derby', needs:'resD', rec:'blame',
+ q:[c=>'A derby nobody won. Does a point in this fixture count for anything?',
+    c=>c.gf+'-'+c.ga+', and both ends went home arguing. Were you the better side?'],
+ a:[
+  {k:'back', t:'"They gave me everything in a game that takes everything. I will not price that at one point."',
+   d:'Warm. Slightly evasive', f:c=>{c.xi.forEach(id=>mAdj(id,6,'you valued the derby effort'));return null}},
+  {k:'blame', t:'"We were there to win it and I did not find a way. That is my afternoon."',
+   d:'No hiding place', f:c=>{bAdj(1,'took a flat derby on the chin');punditAdj(4);return null}},
+  {k:'dig', t:'"They came for a point and they got one. They can celebrate that if they like."',
+   d:'A cheap shot. A satisfying one', f:c=>{punditAdj(-3);return 'THEY CAME FOR A POINT: DERBY JIBE FROM '+mgrUp()}}
+ ]},
+{id:'derby_lost',
+ pre:c=>c.derby&&c.res==='L',
+ tag:'derby', needs:'resL', rec:'blame',
+ q:[c=>'Beaten in the derby. That is the one they do not forgive. What do you say tonight?',
+    c=>'Their supporters have a year of this now. Did your players understand what was at stake?'],
+ a:[
+  {k:'back', t:'"They understood. They were beaten by a better side on the day, not by a smaller one."',
+   d:'A shield, held steady', f:c=>{c.xi.forEach(id=>mAdj(id,7,'you carried the derby defeat for them'));bAdj(-2,'softened a derby defeat');return null}},
+  {k:'blame', t:'"They understood it. I did not prepare them for it. That is the difference and it is mine."',
+   d:'The hardest one to say out loud', f:c=>{c.xi.forEach(id=>mAdj(id,5,'you took the derby loss yourself'));bAdj(-1,'owned the derby');punditAdj(6);S().line=punditLine('backed');return '"I DID NOT PREPARE THEM" — '+mgrUp()+' ON DERBY DEFEAT'}},
+  {k:'dig', t:'"Let them enjoy it. They have had little enough to enjoy and we go there in March."',
+   d:'You have just made the return fixture bigger', f:c=>{c.xi.forEach(id=>mAdj(id,-4,'you promised revenge they now have to deliver'));punditAdj(-3);return 'SEE YOU IN MARCH: BOSS REFUSES TO BOW'}}
+ ]},
 
 /* ---------- runs, droughts, streaks ---------- */
-{id:'winless_crisis', tag:'winless', rec:'blame',
+{id:'winless_crisis',
+ pre:c=>c.res!=='W'&&c.winlessRun>=3,
+ tag:'winless', rec:'blame',
  q:[c=>c.winlessRun+' without a win. How long before this is a crisis?',
     c=>'Winless in '+c.winlessRun+'. What word would you use, if not crisis?',
     c=>c.winlessRun+' games now. The people who set your objective are counting too.'],
@@ -417,7 +471,9 @@ function Q(){ return [
   {k:'dig', t:'"Crisis. Great word. Sells papers, wins nothing."',
    d:'He will remember that on Sunday', f:c=>{punditAdj(-10);S().line=punditLine('slapped');return 'BOSS TURNS ON THE PRESS: "SELLS PAPERS, WINS NOTHING"'}}
  ]},
-{id:'winless_fans', tag:'winless', needs:'home', rec:'back',
+{id:'winless_fans',
+ pre:c=>c.res!=='W'&&c.winlessRun>=3&&c.home===1,
+ tag:'winless', needs:'home', rec:'back',
  q:[c=>'That is '+c.winlessRun+' now, and today they turned. You heard it. What do you do with that?',
     c=>'Your own supporters were on the players\' backs today. Do they deserve it?'],
  a:[
@@ -428,7 +484,9 @@ function Q(){ return [
   {k:'dig', t:'"Where were they when we were winning? Louder then, I hope."',
    d:'Never fight the crowd. Never.', f:c=>{bAdj(-8,'insulted the paying support');punditAdj(-6);S().line=punditLine('slapped');return 'BOSS BLASTS OWN FANS. IT WILL NOT BE FORGOTTEN.'}}
  ]},
-{id:'streak_end', tag:'streak', rec:'back',
+{id:'streak_end',
+ pre:c=>c.res==='W'&&c.winRun>=4,
+ tag:'streak', rec:'back',
  q:[c=>c.winRun+' wins on the spin. Go on — say the word "momentum".',
     c=>'That is '+c.winRun+' straight now. Are you allowed to enjoy this yet?'],
  a:[
@@ -439,7 +497,9 @@ function Q(){ return [
   {k:'dig', t:'"Three weeks ago you had us in a crisis. Keep the word ready, you will want it back."',
    d:'He keeps receipts. So do you, apparently', f:c=>{punditAdj(-7);S().line=punditLine('slapped');return 'BOSS TO PRESS: "KEEP THE WORD READY"'}}
  ]},
-{id:'clean_run', tag:'clean', rec:'back',
+{id:'clean_run',
+ pre:c=>c.ga===0&&c.cleanRun>=3,
+ tag:'clean', rec:'back',
  q:[c=>c.cleanRun+' clean sheets in a row. Where has that come from?',
     c=>'Nobody has scored past you in '+c.cleanRun+' games. Boring, or beautiful?'],
  a:[
@@ -450,7 +510,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask the strikers we keep facing. Some of them should try a different trade."',
    d:'Every forward in the league just circled you', f:c=>{punditAdj(-3);bAdj(-1,'goaded the rest of the league');return '"TRY A DIFFERENT TRADE" — BOSS MOCKS THE LEAGUE\'S STRIKERS'}}
  ]},
-{id:'drought', tag:'blank', rec:'blame',
+{id:'drought',
+ pre:c=>c.gf===0&&c.blankRun>=3,
+ tag:'blank', rec:'blame',
  q:[c=>c.blankRun+' games without a goal from your side. Where are they hiding?',
     c=>'No goals in '+c.blankRun+'. Do you watch the shooting drills through your fingers?'],
  a:[
@@ -463,7 +525,9 @@ function Q(){ return [
  ]},
 
 /* ---------- upsets and statements ---------- */
-{id:'upset_win', tag:'upsetWin', rec:'back',
+{id:'upset_win',
+ pre:c=>c.res==='W'&&c.upsetWin,
+ tag:'upsetWin', rec:'back',
  q:[c=>'Nobody gave you a prayer. Best night of your career?',
     c=>'The bookies had you buried. What did you know that they did not?'],
  a:[
@@ -474,7 +538,9 @@ function Q(){ return [
   {k:'dig', t:'"Nobody gave us a prayer because nobody watches us. Their loss."',
    d:'Quotable. Cheap. Enjoyable', f:c=>{punditAdj(-4);return '"NOBODY WATCHES US" — AND NOW EVERYBODY IS'}}
  ]},
-{id:'upset_loss', tag:'upsetLoss', rec:'blame',
+{id:'upset_loss',
+ pre:c=>c.res==='L'&&c.upsetLoss,
+ tag:'upsetLoss', rec:'blame',
  q:[c=>'You were the better side on paper by a distance. Explain that.',
     c=>'They are '+(c.oppPos?ord(c.oppPos)+' in the table':'half the club you are')+'. How does that happen to your team?'],
  a:[
@@ -485,7 +551,9 @@ function Q(){ return [
   {k:'dig', t:'"Some of them fancied a day off. They will not get another."',
    d:'This one goes through the dressing-room wall', f:c=>{c.xi.forEach(id=>mAdj(id,-14,'you called them out in public'));c.xi.forEach(shock);punditAdj(2);return '"THEY FANCIED A DAY OFF" — MANAGER BLASTS OWN PLAYERS'}}
  ]},
-{id:'thrash_message', tag:'thrash', rec:'back',
+{id:'thrash_message',
+ pre:c=>c.res==='W'&&c.margin>=4,
+ tag:'thrash', rec:'back',
  q:[c=>c.gf+' scored. Was that a message to the rest of them?',
     c=>'That was a demolition. Who was it aimed at?'],
  a:[
@@ -496,7 +564,9 @@ function Q(){ return [
   {k:'dig', t:'"If the rest of them need a message, they should watch more football."',
    d:'That will be pinned up somewhere', f:c=>{punditAdj(-3);return '"THEY SHOULD WATCH MORE FOOTBALL"'}}
  ]},
-{id:'comeback', tag:'comeback', rec:'back',
+{id:'comeback',
+ pre:c=>c.res==='W'&&c.maxDef>=2,
+ tag:'comeback', rec:'back',
  q:[c=>c.maxDef+' down and you came back. What was said at half-time?',
     c=>'Most teams die at '+c.maxDef+' behind. Yours did not. Why?'],
  a:[
@@ -507,7 +577,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask their bench what was said. They were the ones celebrating at half-time."',
    d:'A wound for their manager to carry', f:c=>{punditAdj(-2);return 'CELEBRATING AT HALF-TIME. OH DEAR.'}}
  ]},
-{id:'late_winner', tag:'late', rec:'back',
+{id:'late_winner',
+ pre:c=>c.res==='W'&&c.late,
+ tag:'late', rec:'back',
  q:[c=>'Won it in the last minute. Character, or a let-off?',
     c=>(c.scorer?surname(c.scorer):'Your man')+' in the '+(c.lateMin||90)+'th. Do you coach that or pray for it?'],
  a:[
@@ -518,7 +590,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask them why it took ninety minutes. I have."',
    d:'Now they know the row was real', f:c=>{c.xi.forEach(id=>mAdj(id,-9,'you aired the dressing-room row'));c.xi.forEach(shock);return null}}
  ]},
-{id:'late_loss', tag:'lateLoss', rec:'blame',
+{id:'late_loss',
+ pre:c=>c.res==='L'&&c.lateLoss,
+ tag:'lateLoss', rec:'blame',
  q:[c=>'Ninety minutes of work undone in the last one. How do you pick them up from that?',
     c=>'Losing like that, at the death — is that bad luck or bad habits?'],
  a:[
@@ -531,7 +605,9 @@ function Q(){ return [
  ]},
 
 /* ---------- the table, the objective, the scrap ---------- */
-{id:'title_weight', tag:'title', rec:'back',
+{id:'title_weight',
+ pre:c=>c.title&&c.res==='W',
+ tag:'title', rec:'back',
  q:[c=>'Keep this up and it is yours to lose. Do you feel the weight?',
     c=>'Everyone above you has stumbled. It is there for you now. Say it.'],
  a:[
@@ -542,7 +618,9 @@ function Q(){ return [
   {k:'dig', t:'"Weight? Ask the clubs who were meant to be here instead of us."',
    d:'Half the division just got a fixture circled', f:c=>{punditAdj(-3);return 'SHOTS FIRED FROM THE TOP OF THE TABLE'}}
  ]},
-{id:'title_bottle', tag:'title', needs:'dropped', rec:'blame',
+{id:'title_bottle',
+ pre:c=>c.title&&c.res!=='W',
+ tag:'title', needs:'dropped', rec:'blame',
  q:[c=>'Points dropped at the wrong end of the season. The word people use is "bottle".',
     c=>'That result keeps the race alive for everyone else. Did the occasion get to them?'],
  a:[
@@ -553,7 +631,9 @@ function Q(){ return [
   {k:'dig', t:'"Bottle. Write it. Then be at the ground in May when we are holding the thing."',
    d:'Either a famous quote or a famous epitaph', f:c=>{punditAdj(-6);bAdj(-2,'dared the press in a title race');S().line=punditLine('slapped');return '"BE THERE IN MAY" — BOSS DARES THE DOUBTERS'}}
  ]},
-{id:'scrap_bottom', tag:'scrap', rec:'blame',
+{id:'scrap_bottom',
+ pre:c=>c.compKey==='league'&&c.week>=25&&c.pos>=17,
+ tag:'scrap', rec:'blame',
  q:[c=>ord(c.pos)+' with the run-in coming. Do you say the word "relegation" in that dressing room?',
     c=>'The table says you go down from here. What does your gut say?'],
  a:[
@@ -564,7 +644,9 @@ function Q(){ return [
   {k:'dig', t:'"Three of the clubs down there have spent double what I was given. Look it up."',
    d:'True, and no one will care if you go down', f:c=>{bAdj(-7,'made the budget everyone\'s business');punditAdj(2);return 'BOSS: "LOOK UP WHAT I WAS GIVEN"'}}
  ]},
-{id:'promoted_slip', tag:'promoted', rec:'blame',
+{id:'promoted_slip',
+ pre:c=>c.promotedOpp&&c.res!=='W',
+ tag:'promoted', rec:'blame',
  q:[c=>c.oppName+' came up from the division below and just took points off you. Explain it.',
     c=>'Everyone circles the promoted clubs as points in the bank. They did not read the script today.'],
  a:[
@@ -577,9 +659,11 @@ function Q(){ return [
  ]},
 
 /* ---------- reunions, red cards, individuals ---------- */
-{id:'return_club', tag:'returning', rec:'blame',
- q:[c=>'Back at '+c.oppName+'. Any part of you that did not want to win?',
-    c=>'They used to sing your name here. What was today like from the away dugout?'],
+{id:'return_club',
+ pre:c=>c.returning,
+ tag:'returning', rec:'blame',
+ q:[c=>(c.home?'Your old club in your new house. ':'Back at '+c.oppName+'. ')+'Any part of you that did not want to win?',
+    c=>'They used to sing your name at that club. What was today like'+(c.home?', looking across at them?':' from the away dugout?')],
  a:[
   {k:'back', t:'"Not one part. My players deserved better than sentiment."',
    d:'Cold. They will like cold', f:c=>{c.xi.forEach(id=>mAdj(id,7,'you put them before your old club'));return null}},
@@ -588,7 +672,9 @@ function Q(){ return [
   {k:'dig', t:'"They know why I left. So do the people who made me."',
    d:'Old wounds, opened live on air', f:c=>{punditAdj(-4);return 'OLD WOUNDS REOPENED: "THEY KNOW WHY I LEFT"'}}
  ]},
-{id:'red_card', tag:'red', rec:'blame',
+{id:'red_card',
+ pre:c=>!!c.red,
+ tag:'red', rec:'blame',
  q:[c=>'You finished with ten. Was the sending-off a sending-off?',
     c=>'The red card changed everything. Your honest view of it, on the record.'],
  a:[
@@ -599,7 +685,9 @@ function Q(){ return [
   {k:'dig', t:'"He has given three of those against us this season. Three."',
    d:'That is a charge waiting to be typed', f:c=>{refCharge();return 'REF ROW: "THREE OF THOSE AGAINST US"'}}
  ]},
-{id:'hat_trick', tag:'hat', rec:'back',
+{id:'hat_trick',
+ pre:c=>!!c.hat&&c.res!=='L',
+ tag:'hat', rec:'back',
  q:[c=>'Three for '+surname(c.hat)+'. How far can he go?',
     c=>surname(c.hat)+' took the ball home today. What do you say to a man in that form?'],
  a:[
@@ -610,7 +698,9 @@ function Q(){ return [
   {k:'dig', t:'"Further than this board will ever let him."',
    d:'That will be on the desk within the hour', f:c=>{bAdj(-9,'told the world the club is too small');punditAdj(5);return '"FURTHER THAN THIS BOARD WILL LET HIM"'}}
  ]},
-{id:'first_win', tag:'firstWin', rec:'back',
+{id:'first_win',
+ pre:c=>c.res==='W'&&c.prevWinless>=3,
+ tag:'firstWin', rec:'back',
  q:[c=>'First win in '+(c.prevWinless+1)+'. Relief, or were you never worried?',
     c=>'The run is over. Between us — how close was it to breaking you?'],
  a:[
@@ -623,7 +713,9 @@ function Q(){ return [
  ]},
 
 /* ---------- the cup ---------- */
-{id:'cup_out', tag:'cupOut', rec:'blame',
+{id:'cup_out',
+ pre:c=>c.isCup&&c.res==='L',
+ tag:'cupOut', rec:'blame',
  q:[c=>'Out of the cup. For a club like this, is that a season lost or a distraction gone?',
     c=>'The cup was the shortest road to silver. It just closed. How much does that hurt?'],
  a:[
@@ -634,9 +726,11 @@ function Q(){ return [
   {k:'dig', t:'"Ask the league what a replay would have done to our week. Somebody somewhere is relieved."',
    d:'Cynical. The cup romantics will hate you', f:c=>{punditAdj(-6);bAdj(2,'quietly prioritised the league');return 'BOSS SHRUGS AT CUP EXIT — ROMANTICS FUME'}}
  ]},
-{id:'cup_on', tag:'cupOn', rec:'back',
+{id:'cup_on',
+ pre:c=>c.isCup&&c.res==='W'&&!c.cupFinal,
+ tag:'cupOn', rec:'back',
  q:[c=>'Through again. The cup — do you dare say the word "final" yet?',
-    c=>'A quarter-final is where seasons get remembered. How seriously are you taking this?'],
+    c=>'Rounds like that are where seasons get remembered. How seriously are you taking this one?'],
  a:[
   {k:'back', t:'"These players have earned the right to dream. I am not taking it off them."',
    d:'Now the town starts booking coaches', f:c=>{c.xi.forEach(id=>mAdj(id,8,'you let them dream about the cup'));punditAdj(2);return 'DREAM ON: '+UP(c.myName)+' MARCH IN THE CUP'}},
@@ -645,7 +739,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask the big clubs if they fancy the draw. They avoided us twice already, in spirit."',
    d:'A wink at the balls in the bowl', f:c=>{punditAdj(-2);return '"NOBODY WANTS US" — CUP RUN GETS A VOICE'}}
  ]},
-{id:'cup_shock', tag:'cupShock', rec:'back',
+{id:'cup_shock',
+ pre:c=>c.isCup&&c.res==='W'&&c.upsetWin,
+ tag:'cupShock', rec:'back',
  q:[c=>'You have just put '+c.oppName+' out of the cup. Tell us that is not the story of the round.',
     c=>'A cup shock with your name on it. Where does that rank for you?'],
  a:[
@@ -656,7 +752,9 @@ function Q(){ return [
   {k:'dig', t:'"They turned up thinking the badge would win it. Badges do not tackle."',
    d:'Their dressing room will frame that', f:c=>{punditAdj(-3);return '"BADGES DO NOT TACKLE" — THE QUOTE OF THE ROUND'}}
  ]},
-{id:'cup_final_win', tag:'cupWon', rec:'back',
+{id:'cup_final_win',
+ pre:c=>c.isCup&&c.cupFinal&&c.res==='W',
+ tag:'cupWon', rec:'back',
  q:[c=>'You have won the cup. Whatever else happens, that is forever. What do you do with a day like this?',
     c=>'Silverware. The thing they hired you for. Who gets this one?'],
  a:[
@@ -669,7 +767,9 @@ function Q(){ return [
  ]},
 
 /* ---------- Europe ---------- */
-{id:'euro_win', tag:'euroWin', rec:'back',
+{id:'euro_win',
+ pre:c=>c.isEuro&&c.res==='W',
+ tag:'euroWin', rec:'back',
  q:[c=>'A win in the '+c.comp+'. These nights — do they change how the world sees this club?',
     c=>'European football, and you looked like you belonged. Did that surprise you?'],
  a:[
@@ -680,7 +780,9 @@ function Q(){ return [
   {k:'dig', t:'"The world can see us fine. It is our own league that keeps looking away."',
    d:'A jab at home from abroad', f:c=>{punditAdj(-3);return 'BOSS: "OUR OWN LEAGUE KEEPS LOOKING AWAY"'}}
  ]},
-{id:'euro_loss', tag:'euroLoss', rec:'blame',
+{id:'euro_loss',
+ pre:c=>c.isEuro&&c.res==='L',
+ tag:'euroLoss', rec:'blame',
  q:[c=>'Beaten in Europe. Is the gap to that level bigger than you thought?',
     c=>'That is what continental football does to you. What did your players learn tonight?'],
  a:[
@@ -691,7 +793,9 @@ function Q(){ return [
   {k:'dig', t:'"Their theatrics bought every whistle going. That is the level, apparently."',
    d:'UEFA-adjacent bodies also read papers', f:c=>{refCharge();return 'BOSS BLASTS "THEATRICS" ON EURO NIGHT'}}
  ]},
-{id:'euro_deep', tag:'euroDeep', rec:'back',
+{id:'euro_deep',
+ pre:c=>c.isEuro&&c.euroSemiUp&&c.res!=='L',
+ tag:'euroDeep', rec:'back',
  q:[c=>'The last four of the '+c.comp+'. Did you believe that in August?',
     c=>'This club, this deep in Europe. What is the ceiling now?'],
  a:[
@@ -704,7 +808,9 @@ function Q(){ return [
  ]},
 
 /* ---------- wildcards: the squad, the window, the club ---------- */
-{id:'player_struggle', tag:'*', needs:'strugglerId', rec:'back',
+{id:'player_struggle',
+ pre:c=>!!c.strugglerId&&c.strugglerReal===1,
+ tag:'*', needs:'strugglerId', rec:'back',
  q:[c=>c.strugglerName+' has had a rough few weeks. Is he still your man?',
     c=>'Every side has a man out of form. Right now yours is '+c.strugglerName+'. True or unfair?'],
  a:[
@@ -715,7 +821,9 @@ function Q(){ return [
   {k:'dig', t:'"He knows he has been nowhere near it. Everybody in there knows."',
    d:'Brutal. It might even work', f:c=>{mAdj(c.strugglerId,-30,'you named him in public');c.xi.forEach(id=>{if(id!==c.strugglerId)mAdj(id,-5,'you named a team-mate in public')});shock(c.strugglerId);return UP(surname(c.strugglerName))+' HUNG OUT TO DRY'}}
  ]},
-{id:'pundit_said', tag:'*', needs:'punditQuote', rec:'blame',
+{id:'pundit_said',
+ pre:c=>!!c.punditQuote&&c.punditCritical===1,
+ tag:'*', needs:'punditQuote', rec:'blame',
  q:[c=>c.punditName+' said, and I quote, "'+c.punditQuote+'"',
     c=>'You will have seen what '+c.punditName+' has been saying about you. Care to respond?'],
  a:[
@@ -726,7 +834,9 @@ function Q(){ return [
   {k:'dig', t:'"He was a coward as a player and he is a coward with a microphone."',
    d:'You have made an enemy for the season', f:c=>{punditAdj(-22);S().line=punditLine('slapped');bAdj(-3,'started a public feud');return 'WAR OF WORDS: BOSS CALLS PUNDIT A COWARD'}}
  ]},
-{id:'board_backing', tag:'*', rec:'back',
+{id:'board_backing',
+ pre:c=>true,
+ tag:'*', rec:'back',
  q:[c=>'Do you have everything you need from the people above you?',
     c=>'When did you last sit down with the owners, and did you leave that room happy?'],
  a:[
@@ -737,7 +847,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask them. They are very good at answering questions in private."',
    d:'Satisfying. It will cost you', f:c=>{bAdj(-11,'took a public swing at the board');punditAdj(4);return 'OPEN WARFARE: "ASK THEM. THEY ANSWER IN PRIVATE."'}}
  ]},
-{id:'crowd_mood', tag:'*', needs:'home', rec:'back',
+{id:'crowd_mood',
+ pre:c=>c.home===1&&c.crowdRestless===1,
+ tag:'*', needs:'home', rec:'back',
  q:[c=>'Some of your own were leaving early again. Does that get to you?',
     c=>'The atmosphere in that ground has changed this season. Have you felt it from the dugout?'],
  a:[
@@ -748,7 +860,9 @@ function Q(){ return [
   {k:'dig', t:'"They paid what this club charges them. Ask upstairs about that."',
    d:'Ticket prices. In public. Brave', f:c=>{bAdj(-7,'raised ticket prices in a press conference');punditAdj(4);return 'BOSS RAISES TICKET PRICES — IN PUBLIC'}}
  ]},
-{id:'next_one', tag:'*', rec:'back',
+{id:'next_one',
+ pre:c=>true,
+ tag:'*', rec:'back',
  q:[c=>'What does this squad need before the next one?',
     c=>'If you could change one thing about this team by Saturday, what would it be?'],
  a:[
@@ -759,7 +873,9 @@ function Q(){ return [
   {k:'dig', t:'"Two players and a chairman who returns a phone call."',
    d:'The room upstairs went very quiet', f:c=>{bAdj(-8,'asked for a chairman who answers the phone');punditAdj(5);return '"TWO PLAYERS AND A CHAIRMAN WHO ANSWERS"'}}
  ]},
-{id:'unhappy_man', tag:'*', needs:'unhappyName', rec:'back',
+{id:'unhappy_man',
+ pre:c=>!!c.unhappyName,
+ tag:'*', needs:'unhappyName', rec:'back',
  q:[c=>'Word is '+c.unhappyName+' is not a happy man. Anything in it?',
     c=>c.unhappyName+'\'s people have been talking to anyone who will listen. Is he staying?'],
  a:[
@@ -770,7 +886,9 @@ function Q(){ return [
   {k:'dig', t:'"Nobody is bigger than this club. If he wants the door, it opens both ways."',
    d:'The whole squad just heard the rules', f:c=>{mAdj(c.unhappyId,-18,'you showed him the door in public');c.xi.forEach(shock);punditAdj(3);return UP(surname(c.unhappyName))+' TOLD: THE DOOR OPENS BOTH WAYS'}}
  ]},
-{id:'identity_quote', tag:'*', needs:'identLine', rec:'blame',
+{id:'identity_quote',
+ pre:c=>!!c.identLine,
+ tag:'*', needs:'identLine', rec:'blame',
  q:[c=>'People who know that dressing room say this: "'+c.identLine+'" Fair?',
     c=>'A description of your team doing the rounds: "'+c.identLine+'" Do you recognise it?'],
  a:[
@@ -781,7 +899,9 @@ function Q(){ return [
   {k:'dig', t:'"Somebody in my building is talking to you lot. When I find them, you lose a source."',
    d:'The mole hunt is now official', f:c=>{c.xi.forEach(id=>mAdj(id,-5,'the manager is hunting the leak'));punditAdj(-4);return 'MOLE HUNT: BOSS TURNS ON THE LEAK'}}
  ]},
-{id:'deadline_day', tag:'*', needs:'deadline', once:true, rec:'blame',
+{id:'deadline_day',
+ pre:c=>!!c.deadline,
+ tag:'*', needs:'deadline', once:true, rec:'blame',
  q:[c=>'The window shuts in days. Done, or is there one more call in you?',
     c=>'Deadline is coming. Every agent in the country has your number this week. Anything happening?'],
  a:[
@@ -792,7 +912,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask me after deadline. If nothing arrives, ask the people who count the money."',
    d:'A hostage note to your own board', f:c=>{bAdj(-6,'held the board hostage over deadline');punditAdj(3);return 'DEADLINE JAB: "ASK THE PEOPLE WHO COUNT THE MONEY"'}}
  ]},
-{id:'big_signing', tag:'*', needs:'signingName', rec:'back',
+{id:'big_signing',
+ pre:c=>!!c.signingName&&c.signingFee>0,
+ tag:'*', needs:'signingName', rec:'back',
  q:[c=>c.signingName+', for '+money(c.signingFee)+'. That is real money for this club. Where does he fit?',
     c=>'Your new man '+c.signingName+' — the fee raised eyebrows. Sell him to the doubters.'],
  a:[
@@ -803,7 +925,9 @@ function Q(){ return [
   {k:'dig', t:'"Half of you priced him at double when he was at a fashionable club. Funny, that."',
    d:'The press pack does not enjoy mirrors', f:c=>{punditAdj(-5);S().line=punditLine('slapped');return 'BOSS ACCUSES PRESS OF POSTCODE PRICING'}}
  ]},
-{id:'big_sale', tag:'*', needs:'saleName', rec:'blame',
+{id:'big_sale',
+ pre:c=>!!c.saleName&&c.saleFee>0,
+ tag:'*', needs:'saleName', rec:'blame',
  q:[c=>c.saleName+' has gone for '+money(c.saleFee)+'. Fans call it selling the family silver. Do they have a point?',
     c=>'You let '+c.saleName+' leave. Explain that to the people who sing his song.'],
  a:[
@@ -814,7 +938,9 @@ function Q(){ return [
   {k:'dig', t:'"Every family sells the silver when the roof leaks. Ask who let the roof leak."',
    d:'The metaphor lands upstairs, hard', f:c=>{bAdj(-9,'blamed the board for the sale');punditAdj(4);return '"ASK WHO LET THE ROOF LEAK"'}}
  ]},
-{id:'offer_talk', tag:'*', needs:'offerName', rec:'back',
+{id:'offer_talk',
+ pre:c=>!!c.offerName,
+ tag:'*', needs:'offerName', rec:'back',
  q:[c=>'There is a bid on the table for '+c.offerName+'. Is he for sale?',
     c=>(c.offerClub||'A club')+' want '+c.offerName+'. One sentence: does he stay?'],
  a:[
@@ -825,7 +951,9 @@ function Q(){ return [
   {k:'dig', t:'"Tell them to add a one to the front of it and stop wasting my fax machine."',
    d:'The fee just went up in print', f:c=>{if(c.offerId)mAdj(c.offerId,4,'you priced him like a crown jewel');punditAdj(2);return 'ADD A ONE TO THE FRONT: BOSS TAUNTS BIDDERS'}}
  ]},
-{id:'top_scorer', tag:'*', needs:'topScorerName', rec:'back',
+{id:'top_scorer',
+ pre:c=>!!c.topScorerName&&c.topScorerGoals>=10,
+ tag:'*', needs:'topScorerName', rec:'back',
  q:[c=>c.topScorerGoals+' goals now for '+c.topScorerName+'. Is he the best you have worked with?',
     c=>'Where would this team be without '+c.topScorerName+'\'s goals? Honestly.'],
  a:[
@@ -836,7 +964,9 @@ function Q(){ return [
   {k:'dig', t:'"He is the best paid-by-others player in the league. Every big club is welcome to be disappointed."',
    d:'A no-sale wrapped in a wink', f:c=>{if(c.topScorerId)mAdj(c.topScorerId,5,'you warned the vultures off');punditAdj(2);return 'HANDS OFF: BOSS WARNS THE VULTURES'}}
  ]},
-{id:'young_star', tag:'*', needs:'youngName', rec:'back',
+{id:'young_star',
+ pre:c=>!!c.youngName&&c.youngAge<=20,
+ tag:'*', needs:'youngName', rec:'back',
  q:[c=>c.youngName+' is '+c.youngAge+'. You keep picking him when you do not have to. Why?',
     c=>'The kid, '+c.youngName+' — supporters love him already. How do you protect a boy from that?'],
  a:[
@@ -847,7 +977,9 @@ function Q(){ return [
   {k:'dig', t:'"Protect him? From you lot, mostly. Leave the boy alone until he is twenty-three."',
    d:'The pack does not like being the story', f:c=>{if(c.youngId)mAdj(c.youngId,9,'you stood between him and the press');punditAdj(-4);return 'LEAVE THE BOY ALONE, PRESS TOLD'}}
  ]},
-{id:'old_legs', tag:'*', needs:'vetName', rec:'back',
+{id:'old_legs',
+ pre:c=>!!c.vetName&&c.vetAge>=33,
+ tag:'*', needs:'vetName', rec:'back',
  q:[c=>c.vetName+' is '+c.vetAge+' and still starting. Sentiment, or does he really get in on merit?',
     c=>'How many more seasons do those legs have? '+c.vetName+' would want you to say ten.'],
  a:[
@@ -858,7 +990,9 @@ function Q(){ return [
   {k:'dig', t:'"He has more football in him than half the wingers you lot rave about."',
    d:'A generation just got dismissed', f:c=>{if(c.vetId)mAdj(c.vetId,9,'you defended his legs in public');punditAdj(-3);return 'OLD GOLD: BOSS DEFENDS HIS VETERAN'}}
  ]},
-{id:'job_pressure', tag:'*', needs:'confLow', rec:'blame',
+{id:'job_pressure',
+ pre:c=>!!c.confLow,
+ tag:'*', needs:'confLow', rec:'blame',
  q:[c=>'People upstairs have gone quiet on you. Have you had assurances about your position?',
     c=>'Betting has you gone by the end of the season. Do you feel supported, '+(c.mgrSur||'boss')+'?'],
  a:[
@@ -869,7 +1003,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask the bookies who they had winning the league. Clowns, the lot of them."',
    d:'The odds shortened as you spoke', f:c=>{punditAdj(-5);bAdj(-2,'laughed at the noose');return 'BOSS LAUGHS AT THE ODDS. THE ODDS SHORTEN.'}}
  ]},
-{id:'above_obj', tag:'*', needs:'aboveObj', rec:'blame',
+{id:'above_obj',
+ pre:c=>c.compKey==='league'&&!!c.aboveObj,
+ tag:'*', needs:'aboveObj', rec:'blame',
  q:[c=>'The board asked for "'+c.objText+'". You are '+ord(c.pos)+'. Time to raise the target?',
     c=>ord(c.pos)+', ahead of everything they asked of you. Are you overachieving, or were they under-asking?'],
  a:[
@@ -880,7 +1016,9 @@ function Q(){ return [
   {k:'dig', t:'"They under-asked. Write that down before somebody upstairs rewrites the summer."',
    d:'A little history war has started', f:c=>{bAdj(-6,'accused the board of small dreams');punditAdj(3);return '"THEY UNDER-ASKED" — BOSS REWRITES THE SUMMER'}}
  ]},
-{id:'below_obj', tag:'*', needs:'belowObj', rec:'blame',
+{id:'below_obj',
+ pre:c=>c.compKey==='league'&&!!c.belowObj,
+ tag:'*', needs:'belowObj', rec:'blame',
  q:[c=>'"'+c.objText+'" — their words in August. It is not happening, is it?',
     c=>'You are '+ord(c.pos)+' and the objective says otherwise. What do you tell the people who set it?'],
  a:[
@@ -891,7 +1029,9 @@ function Q(){ return [
   {k:'dig', t:'"Objectives written in August do not survive the injuries of November. They know that."',
    d:'Excuses age worse than defeats', f:c=>{bAdj(-5,'renegotiated the objective through the press');punditAdj(-2);return 'BOSS BLAMES THE FIXTURE GODS'}}
  ]},
-{id:'rival_sacked', tag:'*', needs:'vacancyClub', once:true, rec:'blame',
+{id:'rival_sacked',
+ pre:c=>!!c.vacancyClub,
+ tag:'*', needs:'vacancyClub', once:true, rec:'blame',
  q:[c=>'The '+c.vacancyClub+' job is coming open, everyone says so. Your name is in the conversation.',
     c=>'A dugout in this division will be vacant soon, and your name came up before the seat was cold. Flattered?'],
  a:[
@@ -902,7 +1042,9 @@ function Q(){ return [
   {k:'dig', t:'"Flattered that a struggling club would want me? Think about what you just asked."',
    d:'The reporter went slightly red', f:c=>{punditAdj(-4);return 'BOSS SWATS THE VACANCY QUESTION'}}
  ]},
-{id:'cup_league', tag:'*', needs:'cupAliveDeep', rec:'blame',
+{id:'cup_league',
+ pre:c=>!!c.cupAliveDeep,
+ tag:'*', needs:'cupAliveDeep', rec:'blame',
  q:[c=>'A cup '+(c.cupRound||'run')+' still alive and a league season to protect. Which one gets your best eleven?',
     c=>'Managers say they take the cup seriously right up until they make seven changes. What will you do?'],
  a:[
@@ -913,7 +1055,9 @@ function Q(){ return [
   {k:'dig', t:'"Ask the schedulers who put four games in eleven days. Then ask them to carry the kit."',
    d:'The fixture computer has no feelings. Its owners do', f:c=>{punditAdj(2);bAdj(-2,'moaned at the calendar');return 'BOSS v THE FIXTURE COMPUTER'}}
  ]},
-{id:'presser_century', tag:'*', needs:'pressMile', once:true, rec:'blame',
+{id:'presser_century',
+ pre:c=>!!c.pressMile,
+ tag:'*', needs:'pressMile', once:true, rec:'blame',
  q:[c=>'By our count this is your '+c.pressMile+'th time in that chair for this club. Learned anything about us yet?',
     c=>c.pressMile+' press conferences here. Go on — which of us do you actually rate?'],
  a:[
@@ -972,7 +1116,7 @@ function buildContext(m){
     myName:c.name, oppName:opp.name, oppId:opp.id, home:m.hi===G.me?1:0,
     gf:gf, ga:ga, margin:Math.abs(gf-ga), res:res, comp:m.f.comp.name,
     compKey:key, isCup:isCup, isEuro:isEuro, stage:stage,
-    resW:res==='W'?1:0, dropped:res!=='W'?1:0,
+    resW:res==='W'?1:0, resD:res==='D'?1:0, resL:res==='L'?1:0, dropped:res!=='W'?1:0,
     city:city, derby:!!city||near, returning:st.clubs.indexOf(opp.id)>=0&&opp.id!==c.id,
     upsetWin:res==='W'&&gap<=-13, upsetLoss:res==='L'&&gap>=13,
     title:key==='league'&&G.week>=22&&myPosNow<=3&&(oppPos&&oppPos<=4),
@@ -998,10 +1142,13 @@ function buildContext(m){
   ctx.winless=ctx.res!=='W'&&ctx.winlessRun>=3;
   ctx.firstWin=ctx.res==='W'&&prevWinless>=3;
 
-  // head to head under you
+  // head to head under you — folded in before we read it, so "never beaten them"
+  // means never beaten them including today
   if(!st.vs[opp.id])st.vs[opp.id]={w:0,d:0,l:0};
   st.vs[opp.id][res==='W'?'w':res==='D'?'d':'l']++;
   ctx.neverBeaten=st.vs[opp.id].w===0?1:0;
+  ctx.vsW=st.vs[opp.id].w;
+  ctx.derbyRepeat=(ctx.derby&&res==='W'&&st.vs[opp.id].w>=2)?1:0;
   return ctx;
 }
 /* how badly does a reporter want this one? 0 = leave it alone */
@@ -1041,7 +1188,23 @@ function weigh(c){
 /* ---------- everything else the press might know this week ----------
    All of it read through SW.get() and guarded: any module may be absent. */
 function fillExtras(c,st){
-  // the struggler: worst of your starters, or the unhappiest
+  /* the table moved after the whistle — the rest of the round is played in
+     advanceWeek, and the press conference happens after that. Read the
+     standings now, not at full time, or the questions quote a stale position. */
+  try{
+    const l=leagueOf(me().id);
+    if(l){
+      const t=leagueTable(l);
+      const mp=t.findIndex(x=>x.id===me().id)+1;
+      if(mp>0)c.pos=mp;
+      const op=t.findIndex(x=>x.id===c.oppId)+1;
+      if(op>0)c.oppPos=op;
+      c.title=(c.compKey==='league'&&c.week>=22&&c.pos<=3&&c.oppPos&&c.oppPos<=4)?1:0;
+    }
+  }catch(e){}
+
+  // the struggler: worst of your starters — but only a story if he is genuinely
+  // in a rut. A man who was quiet in a 4-0 win is not "having a rough few weeks".
   let str=null,worst=99;
   try{
     me().xi.forEach(({p})=>{
@@ -1050,8 +1213,23 @@ function fillExtras(c,st){
       if(score<worst){worst=score;str=p}
     });
   }catch(e){}
-  if(str){c.strugglerId=str.id;c.strugglerName=str.name}
+  if(str){
+    c.strugglerId=str.id;c.strugglerName=str.name;
+    const rr=(str.ratings||[]).slice(-3);
+    const mean=rr.length?rr.reduce((a,b)=>a+b,0)/rr.length:6.5;
+    const last=rr.length?rr[rr.length-1]:6.5;
+    c.strugglerReal=(rr.length>=3&&mean<=6.35&&last<=6.55&&str.name!==c.hat)?1:0;
+  }
   c.punditName=st.pundit.name; c.punditQuote=st.line;
+  /* only ask a manager to answer his critic when the critic has actually
+     criticised him. Quoting a compliment back and asking for a reply is nonsense. */
+  c.punditCritical=(st.view<=-15)?1:0;
+
+  /* an emptying ground is a claim about the crowd, so it has to be earned:
+     a home day that was not a win, on top of a run or a beating or a bad table.
+     Never after a win — that is the bug the owner hit. */
+  c.crowdRestless=(c.home===1&&c.res!=='W'&&
+    (c.winlessRun>=2||c.heavy||c.margin>=2||c.pos>=17))?1:0;
 
   // an unhappy man, if the dressing room has one (and he is not today's struggler)
   try{
@@ -1212,6 +1390,7 @@ onMatchEnd(m){
 /* takes over after the match report, only when there is a conference to run */
 afterReport(){
   const st=ensure();
+  if(AUDITING)return;                 // the self-check runs the room itself, headless
   if(!st.pending)return;
   const P=st.pending; st.pending=null;
   const qs=chooseQuestions(P.c,P.w);
@@ -1282,6 +1461,21 @@ headline(){ const st=ensure(); return st.head?st.head.t:null },
 pundit(){ const st=ensure(); return st.pundit?{name:st.pundit.name, line:st.line}:null }
 });
 
+/* ---------- the premise contract ----------
+   Every question in the bank asserts something: that you lost heavily, that
+   the ground was emptying, that his critic has been critical. `pre` is that
+   assertion written down. A question whose premise is false is not a question,
+   it is the game calling the player a liar about a match he just watched, so
+   it never reaches the pad — not as a lead, not as filler, not as a fallback.
+   `GATE` exists only so the self-check can replay the old, ungated behaviour
+   and count what it used to get wrong. Leave it alone in play. */
+let GATE=true, AUDITING=false;
+function truePremise(q,c){
+  if(!GATE)return true;
+  if(!q.pre)return false;                 // undeclared premise = untrusted question
+  try{return !!q.pre(c)}catch(e){return false}
+}
+
 /* ---------- picking the questions ----------
    A question situation sleeps for COOL weeks after it is asked, and the
    season's memory steers the pick toward situations not yet used this year.
@@ -1294,8 +1488,9 @@ function chooseQuestions(c,w){
 
   const ok=q=>{
     if(used[q.id])return false;
-    if(q.once&&st.seasonAsked[q.id])return false;
-    const at=st.askedAt[q.id];
+    if(!truePremise(q,c))return false;            // never before the cooldown check:
+    if(q.once&&st.seasonAsked[q.id])return false; // a question that would lie is not
+    const at=st.askedAt[q.id];                    // "on cooldown", it is not a question
     if(at!==undefined&&NOW()-at<COOL)return false;
     if(q.needs&&!c[q.needs])return false;
     return true;
@@ -1317,10 +1512,13 @@ function chooseQuestions(c,w){
   // then whatever else is on his pad
   while(out.length<want){
     const pool=bank.filter(q=>ok(q)&&(q.tag==='*'||c.tags.indexOf(q.tag)>=0));
-    if(!pool.length)break;
-    take(pick(preferUnasked(pool)));
-  }
-  return out.slice(0,3);
+    if(!pool.length)break;                        // nothing true left to ask.
+    take(pick(preferUnasked(pool)));               // there is no random fallback here,
+  }                                                // and there must never be one:
+  /* last gate before anyone hears it. If the pad has emptied, he goes home —
+     an empty list means no press conference at all, which is the correct
+     outcome. Silence beats a question that contradicts the scoreline. */
+  return out.filter(q=>truePremise(q,c)).slice(0,3);
 }
 function qtext(q,c){
   const st=S();
@@ -1333,9 +1531,20 @@ function qtext(q,c){
 function renderPress(){
   const st=S(), L=st.live;
   if(!L){render();return}
-  const bank=Q(), q=bank.find(x=>x.id===L.ids[L.i]);
+  const bank=Q();
+  /* answering one question moves morale, the board and the pundit, so the
+     premise of the next one is re-checked here rather than trusted from
+     selection. Anything that has stopped being true is skipped, silently. */
+  let q=null;
+  while(L.i<L.ids.length){
+    const cand=bank.find(x=>x.id===L.ids[L.i]);
+    if(cand&&truePremise(cand,L.c)){q=cand;break}
+    L.i++;
+  }
   if(!q){finishPress();return}
-  const c=L.c, n=L.ids.length;
+  const c=L.c;
+  const live=L.ids.map(id=>bank.find(y=>y.id===id)).filter(x=>x&&truePremise(x,c));
+  const n=live.length, num=live.indexOf(q)+1;
   const hint = q.rec==='blame' ? 'Take it yourself. They are fishing for a row.'
     : q.rec==='back' ? 'Get behind them. They will hear about it before you are back.'
     : 'Give them something. Just watch what it costs.';
@@ -1354,9 +1563,9 @@ function renderPress(){
       : null;
   sheet(`<h3>The press room</h3>
    <div class="sh-sub">${esc(c.myName)} ${c.gf}&ndash;${c.ga} ${esc(c.oppName)} &middot; ${esc(c.comp)}
-     &middot; question ${L.i+1} of ${n}</div>
+     &middot; question ${num} of ${n}</div>
    ${speakerBar(asker,subj,subj&&subj.k==='c'?'vs':'about',
-      q.needs==='punditQuote'?S().pundit.role:'Question '+(L.i+1)+' of '+n)}
+      q.needs==='punditQuote'?S().pundit.role:'Question '+num+' of '+n)}
    <div class="qcard">
      <span class="qmark">&ldquo;</span>
      <div style="font-size:15.5px;font-weight:600;line-height:22px">${esc(qtext(q,c))}</div>
@@ -1410,8 +1619,72 @@ window.SWmedia={
      <div class="card" style="background:var(--s1);margin-top:-4px">
        <div style="font-size:13.5px;color:var(--t1);line-height:19px">&ldquo;${esc(st.line)}&rdquo;</div></div>
      <button class="btn" style="margin-top:12px" onclick="closeSheet()">Close</button>`);
-  }
+  },
+  audit(seasons,gate,clubIdx){ return runAudit(seasons,gate,clubIdx) }
 };
+
+/* ============================================================
+   THE SELF-CHECK
+   Plays whole seasons and holds every question that actually fires against
+   its own written premise. A question that asserts something untrue about a
+   match the player just watched is a bug, so this counts them instead of
+   trusting a read-through.
+
+     SWmedia.audit(2)          two seasons, premises enforced   -> expect 0
+     SWmedia.audit(2,false)    the same two seasons, ungated    -> the old bug
+
+   It answers every question the way the assistant advises, so morale, the
+   board and the pundit move exactly as they would in play and the cooldown
+   machinery is exercised for real.
+   ============================================================ */
+function auditPress(rep){
+  const st=S();
+  if(!st.pending){rep.silent++;return}
+  const P=st.pending; st.pending=null;
+  const c=P.c;
+  const qs=chooseQuestions(c,P.w);
+  if(!qs.length){st.pressedLast=false;st.sincePress++;rep.silent++;return}
+  st.pressedLast=true; st.sincePress=0; st.pressCount++;
+  st.lastQ=qs.map(q=>q.id);
+  rep.confs++;
+  qs.forEach(q=>{
+    rep.fired++;
+    const scoreline=c.myName+' '+c.gf+'-'+c.ga+' '+c.oppName+
+      ' ('+c.res+', '+(c.home?'home':'away')+(c.derby?', derby':'')+', '+c.comp+')';
+    const row={id:q.id, res:c.res, derby:!!c.derby, home:!!c.home,
+               line:scoreline, q:qtext(q,c)};
+    /* the assertion: does the premise this question is built on actually hold? */
+    let held=false;
+    try{held=q.pre?!!q.pre(c):false}catch(e){held=false}
+    if(held){ if(rep.ok.length<600)rep.ok.push(row) }
+    else rep.viol.push(row);
+    const a=q.a.find(x=>x.k===q.rec)||q.a[0];
+    try{a.f(c)}catch(e){rep.err.push(q.id+': '+e.message)}
+  });
+}
+function runAudit(seasons,gate,clubIdx){
+  seasons=Math.max(1,seasons||2);
+  const wasGate=GATE, wasSpeed=G.speed;
+  GATE=(gate!==false); AUDITING=true;
+  const rep={seasons:seasons, gated:GATE, confs:0, silent:0, fired:0,
+             viol:[], ok:[], err:[]};
+  try{
+    newGame(G.leagues[0].clubs[clubIdx===undefined?5:clubIdx]);
+    G.objective.accepted=true; G.speed='instant';
+    for(let s=0;s<seasons;s++){
+      let guard=0;
+      while(G.week<38&&guard++<600){
+        if(weekFixtures().length){ startMatch(); auditPress(rep); }
+        else advanceWeek();
+        closeSheet();
+      }
+      endSeasonProcess(); closeSheet();
+    }
+  }catch(e){ rep.err.push('sim: '+(e&&e.message||e)) }
+  GATE=wasGate; AUDITING=false; G.speed=wasSpeed;
+  rep.violations=rep.viol.length;
+  return rep;
+}
 
 function finishPress(){
   const st=S(), L=st.live;
