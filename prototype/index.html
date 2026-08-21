@@ -1895,6 +1895,11 @@ const MONTHS=['Aug','Aug','Aug','Sep','Sep','Sep','Sep','Oct','Oct','Oct','Nov',
 'Dec','Jan','Jan','Jan','Feb','Feb','Feb','Feb','Mar','Mar','Mar','Apr','Apr','Apr','Apr','Apr','May','May','May','May'];
 const DAYS=[9,16,23,1,8,15,22,3,17,24,1,8,22,29,6,13,20,26,29,3,17,24,1,8,15,22,7,14,21,4,11,18,22,25,2,9,16,24];
 const weekDate=w=>`${DAYS[w%38]} ${MONTHS[w%38]}`;
+/* Pre-season is July into early August, the way a real summer runs. The league
+   kicks off on the second weekend of August, which is what weekDate(0) returns. */
+const PRE_DATES=['5 Jul','12 Jul','19 Jul','26 Jul','2 Aug'];
+const PRE_N=PRE_DATES.length;
+const preDate=()=>PRE_DATES[PRE_N-(G.pre||0)]||PRE_DATES[0];
 
 function roundRobin(n){
   const ids=[...Array(n).keys()],rounds=[],half=n/2;let arr=ids.slice(1);
@@ -2097,9 +2102,11 @@ function myLeagueFixture(w){
 }
 function weekFixtures(){
   if(G.pre>0){
-    const opp=G.preOpp&&G.preOpp[3-G.pre];
+    const i=PRE_N-G.pre;
+    const opp=G.preOpp&&G.preOpp[i%(G.preOpp.length||1)];
     if(opp!=null)return [{home:(G.pre%2?G.me:opp),away:(G.pre%2?opp:G.me),neutral:false,
-      comp:{name:'Pre-season',key:'friendly'},stage:'Friendly '+(4-G.pre)+' of 3'}];
+      comp:{name:'Pre-season',key:'friendly'},
+      stage:'Friendly '+(i+1)+' of '+PRE_N+' · '+preDate()}];
   }
   const out=[];
   const eu=euroFixtureFor(G.me,G.week);if(eu)out.push(eu);
@@ -2365,6 +2372,13 @@ function playerWillJoin(p,seller,buyer){
   if(seller.rep-buyer.rep>18&&amb>0.5)return {ok:false,msg:'He will not drop that far down.'};
   return {ok:true,wageUp:1.15};
 }
+/* Nobody is blamed for something they did not do. Any module that lists a
+   player states WHO did it; copy that accuses the manager must check this. */
+function listPlayer(p,by,why){
+  p.listed=true; p.listedBy=by||'manager'; p.listedWhy=why||'';
+}
+function unlistPlayer(p){ p.listed=false; p.listedBy=null; p.listedWhy=''; }
+function listedByManager(p){ return !!p.listed && (p.listedBy||'manager')==='manager' }
 function doTransfer(p,seller,buyer,fee,wage){
   seller.squad=seller.squad.filter(x=>x.id!==p.id);
   p._tier=buyer.tier;
@@ -2566,7 +2580,7 @@ function endSeasonProcess(){
   buildEurope(tables);
   aiMarket(46);
   G.season++;G.week=0;G.window='summer';G.seasonEnded=false;
-  G.pre=3;G.preOpp=preOpponents();
+  G.pre=PRE_N;G.preOpp=preOpponents();
   G.objective=objectiveFor(me());G.objective.accepted=false;
   G.leagues.forEach(l=>{l.fixtures=roundRobin(20)});
   SW.fire('onSeasonEndAfter',{pos,hit});
@@ -2581,9 +2595,10 @@ function money(n){
 }
 function preOpponents(){
   const myRep=me().rep;
-  const pool=G.clubs.filter(c=>c.id!==G.me&&Math.abs(c.rep-myRep)<14);
+  const pool=G.clubs.filter(c=>c.id!==G.me&&Math.abs(c.rep-myRep)<16);
   const out=[];const used=new Set();
-  while(out.length<3&&pool.length){
+  let guard=0;
+  while(out.length<PRE_N&&pool.length&&guard++<200){
     const c=pool[Math.floor(rnd()*pool.length)];
     if(used.has(c.id))continue;used.add(c.id);out.push(c.id);
   }
@@ -2595,7 +2610,7 @@ function newGame(clubId){
   G.me=clubId;G.week=0;G.season=2026;G.inbox=[];G.chronicle=[];G.shortlist=[];G.window='summer';
   G.tab='home';G.lastResult=null;G.seasonEnded=false;
   G.objective=objectiveFor(me());G.objective.accepted=false;
-  G.pre=3;G.preOpp=preOpponents();
+  G.pre=PRE_N;G.preOpp=preOpponents();
   G.managerName=window._mgrName||G.managerName||'The Manager';
   G.mod={};
   SW.fire('init');
@@ -2614,7 +2629,7 @@ function packPlayer(p){
     p.trait||0,p.traitKnown?1:0,
     +(p.form||0).toFixed(2),Math.round(p.cond),Math.round(p.morale),p.out,
     p.apps,p.goals,p.assists,p.wage,p.years,p.listed?1:0,p.youth?1:0,
-    p.height||180,p.weight||75,p.foot||'R',p._tier||0];
+    p.height||180,p.weight||75,p.foot||'R',p._tier||0,p.listedBy||''];
 }
 function unpackPlayer(v){
   return {id:v[0],name:v[1],nat:v[2],pos:v[3],age:v[4],
@@ -2624,7 +2639,8 @@ function unpackPlayer(v){
     form:v[20],cond:v[21],morale:v[22],out:v[23],
     apps:v[24],goals:v[25],assists:v[26],wage:v[27],years:v[28],
     listed:!!v[29],youth:!!v[30],
-    height:v[31]||180,weight:v[32]||75,foot:v[33]||'R',_tier:v[34]||0,ratings:[]};
+    height:v[31]||180,weight:v[32]||75,foot:v[33]||'R',_tier:v[34]||0,
+    listedBy:v[35]||null,ratings:[]};
 }
 function save(){try{
   localStorage.setItem(KEY,JSON.stringify({
@@ -3171,7 +3187,7 @@ function viewHub(){
   return `${topbar()}<div class="scroll">
    ${f?`<div class="fixcard">
      <div class="when" ${isEuro?`style="color:${EUROS.find(e=>e.key===f.comp.key).col}"`:''}>
-       ${weekDate(G.week)} · ${esc(f.comp.name)} · ${esc(f.stage)}${f.neutral?' · neutral':''}</div>
+       ${G.pre>0?esc(f.comp.name)+' · '+esc(f.stage):weekDate(G.week)+' · '+esc(f.comp.name)+' · '+esc(f.stage)}${f.neutral?' · neutral':''}</div>
      <div class="vs">
        <div class="side">${crestSVG(G.clubs[f.home],40)}<div class="abbr">${G.clubs[f.home].abbr}</div>
          <div class="tiny">${esc(G.clubs[f.home].name)}</div></div>
@@ -3219,7 +3235,7 @@ function viewHub(){
      <div style="font-size:13px;color:var(--t2)"><b style="color:var(--acc)">◆ Two games this week</b> —
      ${esc(weekFixtures().map(x=>x.comp.name).join(' then '))}. Legs will not recover in between.</div></div>`:''}
    <div class="cta-dock">${G.week<38
-     ?`<button class="btn" onclick="startMatch()">▶ ${G.pre>0?'Pre-season friendly '+(4-G.pre)+' of 3'
+     ?`<button class="btn" onclick="startMatch()">▶ ${G.pre>0?'Pre-season · '+preDate()
         :f?(f.comp.key==='league'?'Play matchday '+(G.week+1):'Play '+f.comp.name):'Advance week'}</button>`
      :`<button class="btn" onclick="doEndSeason()">★ End of season</button>`}</div>
    ${tabbar()}`;
@@ -3764,7 +3780,9 @@ function shortShelf(){
 }
 function toggleShort(id){const i=G.shortlist.indexOf(id);
   if(i<0)G.shortlist.push(id);else G.shortlist.splice(i,1);render()}
-function toggleList(id){const p=me().squad.find(x=>x.id===id);if(p)p.listed=!p.listed;save();render()}
+function toggleList(id){const p=me().squad.find(x=>x.id===id);
+  if(p){ if(p.listed)unlistPlayer(p); else listPlayer(p,'manager'); }
+  save();render()}
 
 /* ============================================================
    CLUB
@@ -4341,7 +4359,7 @@ function finishMatch(){
     const t0=document.querySelector('.take');if(t0)t0.remove();MT=null;
     G.fxIndex=0;G.pre--;
     G.clubs.forEach(recover);
-    if(G.pre===0)note('Pre-season is done','Three friendlies in the legs. The real thing starts now.',
+    if(G.pre===0)note('Pre-season is done',PRE_N+' friendlies in the legs and the window shuts soon. The league starts on '+weekDate(0)+'.',
       typeof vV==='function'?{from:vV('assistant')}:undefined);
     save();showReport();return;
   }
@@ -4474,6 +4492,16 @@ function doEndSeason(){
 let _rsig='';
 function rsig(){return G.tab+'/'+(G.tab==='squad'?G.squadView:G.tab==='market'?G.marketView
   :G.tab==='club'?(G.clubView||''):G.tab==='world'?(G.worldView||''):'')}
+function fitDock(){
+  /* The CTA dock is fixed and its height changes with the label, so a constant
+     bottom padding will always be wrong for some screen. Measure and match. */
+  try{
+    const d=document.querySelector('.cta-dock'),sc=document.querySelector('.scroll');
+    if(!d||!sc)return;
+    const h=d.getBoundingClientRect().height;
+    sc.style.paddingBottom=Math.round(h+78)+'px';
+  }catch(e){}
+}
 function render(){
   closeSheet();
   const sig=rsig();
@@ -4482,6 +4510,7 @@ function render(){
   const v=G.tab==='home'?viewHub():G.tab==='squad'?viewSquad():G.tab==='market'?viewMarket()
     :G.tab==='club'?viewClub():viewWorld();
   app().innerHTML=v;
+  fitDock();
   window.scrollTo(0,keep);
   revealSelected();
 }

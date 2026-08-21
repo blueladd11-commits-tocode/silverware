@@ -345,7 +345,9 @@ function requests(c){
     const t=trk(p.id);
     if(t.req||p.youth)return;
     if(t.deep>=3&&get(p)<=-58){
-      t.req=G.week; p.listed=true;
+      t.req=G.week;
+      if(typeof listPlayer==='function')listPlayer(p,'player','he asked to leave');
+      else {p.listed=true;p.listedBy='player'}
       const why=drivers(c,p).find(x=>x.neg);
       note(p.name+' has asked to leave',
         (why?why.txt+'. ':'')+'He wants away. He is on the list until you change his mind or someone takes him.',{from:vP(p)});

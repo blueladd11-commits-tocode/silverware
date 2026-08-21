@@ -721,7 +721,9 @@ function tellThem(){
 
     if(hurt){
       m=-(30+rnd()*12); t=-10; why='told him he was finished here when he plainly is not';
-      p.listed=true; wronged++;
+      if(typeof listPlayer==='function')listPlayer(p,'role','you told him he was finished here');
+      else {p.listed=true;p.listedBy='role'}
+      wronged++;
       sq.forEach(x=>{if(x.id!==p.id)
         moveTrust(x.id,-4*(caresOf(x)==='backed'?1.7:1),'told '+surn(p)+' he was finished, and he is not')});
     } else if(gap>0){
