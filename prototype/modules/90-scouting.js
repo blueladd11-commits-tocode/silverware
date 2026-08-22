@@ -1228,12 +1228,10 @@ function watchBtn(pid, wide){
   var s=st();
   var on  = s.sc.some(function(x){return x.asg && x.asg.kind==='player' && x.asg.pid===pid});
   var rep = !!s.rep[pid];
-  var cls = 'btn ' + (on?'ghost ':rep?'ghost ':'ghost ') + 'xs';
   var lab = on ? 'Being watched' : rep ? 'Read the report' : 'Have him watched';
-  var fn  = on ? "SW.get('scouting').ui.watch(" + pid + ")"
-          : rep ? "SW.get('scouting').ui.read(" + pid + ")"
-          : "SW.get('scouting').ui.watch(" + pid + ")";
-  return '<button class="' + cls + '" style="min-height:36px' + (wide?';width:100%':'') +
+  var fn  = rep && !on ? "SW.get('scouting').ui.read(" + pid + ")"
+                       : "SW.get('scouting').ui.watch(" + pid + ")";
+  return '<button class="btn ghost xs" style="min-height:44px' + (wide?';width:100%':'') +
     (on?';color:var(--trf);border-color:var(--trf)':rep?';color:var(--acc)':'') +
     '" onclick="event.stopPropagation();' + fn + '">' + lab + '</button>';
 }

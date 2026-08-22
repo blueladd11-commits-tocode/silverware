@@ -2617,7 +2617,61 @@ function newGame(clubId){
   note('Welcome to '+me().name,'The board expect: '+G.objective.text+'. Nobody remembers fifth.',{from:vV('board')});
   save();
 }
-const KEY='silverware.save.v3';
+const KEY='silverware.save.v3';          // legacy single-save key, still read
+const PROF='silverware.profiles.v1';
+
+/* Profiles and slots instead of one anonymous blob. A login would need a server;
+   this needs nothing, and it fixes what actually went wrong: one save, no
+   copies, no way back when a write failed. */
+function profRead(){
+  try{return JSON.parse(localStorage.getItem(PROF))||{list:[],active:null}}
+  catch(e){return {list:[],active:null}}
+}
+function profWrite(d){ try{localStorage.setItem(PROF,JSON.stringify(d));return true}catch(e){return false} }
+function profActive(){ const d=profRead(); return d.list.find(p=>p.id===d.active)||null }
+function slotKey(pid,slot){ return 'sw.'+pid+'.s'+slot }
+function bakKey(pid,slot,n){ return 'sw.'+pid+'.s'+slot+'.b'+n }
+
+function profCreate(name){
+  const d=profRead();
+  const id='p'+Date.now().toString(36);
+  d.list.push({id,name:String(name||'Manager').slice(0,24),made:Date.now(),slot:1});
+  d.active=id; profWrite(d);
+  return id;
+}
+function profDelete(id){
+  const d=profRead();
+  d.list=d.list.filter(p=>p.id!==id);
+  if(d.active===id)d.active=d.list[0]?d.list[0].id:null;
+  profWrite(d);
+  for(let sl=1;sl<=3;sl++){
+    try{localStorage.removeItem(slotKey(id,sl))}catch(e){}
+    for(let n=0;n<3;n++){try{localStorage.removeItem(bakKey(id,sl,n))}catch(e){}}
+  }
+}
+/* Before every write the previous save is rotated into a backup, so a failed or
+   bad write can never be the only copy. */
+function rotateBackup(pid,slot){
+  try{
+    const cur=localStorage.getItem(slotKey(pid,slot));
+    if(!cur)return;
+    for(let n=2;n>0;n--){
+      const prev=localStorage.getItem(bakKey(pid,slot,n-1));
+      if(prev)localStorage.setItem(bakKey(pid,slot,n),prev);
+    }
+    localStorage.setItem(bakKey(pid,slot,0),cur);
+  }catch(e){}
+}
+function slotInfo(pid,slot){
+  try{
+    const raw=localStorage.getItem(slotKey(pid,slot));
+    if(!raw)return null;
+    const d=JSON.parse(raw);
+    const club=(d.clubs&&d.me!=null)?null:null;
+    return {season:d.season,week:d.week,me:d.me,mgr:d.mgr||'',chars:raw.length,
+      backups:[0,1,2].filter(n=>{try{return !!localStorage.getItem(bakKey(pid,slot,n))}catch(e){return false}}).length};
+  }catch(e){return null}
+}
 /* Players are serialised in full. The world used to be regenerated from its seed
    on load, which silently threw away every transfer, injury, goal and year of
    ageing — the save looked like it worked and did not. Packed as flat arrays
@@ -2684,8 +2738,14 @@ function nearClub(c){
   if(G.shortlist&&G.shortlist.length&&c.squad.some(p=>G.shortlist.includes(p.id)))return true;
   return false;
 }
+function saveTarget(){
+  const p=profActive();
+  return p?slotKey(p.id,p.slot||1):KEY;
+}
 function save(){try{
-  localStorage.setItem(KEY,JSON.stringify({
+  const p=profActive();
+  if(p)rotateBackup(p.id,p.slot||1);
+  localStorage.setItem(saveTarget(),JSON.stringify({
     v:3,me:G.me,week:G.week,season:G.season,objective:G.objective,window:G.window,
     fx:G.fxIndex||0,pid:PID,
     clubs:G.clubs.map(c=>({
@@ -2720,7 +2780,9 @@ function save(){try{
   }catch(_){}
   return false}}
 function load(){try{
-  const d=JSON.parse(localStorage.getItem(KEY));
+  let raw=localStorage.getItem(saveTarget());
+  if(!raw)raw=localStorage.getItem(KEY);          // a career from before profiles
+  const d=JSON.parse(raw);
   if(!d||d.v!==3)return false;
   buildWorld();                                  // structure only; every value below is overwritten
   G.me=d.me;G.week=d.week;G.season=d.season;G.objective=d.objective;G.window=d.window;
@@ -4661,7 +4723,123 @@ window.continueCareer=function(){
      or start a fresh career, which leaves the old save untouched.</div></div>
    <button class="btn ghost" style="margin-top:12px" onclick="closeSheet()">Back</button>`);
 };
+window.profPick=function(id){
+  const d=profRead(); d.active=id; profWrite(d);
+  bootMenu();
+};
+window.profNew=function(){
+  const i=document.getElementById('pfName');
+  const nm=(i&&i.value.trim())||'';
+  if(!nm){ if(i)i.focus(); return }
+  profCreate(nm); bootMenu();
+};
+window.profSlot=function(n){
+  const d=profRead(); const p=d.list.find(x=>x.id===d.active);
+  if(p){p.slot=n; profWrite(d)}
+  bootMenu();
+};
+window.profRestore=function(n){
+  const p=profActive(); if(!p)return;
+  try{
+    const b=localStorage.getItem(bakKey(p.id,p.slot||1,n));
+    if(!b)return;
+    localStorage.setItem(slotKey(p.id,p.slot||1),b);
+  }catch(e){}
+  closeSheet();
+  if(load()){G.tab='home';render()} else bootMenu();
+};
+window.sheetSaveTools=function(){
+  const p=profActive(); if(!p)return;
+  const slot=p.slot||1;
+  const info=slotInfo(p.id,slot);
+  let payload='';
+  try{payload=localStorage.getItem(slotKey(p.id,slot))||''}catch(e){}
+  sheet(`<h3>Save data</h3>
+   <div class="sh-sub">Slot ${slot} · ${info?('season '+info.season+', week '+(info.week+1)):'empty'}
+     ${info?('· '+(info.chars*2/1048576).toFixed(2)+'MB'):''}</div>
+   <div class="sechead">Backups</div>
+   <div class="card" style="background:var(--s1)">
+   ${[0,1,2].map(n=>{
+     let has=false; try{has=!!localStorage.getItem(bakKey(p.id,slot,n))}catch(e){}
+     return `<div class="kv"><span class="k2">${n===0?'Previous save':'Save before that'+(n>1?' again':'')}</span>
+       ${has?`<button class="btn xs" onclick="profRestore(${n})">Restore</button>`
+            :'<span class="v2 dim">none yet</span>'}</div>`}).join('')}
+   </div>
+   <div class="sechead">Copy out</div>
+   <div class="card" style="background:var(--s1)">
+     <div style="font-size:13px;color:var(--t2);margin-bottom:8px">Select all and copy this
+       to keep a career somewhere safe. Paste it back below to restore it anywhere.</div>
+     <textarea readonly onclick="this.select()" style="width:100%;height:70px;font-size:10px;
+       background:var(--bg);color:var(--t3);border:1px solid var(--hair);border-radius:10px;
+       padding:8px;-webkit-user-select:text;user-select:text">${esc(payload)}</textarea>
+   </div>
+   <div class="sechead">Paste in</div>
+   <div class="card" style="background:var(--s1)">
+     <textarea id="impBox" placeholder="Paste a saved career here" style="width:100%;height:60px;
+       font-size:10px;background:var(--bg);color:var(--t1);border:1px solid var(--hair);
+       border-radius:10px;padding:8px;-webkit-user-select:text;user-select:text"></textarea>
+     <button class="btn" style="margin-top:10px" onclick="profImport()">Restore from text</button>
+   </div>
+   <button class="btn ghost" style="margin-top:12px" onclick="closeSheet()">Close</button>`);
+};
+window.profImport=function(){
+  const t=document.getElementById('impBox'); const v=t?t.value.trim():'';
+  if(!v)return;
+  try{
+    const d=JSON.parse(v);
+    if(!d||!d.clubs)throw new Error('that is not a career');
+    const p=profActive(); if(!p)return;
+    rotateBackup(p.id,p.slot||1);
+    localStorage.setItem(slotKey(p.id,p.slot||1),v);
+    closeSheet();
+    if(load()){G.tab='home';render()} else bootMenu();
+  }catch(e){
+    sheet(`<h3>That would not restore</h3><div class="sh-sub">${esc(e.message)}</div>
+      <button class="btn ghost" onclick="closeSheet()">Back</button>`);
+  }
+};
+function profileScreen(){
+  const d=profRead();
+  return `<div style="padding:44px 20px 8px;text-align:center">
+    <div style="display:flex;justify-content:center;margin-bottom:14px">
+      <svg width="60" height="60" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="228" fill="#FFC53D"/>
+      <g transform="translate(512 512) scale(1.30) translate(-512 -512)" fill="#0A0C0F">
+      <path d="M330 250h364v92c0 118-56 196-140 226v66h96v56H374v-56h96v-66c-84-30-140-108-140-226z"/>
+      <path d="M236 268h74v72c0 34 4 64 12 90-52-14-86-56-86-114zM714 268h74v48c0 58-34 100-86 114 8-26 12-56 12-90z"/>
+      <path d="M330 716h364v58H330z"/></g></svg></div>
+    <h1 style="font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:.06em">SILVERWARE</h1>
+    <div style="color:var(--acc);font-family:var(--disp);font-weight:700;font-size:12px;
+      letter-spacing:.12em;text-transform:uppercase;margin-top:4px">Nobody remembers fifth</div>
+    <div style="color:var(--t2);font-size:14px;margin-top:16px">Who is managing?</div></div>
+   <div class="scroll" style="padding-bottom:40px">
+    ${d.list.length?`<div class="card" style="padding:6px 14px 12px">
+      ${d.list.map(p=>{
+        const inf=slotInfo(p.id,p.slot||1);
+        return `<div class="plr" onclick="profPick('${p.id}')">
+          <div class="ic" style="width:40px;height:40px;border-radius:12px;background:var(--accw);
+            color:var(--acc);display:grid;place-items:center;font-family:var(--disp);
+            font-weight:800;font-size:16px">${esc((p.name[0]||'M').toUpperCase())}</div>
+          <div class="nmw"><div class="nm2">${esc(p.name)}</div>
+            <div class="meta"><span>${inf?('Season '+inf.season+' · week '+(inf.week+1)):'No career yet'}</span></div></div>
+          <div class="ch dim">›</div></div>`}).join('')}
+     </div>`:''}
+    <div class="sechead">New manager</div>
+    <div class="card">
+      <input id="pfName" maxlength="24" placeholder="Your name" autocomplete="off">
+      <button class="btn" style="margin-top:10px" onclick="profNew()">Start managing</button>
+    </div>
+    <div class="card" style="margin-top:12px;border-color:var(--hair)">
+      <div style="font-size:12px;color:var(--t3);line-height:17px">
+        Careers are kept on this device. Each manager gets three slots and every save
+        keeps its last three backups, so a bad save is never the only copy.
+        Use <b style="color:var(--t2)">Save data</b> inside a career to copy one somewhere safe.</div>
+    </div>
+   </div>`;
+}
 function bootMenu(){
+  if(!profActive()){ app().innerHTML=profileScreen();
+    setTimeout(()=>{const i=document.getElementById('pfName');if(i&&!profRead().list.length)i.focus()},60);
+    return; }
   if(!G.clubs.length){RND=mulberry32(20260820);buildWorld()}
   const ls=G.leagues.filter(l=>l.nat===BOOTNAT);
   const l=ls[Math.min(BOOTTIER,ls.length-1)];
@@ -4696,8 +4874,19 @@ function bootMenu(){
       <div class="nmw"><div class="nm2">${esc(c.name)}</div>
        <div class="meta"><span>${esc(c.stadium)}</span><span>·</span><span>${esc(o.text.replace(/ \(top \d+\)/,''))}</span></div></div>
       <div class="ca" style="color:${ramp(c.rep)}">${c.rep}</div><div class="ch dim" style="margin-left:6px">›</div></div>`}).join('')}</div>
-    ${localStorage.getItem(KEY)?`<button class="btn ghost" style="margin-top:14px"
-      onclick="continueCareer()">Continue saved career</button>`:''}
+    ${(function(){
+      const p=profActive(); if(!p)return '';
+      const has=!!slotInfo(p.id,p.slot||1)||!!localStorage.getItem(KEY);
+      return `<div class="sechead">${esc(p.name)}'s slots</div>
+        <div class="segmented">${[1,2,3].map(n=>{
+          const i=slotInfo(p.id,n);
+          return `<button aria-selected="${(p.slot||1)===n}" onclick="profSlot(${n})">
+            ${n}${i?' · '+i.season:''}</button>`}).join('')}</div>
+        ${has?`<button class="btn" style="margin-top:4px" onclick="continueCareer()">Continue saved career</button>`:''}
+        <div class="row" style="gap:8px;margin-top:10px">
+          <button class="btn ghost" style="flex:1" onclick="sheetSaveTools()">Save data</button>
+          <button class="btn ghost" style="flex:1" onclick="profPick(null)">Switch manager</button>
+        </div>`;})()}
    </div>`;
 }
 </script>
