@@ -222,6 +222,9 @@ h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
 
 .tok:active .kit{box-shadow:0 0 0 3px var(--acc),0 2px 6px rgba(0,0,0,.55)}
 .tok.sel .kit{box-shadow:0 0 0 3px var(--acc),0 6px 16px rgba(0,0,0,.7)}
+.mktcell{display:flex;flex-direction:column;gap:6px}
+.mktacts{display:flex;gap:6px}
+.mktacts button{flex:1;min-height:44px}
 .kitchip{width:26px;height:26px;border-radius:7px;flex:0 0 auto;position:relative;
   box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.16),0 1px 3px rgba(0,0,0,.5)}
 .kitchip i{position:absolute;inset:0;display:grid;place-items:center;font-style:normal;
@@ -3896,8 +3899,14 @@ function abilityColour(p){
    in the card foot because the fee is the reason you are looking. */
 function mktCard(p,s,ask,w){
   const afford=ask<=me().bal;
-  return pcard(p,{w,club:s,fee:ask,star:1,over:!afford,
+  const card=pcard(p,{w,club:s,fee:ask,star:1,over:!afford,
     feeCol:afford?'var(--trf)':'var(--t3)'});
+  /* Modules may hang an action under a market card — scouting puts "Have him
+     watched" here. Added because the alternative was a module redefining this
+     function, which the handbook forbids for good reason. */
+  const extra=SW.collect('marketRowActions',p,s,ask);
+  if(!extra.length)return card;
+  return `<div class="mktcell">${card}<div class="mktacts">${extra.join('')}</div></div>`;
 }
 /* The hero band. One target, the fee at broadcast size, and your balance as the
    track underneath it — the bar says "can I afford him" without a sentence. */
@@ -16228,18 +16237,9 @@ function watchBtn(pid, wide){
 }
 function hookMktCard(){
   try{
-    if(typeof window.mktCard!=='function' || window.mktCard.__swWatch) return;
-    var orig = window.mktCard;
-    var wrapped = function(p,s,ask,w){
-      var html;
-      try{ html = orig(p,s,ask,w); }catch(e){ return ''; }
-      try{
-        if(!p || !s || s.id===G.me || !st().sc) return html;
-        return '<div class="pccell" style="width:' + (w||132) + 'px">' + html + watchBtn(p.id,true) + '</div>';
-      }catch(e){ return html; }
-    };
-    wrapped.__swWatch = true;
-    window.mktCard = wrapped;
+    /* The core now offers marketRowActions(); the old wrapper around
+       window.mktCard has been removed. */
+    return;
   }catch(e){}
 }
 
@@ -16562,6 +16562,11 @@ SW.register({
   },
 
   boot: function(){ hookMktCard(); },
+
+  /* the core's sanctioned seam for an action under a market card */
+  marketRowActions: function(p){
+    try{ return [watchBtn(p.id,true)] }catch(e){ return [] }
+  },
 
   marketViews: function(){
     invalidate(); hookMktCard();

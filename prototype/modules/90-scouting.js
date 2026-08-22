@@ -1255,18 +1255,9 @@ function watchBtn(pid, wide){
 }
 function hookMktCard(){
   try{
-    if(typeof window.mktCard!=='function' || window.mktCard.__swWatch) return;
-    var orig = window.mktCard;
-    var wrapped = function(p,s,ask,w){
-      var html;
-      try{ html = orig(p,s,ask,w); }catch(e){ return ''; }
-      try{
-        if(!p || !s || s.id===G.me || !st().sc) return html;
-        return '<div class="pccell" style="width:' + (w||132) + 'px">' + html + watchBtn(p.id,true) + '</div>';
-      }catch(e){ return html; }
-    };
-    wrapped.__swWatch = true;
-    window.mktCard = wrapped;
+    /* The core now offers marketRowActions(); the old wrapper around
+       window.mktCard has been removed. */
+    return;
   }catch(e){}
 }
 
@@ -1589,6 +1580,11 @@ SW.register({
   },
 
   boot: function(){ hookMktCard(); },
+
+  /* the core's sanctioned seam for an action under a market card */
+  marketRowActions: function(p){
+    try{ return [watchBtn(p.id,true)] }catch(e){ return [] }
+  },
 
   marketViews: function(){
     invalidate(); hookMktCard();

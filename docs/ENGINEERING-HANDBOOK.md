@@ -60,6 +60,7 @@ SW.register({
   clubViews(){ return [ {key,label,render} ] },    // sub-view inside the Club tab
   clubBlocks(){ return [ '<div…>' ] },    // blocks on the Club overview
   worldTabs(){ return [ {key,label,render} ] },    // a competition chip in the World tab
+  marketRowActions(p, club, ask){ return ['<button…>'] },  // an action under a market card
   playerBlocks(p, club){ return [ '<div…>' ] },    // extra sections in the player sheet
   reportBlocks(last){ return [ '<div…>' ] },       // extra sections in the post-match report
   extraFixtures(week){ return [ fixture ] },       // your competition's fixtures this week
