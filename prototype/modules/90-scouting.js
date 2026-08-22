@@ -76,7 +76,7 @@ function mineSet(){
   MSarr=c.squad; MSlen=sq.length;
   return MS;
 }
-function invalidate(){ MS=null; IDX=null; REBUILT=false; LAB=Object.create(null); }
+function invalidate(){ MS=null; IDX=null; REBUILT=false; LAB=Object.create(null); RKEY=''; }
 
 /* ---------- label memo ---------- */
 var LAB=Object.create(null);
@@ -409,12 +409,15 @@ function doRegion(sc,nat){
       var p=sq[j];
       if(knowledge(p.id)>=0.72) continue;
       if(value(p) > c.bal*1.9) continue;
+      /* a sweep files on somebody you could sign. Anything else is a postcard. */
+      if(!reachOf({p:p, s:cl}).ok) continue;
       pool.push({p:p,cl:cl});
     }
   }
   if(!pool.length){
     note(sc.name + ' came back with nothing',
-      'Three weeks in ' + NATIONS[nat].name + ' and not one of them is worth your money. It happens.', {from:vH(sc.name,'scout',sc.nat,52)});
+      'Three weeks in ' + NATIONS[nat].name + '. Plenty of footballers. Not one of them we could pay for and ' +
+      'not one of them who would come. It happens.', {from:vH(sc.name,'scout',sc.nat,52)});
     return;
   }
   /* broad sweep: the whole trip teaches you a little about everyone */
@@ -705,8 +708,9 @@ function basePool(){
   }
   return out;
 }
-/* everyone who fits the brief; the scout's own patch first, the world if his patch is dry */
-function briefCands(b, sc){
+/* everyone whose SHAPE fits the brief — before anybody asks what he costs.
+   The scout's own patch first, the world if his patch is dry. */
+function briefPool(b, sc){
   var all = briefMatch(b, basePool()).filter(function(x){ return x.s && x.s.id!==G.me; });
   if(b.strong>=0){
     var hard = all.filter(function(x){ return x.p.a[b.strong] >= CA(x.p)+4; });
@@ -718,11 +722,28 @@ function briefCands(b, sc){
   }
   return all;
 }
+/* the shape, split by whether we could actually do it */
+function briefSplit(b, sc){
+  var all = briefPool(b,sc), ok=[], far=[];
+  for(var i=0;i<all.length;i++){
+    if(reachOf(all[i]).ok) ok.push(all[i]); else far.push(all[i]);
+  }
+  return { all:all, ok:ok, far:far };
+}
+/* what the scout will actually put in front of you */
+function briefCands(b, sc){
+  var sp = briefSplit(b,sc);
+  return (b && b.reach==='ALL') ? sp.all : sp.ok;
+}
 function briefScore(b, sc, x){
   var p=x.p, k=knowledge(p.id);
   var v = estOf(sc,p,k);
   if(b.strong>=0) v += (p.a[b.strong]-CA(p))*0.35;
-  return v + Math.max(0,(27-p.age))*0.5 - Math.max(0,(p.age-30))*3;
+  v += Math.max(0,(27-p.age))*0.5 - Math.max(0,(p.age-30))*3;
+  /* he can rate an unreachable man as highly as he likes. He does not get to
+     put him at the top of a list the manager is meant to act on. */
+  if(!reachOf(x).ok) v -= 45;
+  return v;
 }
 
 /* a week on the brief: he is out watching, and a little sticks each time */
@@ -731,17 +752,59 @@ function briefWeek(sc, b){
   var n = Math.min(c.length, 2+Math.floor(sc.q/2));
   for(var i=0;i<n;i++){ var x=c[Math.floor(rnd()*c.length)]; learn(x.p.id, 0.03+sc.q*0.008); }
 }
-/* the deliverable: three men, in his words, every one of them on brief */
+/* ---------- the honest empty report ----------
+   Never a list of men the manager cannot sign. If there is nothing, he says
+   there is nothing, and he says which wall we hit. */
+var DRY_HEAD=[
+  'Nothing at that level we can get near. Widen it or find more money.',
+  'I have been everywhere. There is nobody at that price who would come.',
+  'Empty. Not because they do not exist — because we cannot have them.'
+];
+function dryCounts(sp){
+  var n={fee:0,wage:0,will:0};
+  for(var i=0;i<sp.far.length;i++){
+    var k = reachOf(sp.far[i]).k;
+    if(k==='fee') n.fee++; else if(k==='wage') n.wage++; else n.will++;
+  }
+  return n;
+}
+function dryReport(sc, b, sp){
+  var n = sp.all.length;
+  if(!n){
+    return { n:0, fee:0, wage:0, will:0,
+      head:'Nobody in the game answers that brief. Not one.',
+      body:'It is not the money. Nothing of that shape exists — drop the ability floor or open the age band.' };
+  }
+  var cnt = dryCounts(sp), bits=[];
+  if(cnt.fee)  bits.push(cnt.fee  + (cnt.fee===1 ?' costs':' cost')   + ' more than you have');
+  if(cnt.wage) bits.push(cnt.wage + (cnt.wage===1?' would put':' would put') + ' you over the wage cap');
+  if(cnt.will) bits.push(cnt.will + (cnt.will===1?' would not come':' would not come'));
+  var tail = bits.length ? bits.join(', ') : 'none of them are gettable';
+  return { n:n, fee:cnt.fee, wage:cnt.wage, will:cnt.will,
+    head: DRY_HEAD[Math.floor(h2(sc.id*17, b.id*5+n)*DRY_HEAD.length)],
+    body: n + ' of them fit what you asked for on paper. ' +
+          tail.charAt(0).toUpperCase() + tail.slice(1) + '.' };
+}
+function fileDry(sc, b, sp){
+  var s=st();
+  var d = dryReport(sc,b,sp);
+  var rep = { id:s.nid++, bid:b.id, sc:sc.id, scn:sc.name, scnat:sc.nat, w:G.week, s:G.season,
+              picks:[], dry:d, open:d.head };
+  if(!s.brep) s.brep=[];
+  s.brep = s.brep.filter(function(r){ return r.bid!==b.id; });
+  s.brep.push(rep);
+  b.unread = true; b.dry = G.week;
+  note(sc.name + ' has nothing for the ' + (POSN[b.pos]||b.pos) + ' brief',
+    d.head + ' ' + d.body, {from:vH(sc.name,'scout',sc.nat,52)});
+}
+
+/* the deliverable: three men, in his words, every one of them on brief
+   AND every one of them a man you could actually sign */
 function doBrief(sc, bid){
   var s=st(), b=briefById(bid); if(!b) return;
-  var c = briefCands(b, sc);
-  if(!c.length){
-    note(sc.name + ' has nothing for the ' + (POSN[b.pos]||b.pos) + ' brief',
-      'I have been through everyone. Nobody fits what you asked for at that money. Loosen it or raise it.',
-      {from:vH(sc.name,'scout',sc.nat,52)});
-    b.dry = G.week;
-    return;
-  }
+  var sp = briefSplit(b, sc);
+  var c = (b.reach==='ALL') ? sp.all : sp.ok;
+  if(!c.length){ fileDry(sc,b,sp); return; }
   var sweep = Math.min(c.length, 4+sc.q);
   for(var w=0;w<sweep;w++){ var x=c[Math.floor(rnd()*c.length)]; learn(x.p.id, 0.05+sc.q*0.012); }
   /* men we already know inside out are not news; look past them when there is anyone else */
@@ -762,11 +825,13 @@ function doBrief(sc, bid){
     var r = writeReport(sc,p,cl,k,false); r.scnat=sc.nat; r.brief=bid;
     s.rep[p.id]=r; s.nm[p.id]=p.name;
     if(k>=0.8 && p.trait) reveal(p.id,'trait');
-    picks.push({ pid:p.id, nm:p.name, cl:cl.name, line:briefPickLine(sc,p,cl,i,k) });
+    var rr = reachOf(top[i]);
+    picks.push({ pid:p.id, nm:p.name, cl:cl.name, line:briefPickLine(sc,p,cl,i,k,rr),
+                 ask:rr.ask, wg:rr.wage||0, far:!rr.ok, why:rr.ok?'':rr.why });
   }
   LAB=Object.create(null);
   var rep = { id:s.nid++, bid:bid, sc:sc.id, scn:sc.name, scnat:sc.nat, w:G.week, s:G.season,
-              picks:picks, open:briefOpen(sc,b,picks.length) };
+              picks:picks, blocked:sp.far.length, open:briefOpen(sc,b,picks.length) };
   if(!s.brep) s.brep=[];
   s.brep = s.brep.filter(function(r){ return r.bid!==bid; });   // one live report per brief
   s.brep.push(rep);
@@ -786,12 +851,15 @@ function briefOpen(sc,b,n){
   var nw = n===1?'one':n===2?'two':'three';
   return t.replace('{p}', POSN[b.pos]||b.pos).replace('{n}', nw).replace('{N}', nw.charAt(0).toUpperCase()+nw.slice(1));
 }
-function briefPickLine(sc,p,cl,rank,k){
+function briefPickLine(sc,p,cl,rank,k,rr){
   var lab = (p.pos==='GK') ? ATTG : ATT;
   var hi=0; for(var i=1;i<7;i++) if(p.a[i]>p.a[hi]) hi=i;
   var g = GOOD[lab[hi]] || 'He has one real strength and he leans on it.';
-  var lead = rank===0 ? 'First choice: ' : rank===1 ? 'If he says no, ' : 'Third man, ';
-  var tail = rank===0 ? '' : (k>=0.5 ? ' Nothing wrong with him either.' : ' I have seen less of him.');
+  var far = rr && !rr.ok;
+  var lead = far ? 'You asked to see them anyway: '
+           : rank===0 ? 'First choice: ' : rank===1 ? 'If he says no, ' : 'Third man, ';
+  var tail = far ? ' I would not waste the phone call — ' + rr.why
+           : rank===0 ? '' : (k>=0.5 ? ' Nothing wrong with him either.' : ' I have seen less of him.');
   return lead + p.name + ' at ' + cl.name + ', ' + p.age + '. ' + g + tail;
 }
 function briefReport(bid){ var s=st(); return (s.brep||[]).find(function(r){return r.bid===bid}) || null; }
@@ -826,6 +894,7 @@ function pruneBriefs(){
   if(s.brep){
     s.brep = s.brep.filter(function(r){
       if(!briefById(r.bid)) return false;
+      if(r.dry) return true;                       // an honest empty report is still a report
       r.picks = r.picks.filter(function(pk){ var p=pOf(pk.pid); return p && p.name===pk.nm; });
       return r.picks.length>0;
     });
@@ -892,6 +961,7 @@ var UI = {
     };
     var nats = [['ALL','Anywhere']].concat(REG.map(function(n){return [n,NATIONS[n].name]}));
     var weak = weakestPos();
+    var cap  = Math.round(wageCap());
     sheet(
       '<h3>' + (isNew ? 'What are we looking for?' : 'Change the brief') + '</h3>' +
       '<div class="sh-sub">' + (d.auto || isNew ? 'Your weakest slot is ' + esc(POSN[weak]||weak) + ', so that is pre-set. ' : '') +
@@ -899,6 +969,12 @@ var UI = {
       row('Position','pos',POSL.map(function(p){return [p,p]})) +
       row('Age','ageBand',BOPT.ageBand) +
       row('Price','price',BOPT.price) +
+      row('Who to bring back','reach',BOPT.reach) +
+      '<div style="font-size:12px;line-height:18px;color:' + (d.reach==='ALL'?'var(--inj)':'var(--t3)') + ';margin:-8px 0 14px">' +
+        (d.reach==='ALL'
+          ? 'You will get names you cannot sign. He will tell you which ones and why, and he will not put them first.'
+          : 'Fee inside ' + money(me()?me().bal:0) + ', wages that still leave you under ' + cap + '% of revenue, and a man who would actually come.') +
+      '</div>' +
       row('Minimum ability','minCA',BOPT.minCA) +
       row('Strong at','strong',BOPT.strong) +
       row('Preferred foot','foot',BOPT.foot) +
@@ -928,6 +1004,15 @@ var UI = {
       if(free) toBrief(free.id, b.id);
     }
     s.draft=null;
+    save(); closeSheet(); render();
+  },
+  /* the fanatic's override, offered only where it is useful: he came back empty,
+     so he shows you the ones he ruled out and says why he ruled them out. */
+  briefAnyway: function(bid){
+    var s=st(), b=briefById(bid); if(!b) return;
+    b.reach='ALL'; b.auto=false;
+    var sc = onBrief(bid)[0] || s.sc[0];
+    if(sc){ if(s.brep) s.brep=s.brep.filter(function(r){return r.bid!==bid}); doBrief(sc,bid); }
     save(); closeSheet(); render();
   },
   briefDrop: function(bid){
@@ -1025,22 +1110,64 @@ var UI = {
     save(); closeSheet(); render();
   },
 
+  /* ----- "have him watched": one man, picked by the manager, from anywhere -----
+     Every screen where you meet a footballer offers this. It is the answer to
+     "I found him myself, now go and look at him properly." */
   watch: function(pid){
-    var s=st();
-    var free = s.sc.filter(function(x){return !x.asg}).sort(function(a,b){return b.q-a.q})[0];
-    if(!free){
-      sheet('<h3>Everyone is out</h3><div class="sh-sub">Every scout you have is already on a job. ' +
-        'Pull one off it or hire another.</div>' +
-        '<button class="btn" onclick="SW.get(\'scouting\').ui.open()">Go to the network</button>' +
+    var s=st(), p=pOf(pid); if(!p) return;
+    var cl = clubOf(pid);
+    if(!s.sc.length){
+      sheet('<h3>You have nobody to send</h3>' +
+        '<div class="sh-sub">Somebody has to go and watch him. Hire a scout and he can start with ' + esc(p.name) + '.</div>' +
+        '<button class="btn" onclick="SW.get(\'scouting\').ui.open()">Go and hire one</button>' +
         '<button class="btn ghost" style="margin-top:8px" onclick="closeSheet();render()">Leave it</button>');
       return;
     }
-    assign(free.id,'player',pid);
-    var p=pOf(pid);
+    var already = s.sc.find(function(x){return x.asg && x.asg.kind==='player' && x.asg.pid===pid});
+    if(already){
+      sheet(speakerBar(vH(already.name,'scout',already.nat,52), vP(p), 'watching', STAR[already.q]) +
+        '<h3>' + esc(already.name) + ' is already on him</h3>' +
+        '<div class="sh-sub">' + (already.asg.left<=1 ? 'He files this week.' : already.asg.left + ' more weeks and he files on ' + esc(p.name) + '.') + '</div>' +
+        '<button class="btn ghost" onclick="closeSheet();render()">Good</button>');
+      return;
+    }
+    /* an idle man is free; anybody else costs you the job he is halfway through */
+    var idle = s.sc.filter(function(x){return !x.asg}).sort(function(a,b){return b.q-a.q});
+    var rec  = idle[0] || s.sc.slice().sort(function(a,b){
+      var w=function(x){ return !x.asg?0 : x.asg.kind==='region'?1 : x.asg.kind==='youth'?2 : 3; };
+      return (w(a)-w(b)) || (b.q-a.q);
+    })[0];
+    var rows = s.sc.map(function(sc){
+      var a=sc.asg;
+      var where = !a ? 'Idle' : a.kind==='brief' ? (function(){var bb=briefById(a.bid);return bb?briefTitle(bb):'A brief'})()
+                 : a.kind==='youth' ? 'Our academy'
+                 : a.kind==='player' ? (function(){var q=pOf(a.pid);return 'Watching ' + (q?q.name:'somebody')})()
+                 : 'Sweeping ' + NATIONS[a.nat].name;
+      var cost = a ? ' · pulling him off costs you that' : '';
+      return '<div class="opt' + (sc.id===(rec&&rec.id)?' rec':'') + '" onclick="SW.get(\'scouting\').ui.watchPick(' + pid + ',' + sc.id + ')">' +
+        '<div><div style="font-weight:600">' + esc(sc.name) + ' <span class="dim" style="font-weight:400">' + STAR[sc.q] + '</span></div>' +
+        '<div class="dim" style="font-size:12px">' + esc(where) + cost + ' · files in ' + weeksFor(sc,'player') + ' weeks</div></div>' +
+        (sc.id===(rec&&rec.id)?'<span class="st">Advised</span>':'') + '</div>';
+    }).join('');
+    sheet(
+      speakerBar(vV('assist'), vP(p), 'watch', (cl?cl.name:'') + (cl?' · ':'') + p.pos + ' · ' + p.age) +
+      '<h3>Have ' + esc(p.name) + ' watched</h3>' +
+      '<div class="sh-sub">One man goes and sits through him three times, then writes it down. ' +
+        'We know him ' + Math.round(knowledge(pid)*100) + '% at the minute.' +
+        (cl && cl.id!==G.me ? ' ' + esc(reachLine(p,cl)) : '') + '</div>' + rows +
+      '<button class="btn ghost" style="margin-top:6px" onclick="closeSheet();render()">Leave it</button>'
+    );
+  },
+  watchPick: function(pid, scoutId){
+    var s=st(), sc=s.sc.find(function(x){return x.id===scoutId}); if(!sc) return;
+    var p=pOf(pid); if(!p) return;
+    assign(scoutId,'player',pid);
+    if(G.shortlist.indexOf(pid)<0 && clubOf(pid) && clubOf(pid).id!==G.me) G.shortlist.push(pid);
     save(); closeSheet(); render();
-    sheet('<h3>' + esc(free.name) + ' is on him</h3>' +
-      '<div class="sh-sub">' + weeksFor(free,'player') + ' weeks and he files on ' + esc(p?p.name:'him') + '. ' +
-      'Waiting is what knowledge costs.</div>' +
+    sheet(speakerBar(vH(sc.name,'scout',sc.nat,52), vP(p), 'on', STAR[sc.q]) +
+      '<h3>' + esc(sc.name) + ' is on him</h3>' +
+      '<div class="sh-sub">' + weeksFor(sc,'player') + ' weeks and he files on ' + esc(p.name) + '. ' +
+      'He is on your shortlist until then. Waiting is what knowledge costs.</div>' +
       '<button class="btn ghost" onclick="closeSheet();render()">Fine</button>');
   },
 
@@ -1087,6 +1214,46 @@ var UI = {
   }
 };
 
+/* ============================================================
+   THE MARKET ROW
+   The manager meets footballers in two places: the player sheet and the
+   market list. "Have him watched" has to be in both, or it is in neither.
+   The core has no hook for an action on a market card, so this wraps the
+   card renderer additively — the core still draws the card, we only hang a
+   button under it, and if anything at all goes wrong we hand back exactly
+   what the core produced. See the report: marketRowActions() is the hook
+   this should be once the core grows one.
+   ============================================================ */
+function watchBtn(pid, wide){
+  var s=st();
+  var on  = s.sc.some(function(x){return x.asg && x.asg.kind==='player' && x.asg.pid===pid});
+  var rep = !!s.rep[pid];
+  var cls = 'btn ' + (on?'ghost ':rep?'ghost ':'ghost ') + 'xs';
+  var lab = on ? 'Being watched' : rep ? 'Read the report' : 'Have him watched';
+  var fn  = on ? "SW.get('scouting').ui.watch(" + pid + ")"
+          : rep ? "SW.get('scouting').ui.read(" + pid + ")"
+          : "SW.get('scouting').ui.watch(" + pid + ")";
+  return '<button class="' + cls + '" style="min-height:36px' + (wide?';width:100%':'') +
+    (on?';color:var(--trf);border-color:var(--trf)':rep?';color:var(--acc)':'') +
+    '" onclick="event.stopPropagation();' + fn + '">' + lab + '</button>';
+}
+function hookMktCard(){
+  try{
+    if(typeof window.mktCard!=='function' || window.mktCard.__swWatch) return;
+    var orig = window.mktCard;
+    var wrapped = function(p,s,ask,w){
+      var html;
+      try{ html = orig(p,s,ask,w); }catch(e){ return ''; }
+      try{
+        if(!p || !s || s.id===G.me || !st().sc) return html;
+        return '<div class="pccell" style="width:' + (w||132) + 'px">' + html + watchBtn(p.id,true) + '</div>';
+      }catch(e){ return html; }
+    };
+    wrapped.__swWatch = true;
+    window.mktCard = wrapped;
+  }catch(e){}
+}
+
 function kv(k,v){ return '<div class="kv"><span class="k2">' + k + '</span><span class="v2">' + esc(String(v)) + '</span></div>'; }
 function agoTxt(w){
   var d = G.week - w;
@@ -1104,28 +1271,43 @@ function briefBlock(){
     var who = staff.length ? staff.map(function(x){return esc(x.name) + (x.asg.left<=1?' (this week)':' ('+x.asg.left+' wks)')}).join(', ')
                            : 'Nobody on it';
     var picks = '';
-    if(rep){
+    if(rep && rep.dry){
+      /* the honest empty report — in his voice, with the wall we hit named */
+      picks = '<div style="font-size:13px;line-height:19px;margin:10px 0 2px">' +
+        '<span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--acc);font-weight:700">' + esc(rep.scn) + ' · ' + agoTxt(rep.w) + '</span><br>' +
+        '<span style="color:var(--inj);font-weight:600">' + esc(rep.dry.head) + '</span><br>' +
+        '<span style="color:var(--t2)">' + esc(rep.dry.body) + '</span></div>' +
+        '<div class="row" style="gap:6px;margin-top:8px">' +
+          '<button class="btn ghost xs" style="min-height:36px" onclick="event.stopPropagation();SW.get(\'scouting\').ui.brief(' + b.id + ')">Widen it</button>' +
+          (b.reach!=='ALL' && rep.dry.n ? '<button class="btn ghost xs" style="min-height:36px" onclick="event.stopPropagation();SW.get(\'scouting\').ui.briefAnyway(' + b.id + ')">Show me anyone</button>' : '') +
+        '</div>';
+    } else if(rep){
       picks = '<div style="font-size:13px;line-height:19px;color:var(--t1);margin:10px 0 6px">' +
         '<span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--acc);font-weight:700">' + esc(rep.scn) + ' · ' + agoTxt(rep.w) + '</span><br>' +
         esc(rep.open) + '</div>' +
         rep.picks.map(function(pk){
           var p = pOf(pk.pid); if(!p) return '';
           var cl = clubOf(pk.pid);
-          var ask = (cl && c && typeof askingPrice==='function') ? askingPrice(p,cl,c) : value(p);
+          var rr = cl ? reachOf({p:p,s:cl}) : {ok:true, ask:value(p), wage:0};
+          var ask = rr.ask!==undefined ? rr.ask
+                  : ((cl && c && typeof askingPrice==='function') ? askingPrice(p,cl,c) : value(p));
           var shorted = G.shortlist.indexOf(pk.pid)>=0;
           return '<div class="plr" style="align-items:flex-start;padding:9px 0" onclick="showPlayer(' + pk.pid + ')">' + pface(p,40) +
             '<div class="pos">' + p.pos + '</div>' +
-            '<div class="nmw"><div class="nm2">' + esc(p.name) + '</div>' +
-            '<div class="meta"><span>' + p.age + '</span><span>' + esc(cl?cl.name:pk.cl) + '</span><span style="color:var(--trf)">' + money(ask) + '</span></div>' +
+            '<div class="nmw"><div class="nm2">' + esc(p.name) + (rr.ok?'':' <span class="pill" style="font-size:10px;color:var(--inj)">Out of reach</span>') + '</div>' +
+            '<div class="meta"><span>' + p.age + '</span><span>' + esc(cl?cl.name:pk.cl) + '</span>' +
+              '<span style="color:' + (rr.ok?'var(--trf)':'var(--t3)') + '">' + money(ask) + '</span>' +
+              (rr.ok && rr.wage ? '<span style="color:var(--t3)">' + money(rr.wage) + '/wk</span>' : '') + '</div>' +
             '<div style="font-size:12px;line-height:17px;color:var(--t2);margin-top:4px;white-space:normal">' + esc(pk.line) + '</div>' +
+            (rr.ok ? '' : '<div style="font-size:12px;line-height:17px;color:var(--inj);margin-top:3px;white-space:normal">' + esc(rr.why) + '</div>') +
             '<div class="row" style="gap:6px;margin-top:6px">' +
               '<button class="btn ' + (shorted?'':'ghost ') + 'xs" style="min-height:36px" onclick="event.stopPropagation();SW.get(\'scouting\').ui.briefShort(' + pk.pid + ')">' + (shorted?'Shortlisted':'Shortlist') + '</button>' +
-              '<button class="btn xs" style="min-height:36px" onclick="event.stopPropagation();SW.get(\'scouting\').ui.briefBid(' + pk.pid + ')">Bid</button>' +
+              (rr.ok ? '<button class="btn xs" style="min-height:36px" onclick="event.stopPropagation();SW.get(\'scouting\').ui.briefBid(' + pk.pid + ')">Bid</button>' : '') +
             '</div></div>' +
             '<div class="ca" style="color:' + ramp(estimateOf(pk.pid)||60) + ';width:auto;font-size:13px">' + label(pk.pid,p) + '</div></div>';
         }).join('');
     } else if(b.dry!==undefined){
-      picks = '<div style="font-size:13px;color:var(--inj);margin-top:8px">Nobody fits that at that money. Loosen it.</div>';
+      picks = '<div style="font-size:13px;color:var(--inj);margin-top:8px">Nothing we can get near. Widen it.</div>';
     } else if(staff.length){
       picks = '<div style="font-size:13px;color:var(--t3);margin-top:8px">Out looking. Report in ' + Math.min.apply(null, staff.map(function(x){return x.asg.left})) + ' week' + (Math.min.apply(null, staff.map(function(x){return x.asg.left}))===1?'':'s') + '.</div>';
     } else {
@@ -1262,11 +1444,18 @@ SW.register({
   reportFor: reportFor,
   label: label,
   ceiling: ceilLabel,
+  /* can we actually sign him: {ok, k:'fee'|'wage'|'will', ask, wage, why} */
+  pursuable: function(pid){
+    var p=pOf(Number(pid)); if(!p) return null;
+    var cl=clubOf(Number(pid)); if(!cl || cl.id===G.me) return {ok:true};
+    return reachOf({p:p, s:cl});
+  },
+  watch: function(pid){ UI.watch(Number(pid)); },
   ui: UI,
 
   init: function(){
     var s=st();
-    invalidate();
+    invalidate(); hookMktCard();
     if(!s.seeded){
       s.seeded=true;
       var c=me();
@@ -1287,7 +1476,7 @@ SW.register({
 
   onLoad: function(){
     var s=st();
-    invalidate();
+    invalidate(); hookMktCard();
     /* rehydrate the reveals the core does not persist, and bin anything
        whose id no longer points at the same man */
     if(s.traits){
@@ -1346,12 +1535,21 @@ SW.register({
     var nb = briefs().filter(function(b){return b.unread && briefReport(b.id)});
     if(nb.length){
       var br = briefReport(nb[0].id), n = br.picks.length;
-      out.push({
-        ic:'◎', bg:'#0E2340', col:'var(--trf)',
-        a: br.scn + ' has ' + (n===1?'a man':n===2?'two men':'three men') + ' for the ' + (POSN[nb[0].pos]||nb[0].pos) + ' brief',
-        b: br.picks.map(function(pk){return pk.nm}).join(', '),
-        fn: "SW.get('scouting').ui.briefRead(" + nb[0].id + ")", priority: 30
-      });
+      if(br.dry){
+        out.push({
+          ic:'◎', bg:'#3A1C12', col:'var(--inj)',
+          a: br.scn + ' came back empty on the ' + (POSN[nb[0].pos]||nb[0].pos) + ' brief',
+          b: br.dry.head,
+          fn: "SW.get('scouting').ui.briefRead(" + nb[0].id + ")", priority: 30
+        });
+      }else{
+        out.push({
+          ic:'◎', bg:'#0E2340', col:'var(--trf)',
+          a: br.scn + ' has ' + (n===1?'a man':n===2?'two men':'three men') + ' for the ' + (POSN[nb[0].pos]||nb[0].pos) + ' brief',
+          b: br.picks.map(function(pk){return pk.nm}).join(', '),
+          fn: "SW.get('scouting').ui.briefRead(" + nb[0].id + ")", priority: 30
+        });
+      }
     }
     var unread = s.unread.filter(function(id){return s.rep[id]});
     if(unread.length){
@@ -1374,8 +1572,10 @@ SW.register({
     return out;
   },
 
+  boot: function(){ hookMktCard(); },
+
   marketViews: function(){
-    invalidate();
+    invalidate(); hookMktCard();
     return [{ key:'scouts', label:'Scouts', render: viewScouts }];
   },
 
@@ -1396,6 +1596,14 @@ SW.register({
     body += '<div class="kv"><span class="k2">Ability</span><span class="v2">' + label(p.id,p) + '</span></div>';
     body += '<div class="kv"><span class="k2">Ceiling</span><span class="v2" style="font-weight:600;font-size:13px;max-width:210px">' +
       esc(ceilLabel(p.id,p)) + '</span></div>';
+    /* the question that decides whether any of the above matters */
+    if(!mine && cl){
+      var rr = reachOf({p:p, s:cl});
+      body += '<div class="kv"><span class="k2">Can we get him</span>' +
+        '<span class="v2" style="font-weight:600;font-size:13px;max-width:210px;color:' +
+        (rr.ok?'var(--win)':'var(--loss)') + '">' +
+        esc(rr.ok ? (money(rr.ask) + ' · ' + money(rr.wage) + '/wk') : 'No — ' + rr.why) + '</span></div>';
+    }
     body += '</div>';
 
     if(r){
@@ -1413,7 +1621,7 @@ SW.register({
         '<div style="font-size:13px;color:var(--trf)">You have a man on him. Report on the way.</div></div>';
     }else if(!mine || p.youth){
       body += '<button class="btn ghost sm" style="margin-top:10px" onclick="SW.get(\'scouting\').ui.watch(' + p.id + ')">' +
-        (p.youth ? 'Get a scout on the boy' : 'Put a scout on him') + '</button>';
+        (p.youth ? 'Get a scout on the boy' : 'Have him watched') + '</button>';
     }
     return [head + body];
   }

@@ -2643,6 +2643,21 @@ function packPlayer(p,lite){
   ];
   return f.join('|');
 }
+/* Saves written before the compact encoding stored each player as an array of
+   36 values. Those careers must keep loading — a format change is never a
+   reason to take somebody's season away. */
+function unpackLegacy(v){
+  const height=v[31]||180;
+  return {id:v[0],name:v[1],nat:v[2],pos:v[3],age:v[4],
+    a:[v[5],v[6],v[7],v[8],v[9],v[10],v[11]],
+    pa:v[12],cons:v[13],inj:v[14],prof:v[15],amb:v[16],big:v[17],
+    trait:v[18]||null,traitKnown:!!v[19],
+    form:v[20]||0,cond:v[21]===undefined?95:v[21],morale:v[22]||0,out:v[23]||0,
+    apps:v[24]||0,goals:v[25]||0,assists:v[26]||0,wage:v[27]||0,years:v[28]||0,
+    listed:!!v[29],youth:!!v[30],
+    height,weight:v[32]||Math.round((height/100)*(height/100)*22.6),
+    foot:v[33]||'R',_tier:v[34]||0,listedBy:v[35]||null,ratings:[]};
+}
 function unpackPlayer(str){
   const v=String(str).split('|');
   const height=N36(v[31])||180;
@@ -2719,7 +2734,9 @@ function load(){try{
       rep:s2.rep,formation:s2.f,tempo:s2.t,line:s2.l,ment:s2.m,training:s2.tr,tier:s2.tier,
       titles:s2.titles,capacity:s2.cap,euro:s2.euro,euroP:s2.eP,euroPts:s2.ePt,
       euroGF:s2.eF,euroGA:s2.eA});
-    c.squad=String(s2.sq||'').split(';').filter(Boolean).map(unpackPlayer);
+    c.squad=Array.isArray(s2.sq)
+      ? s2.sq.map(unpackLegacy)                                   // pre-compact career
+      : String(s2.sq||'').split(';').filter(Boolean).map(unpackPlayer);
     c._keySet=null;c._keyWk=-1;
     const byId={};c.squad.forEach(p=>byId[p.id]=p);
     c.xi=(s2.xi||[]).map(([slot,id])=>({slot,p:byId[id]})).filter(x=>x.p);
@@ -2730,7 +2747,10 @@ function load(){try{
   if(d.euro)d.euro.forEach(e=>{if(G.euro[e.k])Object.assign(G.euro[e.k],
     {groups:e.groups,md:e.md,stage:e.stage,ko:e.ko,winner:e.winner})});
   SW.fire('onLoad');
-  return true}catch(e){console.warn('load failed',e);return false}}
+  return true}catch(e){
+  console.warn('load failed',e);
+  G.loadError=(e&&e.message)||'unknown';
+  return false}}
 </script>
 <script>
 /* ============================================================
@@ -4631,6 +4651,16 @@ window.bootPick=function(id){
   window._mgrName=(inp&&inp.value.trim().slice(0,24))||'';
   newGame(id);render();
 };
+window.continueCareer=function(){
+  if(load()){G.tab='home';render();return}
+  sheet(`<h3>That career would not open</h3>
+   <div class="sh-sub">The save is there but something in it could not be read.
+     ${esc(G.loadError||'')}</div>
+   <div class="card" style="background:var(--s1)"><div style="font-size:13px;color:var(--t2)">
+     Nothing has been deleted. Send this message on and it can be looked at —
+     or start a fresh career, which leaves the old save untouched.</div></div>
+   <button class="btn ghost" style="margin-top:12px" onclick="closeSheet()">Back</button>`);
+};
 function bootMenu(){
   if(!G.clubs.length){RND=mulberry32(20260820);buildWorld()}
   const ls=G.leagues.filter(l=>l.nat===BOOTNAT);
@@ -4667,7 +4697,7 @@ function bootMenu(){
        <div class="meta"><span>${esc(c.stadium)}</span><span>·</span><span>${esc(o.text.replace(/ \(top \d+\)/,''))}</span></div></div>
       <div class="ca" style="color:${ramp(c.rep)}">${c.rep}</div><div class="ch dim" style="margin-left:6px">›</div></div>`}).join('')}</div>
     ${localStorage.getItem(KEY)?`<button class="btn ghost" style="margin-top:14px"
-      onclick="if(load()){G.tab='home';render()}">Continue saved career</button>`:''}
+      onclick="continueCareer()">Continue saved career</button>`:''}
    </div>`;
 }
 </script>
