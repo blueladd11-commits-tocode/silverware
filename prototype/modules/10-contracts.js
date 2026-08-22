@@ -545,10 +545,13 @@ SW.register({
   onLoad(){
     const s=st();
     if(!Array.isArray(s.pool))s.pool=[];
-    // the core rebuilds the world from seed on load, so re-stamp agreed terms
+    /* The core used to rebuild the world from seed on load, so this mirror was
+       the only record of agreed terms. The core now persists wages and contract
+       length itself and is authoritative — re-stamping here overwrote correct
+       values with stale ones. Only fill genuine gaps. */
     G.clubs.forEach(c=>c.squad.forEach(p=>{
       const d=s.deals[p.id];
-      if(d){p.wage=d.w;p.years=d.y}
+      if(d){ if(!p.wage)p.wage=d.w; if(!p.years)p.years=d.y; }
     }));
     s.known=squadOf(me()).map(p=>p.id);
     autoXI(me());

@@ -2622,25 +2622,52 @@ const KEY='silverware.save.v3';
    on load, which silently threw away every transfer, injury, goal and year of
    ageing — the save looked like it worked and did not. Packed as flat arrays
    rather than objects: same data, roughly a third of the bytes. */
-function packPlayer(p){
-  return [p.id,p.name,p.nat,p.pos,p.age,
-    p.a[0],p.a[1],p.a[2],p.a[3],p.a[4],p.a[5],p.a[6],
-    p.pa,p.cons,p.inj,p.prof,p.amb,p.big,
-    p.trait||0,p.traitKnown?1:0,
-    +(p.form||0).toFixed(2),Math.round(p.cond),Math.round(p.morale),p.out,
-    p.apps,p.goals,p.assists,p.wage,p.years,p.listed?1:0,p.youth?1:0,
-    p.height||180,p.weight||75,p.foot||'R',p._tier||0,p.listedBy||''];
+/* Players are 87% of the save. At 500 clubs the JSON-array form hit 4.27MB in
+   UTF-16 terms, which is the edge of the 5MB localStorage ceiling — and a write
+   that fails there loses a career quietly. So: base36 numbers, pipe-delimited,
+   one string per squad, and cosmetic counters dropped for clubs the manager
+   will never look at. Round-trip is verified by test, not by hope. */
+const B36=n=>Math.round(Number(n)||0).toString(36);
+const N36=v=>parseInt(v,36)||0;
+function packPlayer(p,lite){
+  const f=[
+    B36(p.id), p.name, p.nat, p.pos, B36(p.age),
+    B36(p.a[0]),B36(p.a[1]),B36(p.a[2]),B36(p.a[3]),B36(p.a[4]),B36(p.a[5]),B36(p.a[6]),
+    B36(p.pa),B36(p.cons),B36(p.inj),B36(p.prof),B36(p.amb),B36(p.big),
+    p.trait||'', p.traitKnown?1:'',
+    lite?'':String(Math.round((p.form||0)*100)),
+    lite?'':B36(p.cond), lite?'':B36(Math.round(p.morale)+100),
+    B36(p.out), lite?'':B36(p.apps), lite?'':B36(p.goals), lite?'':B36(p.assists),
+    B36(p.wage), B36(p.years), p.listed?1:'', p.youth?1:'',
+    B36(p.height), p.foot||'R', B36(p._tier||0), p.listedBy||''
+  ];
+  return f.join('|');
 }
-function unpackPlayer(v){
-  return {id:v[0],name:v[1],nat:v[2],pos:v[3],age:v[4],
-    a:[v[5],v[6],v[7],v[8],v[9],v[10],v[11]],
-    pa:v[12],cons:v[13],inj:v[14],prof:v[15],amb:v[16],big:v[17],
-    trait:v[18]||null,traitKnown:!!v[19],
-    form:v[20],cond:v[21],morale:v[22],out:v[23],
-    apps:v[24],goals:v[25],assists:v[26],wage:v[27],years:v[28],
-    listed:!!v[29],youth:!!v[30],
-    height:v[31]||180,weight:v[32]||75,foot:v[33]||'R',_tier:v[34]||0,
-    listedBy:v[35]||null,ratings:[]};
+function unpackPlayer(str){
+  const v=String(str).split('|');
+  const height=N36(v[31])||180;
+  const a=[N36(v[5]),N36(v[6]),N36(v[7]),N36(v[8]),N36(v[9]),N36(v[10]),N36(v[11])];
+  return {id:N36(v[0]),name:v[1],nat:v[2],pos:v[3],age:N36(v[4]),a,
+    pa:N36(v[12]),cons:N36(v[13]),inj:N36(v[14]),prof:N36(v[15]),amb:N36(v[16]),big:N36(v[17]),
+    trait:v[18]||null, traitKnown:!!v[19],
+    form:v[20]?Number(v[20])/100:0,
+    cond:v[21]?N36(v[21]):95,
+    morale:v[22]?N36(v[22])-100:0,
+    out:N36(v[23]), apps:N36(v[24]), goals:N36(v[25]), assists:N36(v[26]),
+    wage:N36(v[27]), years:N36(v[28]),
+    listed:!!v[29], youth:!!v[30],
+    height, weight:Math.round((height/100)*(height/100)*22.6+(a[5]-55)*0.09),
+    foot:v[32]||'R', _tier:N36(v[33]), listedBy:v[34]||null, ratings:[]};
+}
+/* Full detail for anywhere the manager can actually see the difference: his own
+   club, his own nation's pyramid, and anyone holding a player he is tracking. */
+function nearClub(c){
+  if(!c)return false;
+  if(c.id===G.me)return true;
+  const my=G.clubs[G.me];
+  if(my&&c.nat===my.nat)return true;
+  if(G.shortlist&&G.shortlist.length&&c.squad.some(p=>G.shortlist.includes(p.id)))return true;
+  return false;
 }
 function save(){try{
   localStorage.setItem(KEY,JSON.stringify({
@@ -2650,7 +2677,7 @@ function save(){try{
       P:c.P,W:c.W,D:c.D,L:c.L,GF:c.GF,GA:c.GA,form:c.form,bal:c.bal,rep:c.rep,
       f:c.formation,t:c.tempo,l:c.line,m:c.ment,tr:c.training,tier:c.tier,titles:c.titles,
       cap:c.capacity,euro:c.euro,eP:c.euroP,ePt:c.euroPts,eF:c.euroGF,eA:c.euroGA,
-      sq:c.squad.map(packPlayer),
+      sq:c.squad.map(p=>packPlayer(p,!nearClub(c))).join(';'),
       xi:c.xi.map(x=>[x.slot,x.p.id])
     })),
     leagues:G.leagues.map(l=>l.clubs),
@@ -2660,7 +2687,23 @@ function save(){try{
     chronicle:G.chronicle,inbox:G.inbox,shortlist:G.shortlist,mod:G.mod,renames:G.renames,
     pre:G.pre||0,preOpp:G.preOpp||[],mgr:G.managerName||''
   }));
-  return true}catch(e){console.warn('save failed',e);return false}}
+  G.saveBroken=false;
+  return true}catch(e){
+  /* Silent failure here cost the owner a striker: the write threw on quota, the
+     old save stayed, and the career loaded a season behind. Never again. */
+  console.warn('save failed',e);
+  G.saveBroken=e&&e.name||'error';
+  try{
+    if(!document.getElementById('saveWarn')){
+      const b=document.createElement('div');
+      b.id='saveWarn';
+      b.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:99;background:var(--loss);'+
+        'color:#fff;font:600 13px/18px var(--ui);padding:12px 16px;text-align:center';
+      b.textContent='Your progress could not be saved — storage is full. Free space or start a new career before playing on.';
+      document.body.appendChild(b);
+    }
+  }catch(_){}
+  return false}}
 function load(){try{
   const d=JSON.parse(localStorage.getItem(KEY));
   if(!d||d.v!==3)return false;
@@ -2676,7 +2719,7 @@ function load(){try{
       rep:s2.rep,formation:s2.f,tempo:s2.t,line:s2.l,ment:s2.m,training:s2.tr,tier:s2.tier,
       titles:s2.titles,capacity:s2.cap,euro:s2.euro,euroP:s2.eP,euroPts:s2.ePt,
       euroGF:s2.eF,euroGA:s2.eA});
-    c.squad=s2.sq.map(unpackPlayer);
+    c.squad=String(s2.sq||'').split(';').filter(Boolean).map(unpackPlayer);
     c._keySet=null;c._keyWk=-1;
     const byId={};c.squad.forEach(p=>byId[p.id]=p);
     c.xi=(s2.xi||[]).map(([slot,id])=>({slot,p:byId[id]})).filter(x=>x.p);
@@ -5119,10 +5162,13 @@ SW.register({
   onLoad(){
     const s=st();
     if(!Array.isArray(s.pool))s.pool=[];
-    // the core rebuilds the world from seed on load, so re-stamp agreed terms
+    /* The core used to rebuild the world from seed on load, so this mirror was
+       the only record of agreed terms. The core now persists wages and contract
+       length itself and is authoritative — re-stamping here overwrote correct
+       values with stale ones. Only fill genuine gaps. */
     G.clubs.forEach(c=>c.squad.forEach(p=>{
       const d=s.deals[p.id];
-      if(d){p.wage=d.w;p.years=d.y}
+      if(d){ if(!p.wage)p.wage=d.w; if(!p.years)p.years=d.y; }
     }));
     s.known=squadOf(me()).map(p=>p.id);
     autoXI(me());
