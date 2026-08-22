@@ -492,6 +492,119 @@ function file(sc,p,cl,k,gem){
 }
 
 /* ============================================================
+   PURSUABLE — the precondition, not another filter
+
+   A 93 at a giant club is a fact. It is not a prospect. Before a
+   name is put in front of the manager it has to survive three
+   questions, in this order:
+
+     1. can we pay the fee                  (ask <= budget)
+     2. can we carry the wage               (cost ratio, with room left)
+     3. will he actually come               (willingness, not price)
+
+   Every brief is defaulted to that. The manager who wants to look
+   at the unreachable ones can ask — it is a chip, and it is off.
+   ============================================================ */
+var GREED_MAX = 1.30;    // the worst agent in the game. The scout budgets for him.
+var HEADROOM  = 3;       // cost-ratio points a signing must still leave behind it
+
+/* the wage ceiling the board agreed, if the market module is here to say */
+function wageCap(){
+  var m = SW.get('market');
+  if(m && typeof m.wageCeiling==='function'){
+    try{ var v = m.wageCeiling(); if(v>0) return v; }catch(e){}
+  }
+  return 85;
+}
+/* What he would want. Deliberately the pessimistic read: assume his agent is
+   the greediest in the game, so a man the scout calls affordable never turns
+   out not to be at the table. Mirrors the market module's own terms(). */
+function wageEst(p, seller){
+  var c = me(); if(!c || !seller) return Infinity;
+  var base  = (typeof wageFor==='function') ? wageFor(p,c) : p.wage;
+  var floor = Math.max(base, Math.round(p.wage*0.96));
+  var m = 1.05;
+  m += (p.amb-55)/100*0.28;
+  m += clamp((seller.rep-c.rep)/40,-0.10,0.45);     // coming down costs you
+  m -= clamp((c.rep-seller.rep)/70,0,0.12);         // a step up shaves it
+  if(p.age<=22) m-=0.05; else if(p.age>=32) m-=0.08;
+  m *= GREED_MAX;
+  return Math.max(1000, Math.round(floor*clamp(m,0.92,1.70)/1000)*1000);
+}
+function ratioWith(w){
+  var c=me(); if(!c || typeof wageBill!=='function' || typeof revenue!=='function') return 0;
+  return Math.min(160, Math.round((wageBill(c)+w)*52/revenue(c)*100));
+}
+
+/* ---------- will he come ----------
+   Price is not the same question as willingness. A man who will not drop a
+   level is not a prospect at any price, and the scout knows that before the
+   agent ever picks the phone up. */
+function willJoin(p, seller){
+  var c = me(); if(!c || !seller) return {ok:true};
+  var m = SW.get('market');
+  if(m && typeof m.willJoin==='function'){
+    try{ var r = m.willJoin(p.id); if(r && typeof r.ok==='boolean') return r; }catch(e){}
+  }
+  if(typeof playerWillJoin==='function'){
+    try{
+      var w = playerWillJoin(p,seller,c);
+      if(w && w.ok===false) return {ok:false, why: w.msg || 'He will not come.'};
+    }catch(e){}
+  }
+  /* the reasons the negotiating table gives, read a month early */
+  var gap = seller.rep - c.rep;
+  var lg  = (typeof myLeague==='function' && myLeague()) ? myLeague().name : 'this division';
+  var floorCA = (c.xi && c.xi.length)
+    ? c.xi.reduce(function(a,x){return a+CA(x.p,x.slot)},0)/c.xi.length : 50;
+  if(seller.tier < c.tier && p.amb>50 && CA(p)>=floorCA-2)
+    return {ok:false, why:'He is not dropping to ' + lg + '.'};
+  if(gap>19 && p.amb>58)
+    return {ok:false, why:'He has bigger clubs than you asking, and his man has told him so.'};
+  var ahead = squadOf(c).filter(function(x){ return x.pos===p.pos && CA(x)>=CA(p); }).length;
+  if(ahead>=3 && p.amb>48)
+    return {ok:false, why:'He wants to play. You have three ahead of him in that position.'};
+  if(p.age<=23 && (p.pa-CA(p))>=14 && gap>10)
+    return {ok:false, why:'He is ' + p.age + ' with everything in front of him. He is not spending it here.'};
+  return {ok:true};
+}
+
+/* ---------- the verdict, memoised for the epoch ---------- */
+var RCH=Object.create(null), RKEY='';
+function reachOf(x){
+  var c=me(); if(!c || !x || !x.p || !x.s) return {ok:true};
+  var key = G.season + '|' + G.week + '|' + c.bal + '|' + c.squad.length;
+  if(RKEY!==key){ RKEY=key; RCH=Object.create(null); }
+  var hit = RCH[x.p.id];
+  if(hit!==undefined) return hit;
+  var out = reachCalc(x);
+  RCH[x.p.id] = out;
+  return out;
+}
+function reachCalc(x){
+  var c=me(), p=x.p, s=x.s;
+  var ask = (x.ask!==undefined) ? x.ask
+          : (typeof askingPrice==='function' ? askingPrice(p,s,c) : value(p));
+  if(ask > c.bal)
+    return {ok:false, k:'fee', ask:ask, why: money(ask-c.bal) + ' more than you have.'};
+  var w = wageEst(p,s), r1 = ratioWith(w), cap = wageCap();
+  if(r1 > cap - HEADROOM)
+    return {ok:false, k:'wage', ask:ask, wage:w,
+            why:'His wages take you to ' + r1 + '% of revenue. The cap is ' + Math.round(cap) + '.'};
+  var will = willJoin(p,s);
+  if(!will.ok)
+    return {ok:false, k:'will', ask:ask, wage:w, why: will.why || will.msg || 'He will not come.'};
+  return {ok:true, ask:ask, wage:w, ratio:r1};
+}
+/* the one line a manager needs on any outsider */
+function reachLine(p, cl){
+  var c=me(); if(!c || !cl || cl.id===G.me) return '';
+  var r = reachOf({p:p, s:cl});
+  if(r.ok) return 'Gettable. ' + money(r.ask) + ' and about ' + money(r.wage) + '/wk.';
+  return 'Out of reach. ' + r.why;
+}
+
+/* ============================================================
    RECRUITMENT BRIEFS
    "I need a left-footed centre-half under 25 for under half the
    budget." You say it once; the network works it every week.
@@ -506,13 +619,17 @@ var POSL  = ['GK','CB','FB','DM','CM','AM','W','ST'];
 var BOPT  = {
   ageBand:[['ALL','Any age'],['U21','Under 21'],['U24','Under 24'],['U27','Under 27'],['27+','27 and over']],
   price:[['Budget','Within budget'],['Half','Half budget'],['Quarter','Quarter budget'],['Free','Free agents'],['ALL','Any price']],
+  reach:[['CAN','Only men we can sign'],['ALL','Show me anyone']],
   minCA:[[0,'Any level'],[60,'60+'],[70,'70+'],[78,'78+'],[85,'85+']],
   foot:[['ALL','Any foot'],['R','Right'],['L','Left'],['B','Both']],
   height:[['ALL','Any height'],['Tall','Tall (186+)'],['Average','Average'],['Short','Short (175-)']],
   strong:[[-1,'Anything']].concat(ATT.map(function(n,i){return [i,n]}))
 };
 function briefDef(pos){
-  return { pos:pos||'ST', ageBand:'U27', price:'Budget', minCA:0, foot:'ALL', height:'ALL', nat:'ALL', strong:-1 };
+  /* reach:'CAN' is the default and it is the point of the whole thing —
+     a brief comes back with men you can sign, or it comes back empty. */
+  return { pos:pos||'ST', ageBand:'U27', price:'Budget', minCA:0, foot:'ALL', height:'ALL',
+           nat:'ALL', strong:-1, reach:'CAN' };
 }
 function briefs(){ var s=st(); if(!s.briefs) s.briefs=[]; return s.briefs; }
 function briefById(id){ return briefs().find(function(b){return b.id===id}) || null; }
@@ -526,6 +643,7 @@ function briefLine(b){
   if(b.nat && b.nat!=='ALL' && NATIONS[b.nat]) bits.push('from '+NATIONS[b.nat].name);
   var pr = BOPT.price.find(function(o){return o[0]===b.price}); if(b.price!=='ALL' && pr) bits.push(pr[1].toLowerCase());
   if(b.strong>=0) bits.push('strong '+ATT[b.strong].toLowerCase());
+  bits.push(b.reach==='ALL' ? 'anyone, gettable or not' : 'only men we can sign');
   return bits.join(' · ');
 }
 function briefTitle(b){ return 'The ' + (POSN[b.pos]||b.pos) + ' brief'; }

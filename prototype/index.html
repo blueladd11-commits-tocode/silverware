@@ -3687,6 +3687,18 @@ function mktSort(list){
 /* Pricing every player in a 280-club world on every render cost 58ms, which is
    ~230ms on a phone. The pool only changes when the week or the budget does. */
 let _poolCache=null,_poolKey='';
+/* Search the whole world by name. Built because a save-size bug cost the owner
+   a striker he had paid for; it stays because "where is he now?" is a question
+   every manager asks. */
+function findByName(q){
+  const needle=String(q||'').trim().toLowerCase();
+  if(needle.length<2)return [];
+  const out=[];
+  G.clubs.forEach(c=>c.squad.forEach(p=>{
+    if(p.name.toLowerCase().includes(needle))out.push({p,c});
+  }));
+  return out.sort((a,b)=>CA(b.p)-CA(a.p)).slice(0,40);
+}
 function scoutPool(){
   const c=me();
   const key=G.season+'|'+G.week+'|'+c.bal+'|'+c.id+'|'+G.clubs.length;
@@ -3860,6 +3872,12 @@ function viewClub(){
     <div class="kv"><span class="k2">Capacity</span><span class="v2">${c.capacity.toLocaleString()}</span></div>
     <div class="kv"><span class="k2">Manager</span><span class="v2">${esc(G.managerName||'The Manager')}</span></div>
     <div class="kv"><span class="k2">Reputation</span><span class="v2">${c.rep}</span></div></div>
+   <div class="sechead">Squad repair</div>
+   <div class="act" onclick="sheetRecover('')">
+     <div class="ic" style="background:#0E2340;color:var(--trf)">⌕</div>
+     <div class="tx"><div class="a">Find a player anywhere</div>
+       <div class="b">Search the world · restore a lost signing</div></div>
+     <div class="ch">›</div></div>
    <div class="sechead">Names</div>
    <div class="act" onclick="sheetRenames()">
      <div class="ic" style="background:var(--accw);color:var(--acc)">✎</div>
@@ -4246,6 +4264,46 @@ function showMsg(i){
      ?`<button class="btn" style="margin-top:12px" onclick="closeSheet();showPlayer(${a.id})">Open his profile</button>`:''}
    <button class="btn ghost" style="margin-top:8px" onclick="showInbox()">Back to the inbox</button>`);
 }
+window.sheetRecover=function(q){
+  const res=findByName(q||'');
+  sheet(`<h3>Find a player</h3>
+   <div class="sh-sub">Search every club in the world. If a save fault took someone
+     you had signed, bring him back here — no fee, once per player.</div>
+   <input id="rcQ" value="${esc(q||'')}" placeholder="Surname" autocomplete="off"
+     oninput="clearTimeout(window._rcT);window._rcT=setTimeout(()=>sheetRecover(this.value),350)">
+   <div style="margin-top:14px">
+   ${res.length?res.map(({p,c})=>`<div class="plr">
+      ${pface(p,44)}
+      <div class="nmw"><div class="nm2">${esc(p.name)}</div>
+        <div class="meta"><span class="pill" style="padding:1px 6px">${p.pos}</span>
+          <span>${p.age}</span><span>${esc(c.name)}</span></div></div>
+      <div class="ca" style="color:${ramp(CA(p))}">${Math.round(CA(p))}</div>
+      ${c.id===G.me?'<span class="pill acc" style="margin-left:8px">Yours</span>'
+        :`<button class="btn xs" style="margin-left:8px" onclick="recoverPlayer(${p.id})">Bring back</button>`}
+     </div>`).join('')
+    :(q&&q.length>1?'<div class="dim" style="padding:14px 0">Nobody by that name.</div>':'')}
+   </div>
+   <button class="btn ghost" style="margin-top:12px" onclick="closeSheet()">Close</button>`);
+  setTimeout(()=>{const i=document.getElementById('rcQ');
+    if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}},40);
+};
+window.recoverPlayer=function(id){
+  const c=me();
+  let from=null,p=null;
+  G.clubs.forEach(cl=>{const f=cl.squad.find(x=>x.id===id);if(f){p=f;from=cl}});
+  if(!p||!from||from.id===G.me)return;
+  from.squad=from.squad.filter(x=>x.id!==id);
+  p._tier=c.tier; p.wage=Math.round(wageFor(p,c)); p.years=Math.max(p.years,2);
+  unlistPlayer(p); p.morale=55;
+  c.squad.push(p);
+  from._keyWk=-1; c._keyWk=-1;
+  autoXI(from); autoXI(c);
+  note(p.name+' is back',
+    'Restored from '+from.name+' at no fee — a repair for a save fault, not a transfer.',
+    typeof vP==='function'?{from:vP(p)}:undefined);
+  chron(p.name+' restored to the squad after a save fault');
+  save(); closeSheet(); render();
+};
 function showInbox(){
   sheet(`<h3>Inbox</h3><div class="sh-sub">${G.inbox.length} item${G.inbox.length===1?'':'s'}</div>
    ${G.inbox.length?G.inbox.slice(0,16).map((m,i)=>msgRow(m,i,i===0)).join('')
