@@ -2780,7 +2780,7 @@ function save(){try{
     euro:Object.keys(G.euro).map(k=>({k,groups:G.euro[k].groups,md:G.euro[k].md,
       stage:G.euro[k].stage,ko:G.euro[k].ko,winner:G.euro[k].winner})),
     chronicle:G.chronicle,inbox:G.inbox,shortlist:G.shortlist,mod:G.mod,renames:G.renames,
-    pre:G.pre||0,preOpp:G.preOpp||[],mgr:G.managerName||''
+    pre:G.pre||0,preOpp:G.preOpp||[],mgr:G.managerName||'',repair:G.repairMode!==false
   }));
   G.saveBroken=false;
   return true}catch(e){
@@ -2809,6 +2809,7 @@ function load(){try{
   G.fxIndex=d.fx||0;G.chronicle=d.chronicle||[];G.inbox=d.inbox||[];
   G.shortlist=d.shortlist||[];G.mod=d.mod||{};G.renames=d.renames||{};applyRenames();
   G.pre=d.pre||0;G.preOpp=d.preOpp||[];G.managerName=d.mgr||'The Manager';
+  G.repairMode=d.repair!==false;
   PID=d.pid||PID;
   d.clubs.forEach((s2,i)=>{
     const c=G.clubs[i];
@@ -4193,6 +4194,11 @@ function showPlayer(id){
    ${SW.collect('playerBlocks',p,cl).join('')}
    ${!mine?`<button class="btn" style="margin-top:14px" ${windowOpen()?'':'disabled'}
       onclick="sheetBid(${p.id})">${windowOpen()?'Make an offer':'Window is shut'}</button>`:''}
+   ${(!mine&&G.repairMode!==false)?`<button class="btn ghost" style="margin-top:8px;
+      border-color:var(--trf);color:var(--trf)"
+      onclick="recoverPlayer(${p.id})">Restore him to my squad · no fee</button>
+    <div style="font-size:11px;color:var(--t3);margin-top:6px;text-align:center">
+      Repair for the save fault. Turn this off in Club → Save data when you are done.</div>`:''}
    <button class="btn ghost" style="margin-top:8px" onclick="closeSheet()">Close</button>`);
 }
 function sheetBid(id){
@@ -4783,6 +4789,16 @@ window.sheetSaveTools=function(){
   sheet(`<h3>Save data</h3>
    <div class="sh-sub">Slot ${slot} · ${info?('season '+info.season+', week '+(info.week+1)):'empty'}
      ${info?('· '+(info.chars*2/1048576).toFixed(2)+'MB'):''}</div>
+   <div class="sechead">Repair mode</div>
+   <div class="card" style="background:var(--s1)">
+     <div class="row"><span class="k2" style="flex:1;font-size:13px">Allow restoring any player
+       to your squad at no fee</span>
+       <button class="btn ${G.repairMode!==false?'':'ghost'} xs"
+         onclick="G.repairMode=(G.repairMode===false);save();closeSheet();sheetSaveTools()">
+         ${G.repairMode!==false?'On':'Off'}</button></div>
+     <div style="font-size:12px;color:var(--t3);margin-top:8px">On while you put right what the
+       save fault took. Switch it off and the game goes back to normal rules.</div>
+   </div>
    <div class="sechead">Backups</div>
    <div class="card" style="background:var(--s1)">
    ${[0,1,2].map(n=>{
