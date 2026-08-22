@@ -2632,6 +2632,23 @@ function profActive(){ const d=profRead(); return d.list.find(p=>p.id===d.active
 function slotKey(pid,slot){ return 'sw.'+pid+'.s'+slot }
 function bakKey(pid,slot,n){ return 'sw.'+pid+'.s'+slot+'.b'+n }
 
+/* A career that existed before profiles must not become unreachable. If the
+   old single-slot save is present and no manager has been created yet, adopt
+   it: make a profile named after whoever was managing, and move the save into
+   that manager's first slot. The original key is left untouched as a fallback. */
+function adoptLegacySave(){
+  try{
+    const d=profRead();
+    if(d.list&&d.list.length)return null;          // profiles already exist
+    const raw=localStorage.getItem(KEY);
+    if(!raw)return null;
+    let parsed=null; try{parsed=JSON.parse(raw)}catch(e){return null}
+    if(!parsed||parsed.v!==3)return null;
+    const id=profCreate(parsed.mgr||'The Manager');
+    try{ localStorage.setItem(slotKey(id,1),raw) }catch(e){ /* slot write failed; KEY still holds it */ }
+    return id;
+  }catch(e){ return null }
+}
 function profCreate(name){
   const d=profRead();
   const id='p'+Date.now().toString(36);
@@ -4765,6 +4782,17 @@ window.sheetSaveTools=function(){
        ${has?`<button class="btn xs" onclick="profRestore(${n})">Restore</button>`
             :'<span class="v2 dim">none yet</span>'}</div>`}).join('')}
    </div>
+   <div class="sechead">Keep a copy off this device</div>
+   <div class="card" style="background:var(--s1)">
+     <div style="font-size:13px;color:var(--t2);margin-bottom:10px">A file you can email
+       yourself or drop in cloud storage. This is what survives a lost laptop.</div>
+     <button class="btn" onclick="exportCareer()">Save career to a file</button>
+     <label class="btn ghost" style="margin-top:8px;display:flex;cursor:pointer">
+       Load career from a file
+       <input type="file" accept=".json,application/json" style="display:none"
+         onchange="importCareerFile(this)">
+     </label>
+   </div>
    <div class="sechead">Copy out</div>
    <div class="card" style="background:var(--s1)">
      <div style="font-size:13px;color:var(--t2);margin-bottom:8px">Select all and copy this
@@ -4782,6 +4810,57 @@ window.sheetSaveTools=function(){
    </div>
    <button class="btn ghost" style="margin-top:12px" onclick="closeSheet()">Close</button>`);
 };
+/* Export the career as a real file. Inside the claude.ai viewer downloads are
+   sandboxed, so the page asks the host to save it; on the hosted build a blob
+   link does the job. Either way the manager ends up with a file he can email
+   himself, drop in cloud storage, or carry to another machine. */
+window.exportCareer=async function(){
+  const p=profActive(); if(!p)return;
+  const slot=p.slot||1;
+  let raw=''; try{raw=localStorage.getItem(slotKey(p.id,slot))||localStorage.getItem(KEY)||''}catch(e){}
+  if(!raw){toastSave('Nothing saved in this slot yet.');return}
+  const stamp=new Date().toISOString().slice(0,10);
+  const name='silverware-'+String(p.name).toLowerCase().replace(/[^a-z0-9]+/g,'-')
+    +'-slot'+slot+'-'+stamp+'.json';
+  try{
+    const dl=(window.claude&&claude.use)?await claude.use('downloads'):null;
+    if(dl){ await dl.save({filename:name,data:raw}); toastSave('Career saved to a file.'); return }
+  }catch(e){
+    const code=e&&e.code;
+    if(code==='declined')return;
+    if(code&&code!=='unavailable'&&code!=='not_granted'){toastSave('Could not save: '+code);return}
+  }
+  try{
+    const b=new Blob([raw],{type:'application/json'});
+    const u=URL.createObjectURL(b);
+    const a=document.createElement('a'); a.href=u; a.download=name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(u),2000);
+    toastSave('Career downloaded.');
+  }catch(e){ toastSave('This view cannot save files — use Copy out instead.') }
+};
+window.importCareerFile=function(input){
+  const f=input&&input.files&&input.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    const t=document.getElementById('impBox');
+    if(t){t.value=String(r.result||'');profImport()}
+  };
+  r.readAsText(f);
+};
+function toastSave(msg){
+  try{
+    let t=document.getElementById('swToast');
+    if(!t){t=document.createElement('div');t.id='swToast';
+      t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:120;'+
+        'background:var(--s3);color:var(--t1);font:600 13px/18px var(--ui);padding:11px 16px;'+
+        'border-radius:12px;box-shadow:var(--sh-3);max-width:82%;text-align:center';
+      document.body.appendChild(t);}
+    t.textContent=msg; t.style.opacity='1';
+    clearTimeout(window._toastT);
+    window._toastT=setTimeout(()=>{t.style.transition='opacity .4s';t.style.opacity='0'},2600);
+  }catch(e){}
+}
 window.profImport=function(){
   const t=document.getElementById('impBox'); const v=t?t.value.trim():'';
   if(!v)return;
@@ -4837,6 +4916,7 @@ function profileScreen(){
    </div>`;
 }
 function bootMenu(){
+  adoptLegacySave();                 // a pre-profiles career must still be reachable
   if(!profActive()){ app().innerHTML=profileScreen();
     setTimeout(()=>{const i=document.getElementById('pfName');if(i&&!profRead().list.length)i.focus()},60);
     return; }
@@ -15601,27 +15681,31 @@ function basePool(){
   }
   return out;
 }
-/* everyone whose SHAPE fits the brief — before anybody asks what he costs.
-   The scout's own patch first, the world if his patch is dry. */
+/* everyone whose SHAPE fits the brief — before anybody asks what he costs */
 function briefPool(b, sc){
   var all = briefMatch(b, basePool()).filter(function(x){ return x.s && x.s.id!==G.me; });
   if(b.strong>=0){
     var hard = all.filter(function(x){ return x.p.a[b.strong] >= CA(x.p)+4; });
     if(hard.length>=3) all = hard;
   }
-  if(sc && sc.nat){
-    var local = all.filter(function(x){ return x.s.nat===sc.nat; });
-    if(local.length>=3) return local;
-  }
   return all;
+}
+/* his own patch first, the world if his patch is dry. Applied AFTER the reach
+   split, never before it: a man he can actually sign in Spain beats three he
+   cannot sign on his doorstep. */
+function patch(list, sc){
+  if(!sc || !sc.nat) return list;
+  var local = list.filter(function(x){ return x.s.nat===sc.nat; });
+  return local.length>=3 ? local : list;
 }
 /* the shape, split by whether we could actually do it */
 function briefSplit(b, sc){
-  var all = briefPool(b,sc), ok=[], far=[];
-  for(var i=0;i<all.length;i++){
-    if(reachOf(all[i]).ok) ok.push(all[i]); else far.push(all[i]);
+  var raw = briefPool(b,sc), ok=[], far=[];
+  for(var i=0;i<raw.length;i++){
+    if(reachOf(raw[i]).ok) ok.push(raw[i]); else far.push(raw[i]);
   }
-  return { all:all, ok:ok, far:far };
+  ok = patch(ok, sc);
+  return { raw:raw, ok:ok, far:far, all: ok.concat(patch(far, sc)) };
 }
 /* what the scout will actually put in front of you */
 function briefCands(b, sc){
@@ -15648,21 +15732,25 @@ function briefWeek(sc, b){
 /* ---------- the honest empty report ----------
    Never a list of men the manager cannot sign. If there is nothing, he says
    there is nothing, and he says which wall we hit. */
-var DRY_HEAD=[
-  'Nothing at that level we can get near. Widen it or find more money.',
-  'I have been everywhere. There is nobody at that price who would come.',
-  'Empty. Not because they do not exist — because we cannot have them.'
+/* the headline names the wall we hit, because that is the only part of an
+   empty report a manager can do anything about */
+var DRY_FEE  = 'Nothing at that level we can get near. Widen it or find more money.';
+var DRY_WAGE = 'We could buy them. We could not pay them. Not on what the board have left us.';
+var DRY_WILL = 'They exist and we could afford them. They would not come. That is the honest answer.';
+var DRY_MIX  = [
+  'Empty. Not because they do not exist — because we cannot have them.',
+  'I have been everywhere. There is nobody at that price who would come.'
 ];
 function dryCounts(sp){
   var n={fee:0,wage:0,will:0};
-  for(var i=0;i<sp.far.length;i++){
-    var k = reachOf(sp.far[i]).k;
-    if(k==='fee') n.fee++; else if(k==='wage') n.wage++; else n.will++;
+  for(var i=0;i<sp.raw.length;i++){
+    var r = reachOf(sp.raw[i]); if(r.ok) continue;
+    if(r.k==='fee') n.fee++; else if(r.k==='wage') n.wage++; else n.will++;
   }
   return n;
 }
 function dryReport(sc, b, sp){
-  var n = sp.all.length;
+  var n = sp.raw.length;
   if(!n){
     return { n:0, fee:0, wage:0, will:0,
       head:'Nobody in the game answers that brief. Not one.',
@@ -15673,8 +15761,12 @@ function dryReport(sc, b, sp){
   if(cnt.wage) bits.push(cnt.wage + (cnt.wage===1?' would put':' would put') + ' you over the wage cap');
   if(cnt.will) bits.push(cnt.will + (cnt.will===1?' would not come':' would not come'));
   var tail = bits.length ? bits.join(', ') : 'none of them are gettable';
-  return { n:n, fee:cnt.fee, wage:cnt.wage, will:cnt.will,
-    head: DRY_HEAD[Math.floor(h2(sc.id*17, b.id*5+n)*DRY_HEAD.length)],
+  var top = Math.max(cnt.fee, cnt.wage, cnt.will), half = n*0.55;
+  var head = (cnt.fee===top && cnt.fee>=half)  ? DRY_FEE
+           : (cnt.wage===top && cnt.wage>=half) ? DRY_WAGE
+           : (cnt.will===top && cnt.will>=half) ? DRY_WILL
+           : DRY_MIX[Math.floor(h2(sc.id*17, b.id*5+n)*DRY_MIX.length)];
+  return { n:n, fee:cnt.fee, wage:cnt.wage, will:cnt.will, head:head,
     body: n + ' of them fit what you asked for on paper. ' +
           tail.charAt(0).toUpperCase() + tail.slice(1) + '.' };
 }
@@ -15723,8 +15815,14 @@ function doBrief(sc, bid){
                  ask:rr.ask, wg:rr.wage||0, far:!rr.ok, why:rr.ok?'':rr.why });
   }
   LAB=Object.create(null);
+  var nFar = picks.filter(function(pk){return pk.far}).length;
   var rep = { id:s.nid++, bid:bid, sc:sc.id, scn:sc.name, scnat:sc.nat, w:G.week, s:G.season,
-              picks:picks, blocked:sp.far.length, open:briefOpen(sc,b,picks.length) };
+              picks:picks, blocked:sp.far.length,
+              open: nFar===picks.length
+                ? 'You told me to show you anyone, so here they are. I would not ring one of them.'
+                : nFar
+                ? briefOpen(sc,b,picks.length-nFar) + ' The rest you cannot have, and I have said why.'
+                : briefOpen(sc,b,picks.length) };
   if(!s.brep) s.brep=[];
   s.brep = s.brep.filter(function(r){ return r.bid!==bid; });   // one live report per brief
   s.brep.push(rep);

@@ -708,27 +708,31 @@ function basePool(){
   }
   return out;
 }
-/* everyone whose SHAPE fits the brief — before anybody asks what he costs.
-   The scout's own patch first, the world if his patch is dry. */
+/* everyone whose SHAPE fits the brief — before anybody asks what he costs */
 function briefPool(b, sc){
   var all = briefMatch(b, basePool()).filter(function(x){ return x.s && x.s.id!==G.me; });
   if(b.strong>=0){
     var hard = all.filter(function(x){ return x.p.a[b.strong] >= CA(x.p)+4; });
     if(hard.length>=3) all = hard;
   }
-  if(sc && sc.nat){
-    var local = all.filter(function(x){ return x.s.nat===sc.nat; });
-    if(local.length>=3) return local;
-  }
   return all;
+}
+/* his own patch first, the world if his patch is dry. Applied AFTER the reach
+   split, never before it: a man he can actually sign in Spain beats three he
+   cannot sign on his doorstep. */
+function patch(list, sc){
+  if(!sc || !sc.nat) return list;
+  var local = list.filter(function(x){ return x.s.nat===sc.nat; });
+  return local.length>=3 ? local : list;
 }
 /* the shape, split by whether we could actually do it */
 function briefSplit(b, sc){
-  var all = briefPool(b,sc), ok=[], far=[];
-  for(var i=0;i<all.length;i++){
-    if(reachOf(all[i]).ok) ok.push(all[i]); else far.push(all[i]);
+  var raw = briefPool(b,sc), ok=[], far=[];
+  for(var i=0;i<raw.length;i++){
+    if(reachOf(raw[i]).ok) ok.push(raw[i]); else far.push(raw[i]);
   }
-  return { all:all, ok:ok, far:far };
+  ok = patch(ok, sc);
+  return { raw:raw, ok:ok, far:far, all: ok.concat(patch(far, sc)) };
 }
 /* what the scout will actually put in front of you */
 function briefCands(b, sc){
@@ -755,21 +759,25 @@ function briefWeek(sc, b){
 /* ---------- the honest empty report ----------
    Never a list of men the manager cannot sign. If there is nothing, he says
    there is nothing, and he says which wall we hit. */
-var DRY_HEAD=[
-  'Nothing at that level we can get near. Widen it or find more money.',
-  'I have been everywhere. There is nobody at that price who would come.',
-  'Empty. Not because they do not exist — because we cannot have them.'
+/* the headline names the wall we hit, because that is the only part of an
+   empty report a manager can do anything about */
+var DRY_FEE  = 'Nothing at that level we can get near. Widen it or find more money.';
+var DRY_WAGE = 'We could buy them. We could not pay them. Not on what the board have left us.';
+var DRY_WILL = 'They exist and we could afford them. They would not come. That is the honest answer.';
+var DRY_MIX  = [
+  'Empty. Not because they do not exist — because we cannot have them.',
+  'I have been everywhere. There is nobody at that price who would come.'
 ];
 function dryCounts(sp){
   var n={fee:0,wage:0,will:0};
-  for(var i=0;i<sp.far.length;i++){
-    var k = reachOf(sp.far[i]).k;
-    if(k==='fee') n.fee++; else if(k==='wage') n.wage++; else n.will++;
+  for(var i=0;i<sp.raw.length;i++){
+    var r = reachOf(sp.raw[i]); if(r.ok) continue;
+    if(r.k==='fee') n.fee++; else if(r.k==='wage') n.wage++; else n.will++;
   }
   return n;
 }
 function dryReport(sc, b, sp){
-  var n = sp.all.length;
+  var n = sp.raw.length;
   if(!n){
     return { n:0, fee:0, wage:0, will:0,
       head:'Nobody in the game answers that brief. Not one.',
@@ -780,8 +788,12 @@ function dryReport(sc, b, sp){
   if(cnt.wage) bits.push(cnt.wage + (cnt.wage===1?' would put':' would put') + ' you over the wage cap');
   if(cnt.will) bits.push(cnt.will + (cnt.will===1?' would not come':' would not come'));
   var tail = bits.length ? bits.join(', ') : 'none of them are gettable';
-  return { n:n, fee:cnt.fee, wage:cnt.wage, will:cnt.will,
-    head: DRY_HEAD[Math.floor(h2(sc.id*17, b.id*5+n)*DRY_HEAD.length)],
+  var top = Math.max(cnt.fee, cnt.wage, cnt.will), half = n*0.55;
+  var head = (cnt.fee===top && cnt.fee>=half)  ? DRY_FEE
+           : (cnt.wage===top && cnt.wage>=half) ? DRY_WAGE
+           : (cnt.will===top && cnt.will>=half) ? DRY_WILL
+           : DRY_MIX[Math.floor(h2(sc.id*17, b.id*5+n)*DRY_MIX.length)];
+  return { n:n, fee:cnt.fee, wage:cnt.wage, will:cnt.will, head:head,
     body: n + ' of them fit what you asked for on paper. ' +
           tail.charAt(0).toUpperCase() + tail.slice(1) + '.' };
 }
@@ -830,8 +842,14 @@ function doBrief(sc, bid){
                  ask:rr.ask, wg:rr.wage||0, far:!rr.ok, why:rr.ok?'':rr.why });
   }
   LAB=Object.create(null);
+  var nFar = picks.filter(function(pk){return pk.far}).length;
   var rep = { id:s.nid++, bid:bid, sc:sc.id, scn:sc.name, scnat:sc.nat, w:G.week, s:G.season,
-              picks:picks, blocked:sp.far.length, open:briefOpen(sc,b,picks.length) };
+              picks:picks, blocked:sp.far.length,
+              open: nFar===picks.length
+                ? 'You told me to show you anyone, so here they are. I would not ring one of them.'
+                : nFar
+                ? briefOpen(sc,b,picks.length-nFar) + ' The rest you cannot have, and I have said why.'
+                : briefOpen(sc,b,picks.length) };
   if(!s.brep) s.brep=[];
   s.brep = s.brep.filter(function(r){ return r.bid!==bid; });   // one live report per brief
   s.brep.push(rep);

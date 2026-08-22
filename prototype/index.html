@@ -2632,6 +2632,23 @@ function profActive(){ const d=profRead(); return d.list.find(p=>p.id===d.active
 function slotKey(pid,slot){ return 'sw.'+pid+'.s'+slot }
 function bakKey(pid,slot,n){ return 'sw.'+pid+'.s'+slot+'.b'+n }
 
+/* A career that existed before profiles must not become unreachable. If the
+   old single-slot save is present and no manager has been created yet, adopt
+   it: make a profile named after whoever was managing, and move the save into
+   that manager's first slot. The original key is left untouched as a fallback. */
+function adoptLegacySave(){
+  try{
+    const d=profRead();
+    if(d.list&&d.list.length)return null;          // profiles already exist
+    const raw=localStorage.getItem(KEY);
+    if(!raw)return null;
+    let parsed=null; try{parsed=JSON.parse(raw)}catch(e){return null}
+    if(!parsed||parsed.v!==3)return null;
+    const id=profCreate(parsed.mgr||'The Manager');
+    try{ localStorage.setItem(slotKey(id,1),raw) }catch(e){ /* slot write failed; KEY still holds it */ }
+    return id;
+  }catch(e){ return null }
+}
 function profCreate(name){
   const d=profRead();
   const id='p'+Date.now().toString(36);
@@ -4765,6 +4782,17 @@ window.sheetSaveTools=function(){
        ${has?`<button class="btn xs" onclick="profRestore(${n})">Restore</button>`
             :'<span class="v2 dim">none yet</span>'}</div>`}).join('')}
    </div>
+   <div class="sechead">Keep a copy off this device</div>
+   <div class="card" style="background:var(--s1)">
+     <div style="font-size:13px;color:var(--t2);margin-bottom:10px">A file you can email
+       yourself or drop in cloud storage. This is what survives a lost laptop.</div>
+     <button class="btn" onclick="exportCareer()">Save career to a file</button>
+     <label class="btn ghost" style="margin-top:8px;display:flex;cursor:pointer">
+       Load career from a file
+       <input type="file" accept=".json,application/json" style="display:none"
+         onchange="importCareerFile(this)">
+     </label>
+   </div>
    <div class="sechead">Copy out</div>
    <div class="card" style="background:var(--s1)">
      <div style="font-size:13px;color:var(--t2);margin-bottom:8px">Select all and copy this
@@ -4782,6 +4810,57 @@ window.sheetSaveTools=function(){
    </div>
    <button class="btn ghost" style="margin-top:12px" onclick="closeSheet()">Close</button>`);
 };
+/* Export the career as a real file. Inside the claude.ai viewer downloads are
+   sandboxed, so the page asks the host to save it; on the hosted build a blob
+   link does the job. Either way the manager ends up with a file he can email
+   himself, drop in cloud storage, or carry to another machine. */
+window.exportCareer=async function(){
+  const p=profActive(); if(!p)return;
+  const slot=p.slot||1;
+  let raw=''; try{raw=localStorage.getItem(slotKey(p.id,slot))||localStorage.getItem(KEY)||''}catch(e){}
+  if(!raw){toastSave('Nothing saved in this slot yet.');return}
+  const stamp=new Date().toISOString().slice(0,10);
+  const name='silverware-'+String(p.name).toLowerCase().replace(/[^a-z0-9]+/g,'-')
+    +'-slot'+slot+'-'+stamp+'.json';
+  try{
+    const dl=(window.claude&&claude.use)?await claude.use('downloads'):null;
+    if(dl){ await dl.save({filename:name,data:raw}); toastSave('Career saved to a file.'); return }
+  }catch(e){
+    const code=e&&e.code;
+    if(code==='declined')return;
+    if(code&&code!=='unavailable'&&code!=='not_granted'){toastSave('Could not save: '+code);return}
+  }
+  try{
+    const b=new Blob([raw],{type:'application/json'});
+    const u=URL.createObjectURL(b);
+    const a=document.createElement('a'); a.href=u; a.download=name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(u),2000);
+    toastSave('Career downloaded.');
+  }catch(e){ toastSave('This view cannot save files — use Copy out instead.') }
+};
+window.importCareerFile=function(input){
+  const f=input&&input.files&&input.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    const t=document.getElementById('impBox');
+    if(t){t.value=String(r.result||'');profImport()}
+  };
+  r.readAsText(f);
+};
+function toastSave(msg){
+  try{
+    let t=document.getElementById('swToast');
+    if(!t){t=document.createElement('div');t.id='swToast';
+      t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:120;'+
+        'background:var(--s3);color:var(--t1);font:600 13px/18px var(--ui);padding:11px 16px;'+
+        'border-radius:12px;box-shadow:var(--sh-3);max-width:82%;text-align:center';
+      document.body.appendChild(t);}
+    t.textContent=msg; t.style.opacity='1';
+    clearTimeout(window._toastT);
+    window._toastT=setTimeout(()=>{t.style.transition='opacity .4s';t.style.opacity='0'},2600);
+  }catch(e){}
+}
 window.profImport=function(){
   const t=document.getElementById('impBox'); const v=t?t.value.trim():'';
   if(!v)return;
@@ -4837,6 +4916,7 @@ function profileScreen(){
    </div>`;
 }
 function bootMenu(){
+  adoptLegacySave();                 // a pre-profiles career must still be reachable
   if(!profActive()){ app().innerHTML=profileScreen();
     setTimeout(()=>{const i=document.getElementById('pfName');if(i&&!profRead().list.length)i.focus()},60);
     return; }
